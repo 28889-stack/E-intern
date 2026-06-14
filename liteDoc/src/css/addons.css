@@ -1,0 +1,213 @@
+/* Password prompt rendered inside dz-file-row */
+        .ld-pw-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px;
+            margin: 6px 0;
+            border: 1px solid var(--border-hi);
+            background: var(--accent-low);
+            border-radius: 12px;
+        }
+
+        .ld-pw-row .ld-pw-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent-hi);
+        }
+
+        .ld-pw-row .ld-pw-name {
+            font-size: 11px;
+            color: var(--text-2);
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ld-pw-row .ld-pw-form {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .ld-pw-row input[type="password"] {
+            flex: 1 1 160px;
+            min-width: 0;
+            padding: 10px 12px;
+            font-size: 14px;
+            background: var(--bg-card);
+            color: var(--text-1);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .ld-pw-row input[type="password"]:focus {
+            border-color: var(--accent);
+        }
+
+        .ld-pw-row .ld-pw-err {
+            font-size: 11px;
+            color: var(--danger);
+            min-height: 14px;
+        }
+
+        /* Settings panel additions */
+        .ld-addon-block {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ld-addon-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .ld-addon-row .ld-addon-info {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .ld-addon-row .ld-addon-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-1);
+            display: block;
+        }
+
+        .ld-addon-row .ld-addon-sub {
+            font-size: 10px;
+            color: var(--text-3);
+            margin-top: 2px;
+            display: block;
+            line-height: 1.4;
+        }
+
+        .ld-addon-toggle {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            border-radius: 999px;
+            background: var(--border);
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .ld-addon-toggle.on {
+            background: var(--accent);
+        }
+
+        .ld-addon-toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.2s;
+        }
+
+        .ld-addon-toggle.on::after {
+            transform: translateX(16px);
+        }
+
+        .ld-custom-select {
+            position: relative;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-1);
+            user-select: none;
+            flex-shrink: 0;
+            min-width: 160px;
+        }
+
+        .ld-select-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            gap: 12px;
+        }
+
+        .ld-custom-select.open .ld-select-display,
+        .ld-select-display:hover {
+            border-color: var(--accent);
+        }
+        
+        .ld-custom-select.open .ld-select-display {
+            box-shadow: 0 0 0 2px var(--accent-low);
+        }
+
+        .ld-custom-select.open svg {
+            transform: rotate(180deg);
+        }
+
+        .ld-select-display svg {
+            transition: transform 0.2s;
+        }
+
+        .ld-select-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            padding: 4px;
+            min-width: 100%;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-5px);
+            transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .ld-custom-select.open .ld-select-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .ld-select-option {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            color: var(--text-2);
+            white-space: nowrap;
+        }
+
+        .ld-select-option:hover {
+            background: var(--bg-hover);
+            color: var(--text-1);
+        }
+
+        .ld-select-option.selected {
+            background: var(--accent-low);
+            color: var(--accent);
+        }
