@@ -40,7 +40,13 @@ def _relative_to_project(path: Path | str) -> str:
 
 def _relativize_result_paths(result: dict) -> dict:
     relativized = dict(result)
-    for key in ("route_result_path", "raw_text_path", "tables_path", "ocr_result_path"):
+    for key in (
+        "route_result_path",
+        "raw_text_path",
+        "tables_path",
+        "ocr_result_path",
+        "process_result_path",
+    ):
         if relativized.get(key):
             relativized[key] = _relative_to_project(relativized[key])
     return relativized

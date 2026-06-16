@@ -74,7 +74,6 @@ h1 {
   background: #dc2626;
 }
 
-.case-form,
 .debug-file-form {
   display: grid;
   gap: 14px;
@@ -83,14 +82,12 @@ h1 {
   border-top: 1px solid #e5eaf3;
 }
 
-.case-form h2,
 .debug-file-form h2 {
   margin: 0;
   font-size: 20px;
   line-height: 1.35;
 }
 
-.case-form label,
 .debug-file-form label {
   display: grid;
   gap: 6px;
@@ -99,7 +96,6 @@ h1 {
   font-weight: 600;
 }
 
-.case-form input,
 .debug-file-form input {
   width: 100%;
   min-height: 40px;
@@ -110,7 +106,6 @@ h1 {
   font: inherit;
 }
 
-.case-form button,
 .debug-file-form button {
   width: fit-content;
   min-height: 40px;
@@ -124,7 +119,7 @@ h1 {
   font-weight: 600;
 }
 
-.case-result {
+#debug-file-result {
   min-height: 72px;
   margin: 0;
   padding: 12px;

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from requests import Response
 
 from app.core.config import OCR_BASE_URL, OCR_ENDPOINT, OCR_TIMEOUT_SECONDS
 
@@ -17,6 +18,8 @@ class OcrClient:
         self.base_url = base_url.rstrip("/")
         self.endpoint = endpoint
         self.timeout_seconds = timeout_seconds
+        self.session = requests.Session()
+        self.session.trust_env = False
 
     def read_file_as_base64(self, file_path: str | Path) -> str:
         return base64.b64encode(Path(file_path).read_bytes()).decode("utf-8")
@@ -28,12 +31,19 @@ class OcrClient:
                 "fileType": file_type,
                 "visualize": False,
             }
-            response = requests.post(
+            response = self.session.post(
                 f"{self.base_url}{self.endpoint}",
                 json=payload,
                 timeout=self.timeout_seconds,
             )
-            response.raise_for_status()
+
+            if not response.ok:
+                return self._failed_result(
+                    f"OCR 服务调用失败：HTTP {response.status_code} {response.reason}"
+                    f"，响应内容：{self._response_preview(response)}",
+                    raw_response=self._safe_response_json(response),
+                )
+
             raw_response = response.json()
             page_results = self._parse_page_results(raw_response)
             failed_pages = [
@@ -53,14 +63,29 @@ class OcrClient:
                 ),
             }
         except Exception as exc:
-            return {
-                "ocr_status": "failed",
-                "raw_response": {},
-                "page_results": [],
-                "ocr_failed_pages": [],
-                "manual_review_required": True,
-                "review_reasons": [f"OCR 服务调用失败：{exc}"],
-            }
+            return self._failed_result(f"OCR 服务调用失败：{exc}")
+
+    def _failed_result(self, reason: str, raw_response: Any | None = None) -> dict:
+        return {
+            "ocr_status": "failed",
+            "raw_response": raw_response or {},
+            "page_results": [],
+            "ocr_failed_pages": [],
+            "manual_review_required": True,
+            "review_reasons": [reason],
+        }
+
+    def _safe_response_json(self, response: Response) -> Any:
+        try:
+            return response.json()
+        except ValueError:
+            return {}
+
+    def _response_preview(self, response: Response) -> str:
+        text = response.text.strip()
+        if not text:
+            return "空响应"
+        return text[:500]
 
     def _parse_page_results(self, raw_response: dict) -> list[dict]:
         ocr_results = self._extract_ocr_results(raw_response)
