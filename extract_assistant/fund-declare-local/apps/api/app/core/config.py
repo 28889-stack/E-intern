@@ -1,0 +1,3 @@
+OCR_BASE_URL = "http://localhost:8010"
+OCR_ENDPOINT = "/ocr"
+OCR_TIMEOUT_SECONDS = 120

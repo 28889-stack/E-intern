@@ -1,0 +1,152 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: #1f2937;
+  background: #f5f7fb;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+}
+
+.page {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.panel {
+  width: min(640px, 100%);
+  padding: 40px;
+  border: 1px solid #e5eaf3;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #4f46e5;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+h1 {
+  margin: 0 0 28px;
+  font-size: 32px;
+  line-height: 1.25;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 16px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.status-dot--checking {
+  background: #3b82f6;
+}
+
+.status-dot--ok {
+  background: #16a34a;
+}
+
+.status-dot--error {
+  background: #dc2626;
+}
+
+.case-form,
+.debug-file-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid #e5eaf3;
+}
+
+.case-form h2,
+.debug-file-form h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.case-form label,
+.debug-file-form label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.case-form input,
+.debug-file-form input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #1f2937;
+  font: inherit;
+}
+
+.case-form button,
+.debug-file-form button {
+  width: fit-content;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.case-result {
+  min-height: 72px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 640px) {
+  .page {
+    align-items: flex-start;
+    padding: 24px 16px;
+  }
+
+  .panel {
+    padding: 28px 20px;
+  }
+
+  h1 {
+    font-size: 26px;
+  }
+}

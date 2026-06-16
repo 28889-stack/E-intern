@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>基金公司投资申报系统</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel">
+        <p class="eyebrow">本地申报工作台</p>
+        <h1>基金公司投资申报系统</h1>
+        <div class="status" aria-live="polite">
+          <span id="status-dot" class="status-dot status-dot--checking"></span>
+          <span id="status-text">正在检查后端服务</span>
+        </div>
+
+        <form id="case-form" class="case-form">
+          <h2>创建任务测试区</h2>
+          <label>
+            姓名
+            <input id="case-name" name="name" type="text" value="张三" />
+          </label>
+          <label>
+            电话
+            <input id="case-phone" name="phone" type="text" value="13800000000" />
+          </label>
+          <label>
+            关系类型
+            <input
+              id="case-relation-type"
+              name="relation_type"
+              type="text"
+              value="employee_self"
+            />
+          </label>
+          <button type="submit">创建任务</button>
+          <pre id="case-result" class="case-result" aria-live="polite"></pre>
+        </form>
+
+        <form id="debug-file-form" class="debug-file-form">
+          <h2>文件处理调试区</h2>
+          <label>
+            选择文件
+            <input id="debug-file" name="file" type="file" />
+          </label>
+          <button type="submit">测试文件分流和内容提取</button>
+          <pre id="debug-file-result" class="case-result" aria-live="polite"></pre>
+        </form>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
