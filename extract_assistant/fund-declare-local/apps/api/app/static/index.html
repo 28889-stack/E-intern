@@ -16,7 +16,50 @@
           <span id="status-text">正在检查后端服务</span>
         </div>
 
-        <form id="debug-file-form" class="debug-file-form">
+        <form id="create-case-form" class="work-form">
+          <h2>创建任务</h2>
+          <label>
+            姓名
+            <input id="case-name" name="name" type="text" />
+          </label>
+          <label>
+            手机号
+            <input id="case-phone" name="phone" type="text" />
+          </label>
+          <label>
+            与员工关系
+            <input id="case-relation-label" name="relation_type_label" type="text" />
+          </label>
+          <button type="submit">创建任务</button>
+          <pre id="create-case-result" class="case-result" aria-live="polite"></pre>
+        </form>
+
+        <form id="case-file-form" class="work-form">
+          <h2>上传材料并自动分流</h2>
+          <label>
+            case_id
+            <input id="case-upload-id" name="case_id" type="text" />
+          </label>
+          <label>
+            选择文件
+            <input id="case-file" name="file" type="file" />
+          </label>
+          <button type="submit">上传并处理</button>
+          <div id="case-file-summary" class="result-summary" aria-live="polite"></div>
+          <pre id="case-file-result" class="case-result" aria-live="polite"></pre>
+        </form>
+
+        <form id="case-files-list-form" class="work-form">
+          <h2>查询文件列表</h2>
+          <label>
+            case_id
+            <input id="files-list-case-id" name="case_id" type="text" />
+          </label>
+          <button type="submit">查询文件列表</button>
+          <pre id="case-files-list-result" class="case-result" aria-live="polite"></pre>
+        </form>
+
+        <form id="debug-file-form" class="work-form">
           <h2>文件分流 / OCR / PDF 读取调试</h2>
           <label>
             选择文件

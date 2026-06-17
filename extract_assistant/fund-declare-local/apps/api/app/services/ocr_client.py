@@ -8,6 +8,17 @@ from requests import Response
 from app.core.config import OCR_BASE_URL, OCR_ENDPOINT, OCR_TIMEOUT_SECONDS
 
 
+OCR_REQUEST_OPTIONS = {
+    "visualize": False,
+    "useDocOrientationClassify": False,
+    "useDocUnwarping": False,
+    "useTextlineOrientation": False,
+    "textDetLimitSideLen": 960,
+    "textDetLimitType": "max",
+    "returnWordBox": False,
+}
+
+
 class OcrClient:
     def __init__(
         self,
@@ -26,10 +37,11 @@ class OcrClient:
 
     def infer(self, file_path: str | Path, file_type: int) -> dict:
         try:
+            base64_file = self.read_file_as_base64(file_path)
             payload = {
-                "file": self.read_file_as_base64(file_path),
+                "file": base64_file,
                 "fileType": file_type,
-                "visualize": False,
+                **OCR_REQUEST_OPTIONS,
             }
             response = self.session.post(
                 f"{self.base_url}{self.endpoint}",
@@ -40,11 +52,17 @@ class OcrClient:
             if not response.ok:
                 return self._failed_result(
                     f"OCR 服务调用失败：HTTP {response.status_code} {response.reason}"
-                    f"，响应内容：{self._response_preview(response)}",
+                    f"，响应内容：{self._response_text(response)}",
                     raw_response=self._safe_response_json(response),
                 )
 
-            raw_response = response.json()
+            try:
+                raw_response = response.json()
+            except ValueError:
+                return self._failed_result(
+                    f"OCR 服务返回非 JSON 响应：{self._response_text(response)}"
+                )
+
             page_results = self._parse_page_results(raw_response)
             failed_pages = [
                 page["page"]
@@ -54,6 +72,7 @@ class OcrClient:
 
             return {
                 "ocr_status": "success",
+                "request_options": dict(OCR_REQUEST_OPTIONS),
                 "raw_response": raw_response,
                 "page_results": page_results,
                 "ocr_failed_pages": failed_pages,
@@ -68,6 +87,7 @@ class OcrClient:
     def _failed_result(self, reason: str, raw_response: Any | None = None) -> dict:
         return {
             "ocr_status": "failed",
+            "request_options": dict(OCR_REQUEST_OPTIONS),
             "raw_response": raw_response or {},
             "page_results": [],
             "ocr_failed_pages": [],
@@ -81,11 +101,11 @@ class OcrClient:
         except ValueError:
             return {}
 
-    def _response_preview(self, response: Response) -> str:
+    def _response_text(self, response: Response) -> str:
         text = response.text.strip()
         if not text:
             return "空响应"
-        return text[:500]
+        return text
 
     def _parse_page_results(self, raw_response: dict) -> list[dict]:
         ocr_results = self._extract_ocr_results(raw_response)

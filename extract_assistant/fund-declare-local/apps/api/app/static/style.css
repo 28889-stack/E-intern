@@ -13,15 +13,13 @@ body {
 }
 
 .page {
-  display: flex;
   min-height: 100vh;
-  align-items: center;
-  justify-content: center;
   padding: 32px;
 }
 
 .panel {
   width: min(640px, 100%);
+  margin: 0 auto;
   padding: 40px;
   border: 1px solid #e5eaf3;
   border-radius: 8px;
@@ -74,7 +72,7 @@ h1 {
   background: #dc2626;
 }
 
-.debug-file-form {
+.work-form {
   display: grid;
   gap: 14px;
   margin-top: 32px;
@@ -82,13 +80,13 @@ h1 {
   border-top: 1px solid #e5eaf3;
 }
 
-.debug-file-form h2 {
+.work-form h2 {
   margin: 0;
   font-size: 20px;
   line-height: 1.35;
 }
 
-.debug-file-form label {
+.work-form label {
   display: grid;
   gap: 6px;
   color: #334155;
@@ -96,7 +94,7 @@ h1 {
   font-weight: 600;
 }
 
-.debug-file-form input {
+.work-form input {
   width: 100%;
   min-height: 40px;
   padding: 8px 10px;
@@ -106,8 +104,9 @@ h1 {
   font: inherit;
 }
 
-.debug-file-form button {
+.work-form button {
   width: fit-content;
+  max-width: 100%;
   min-height: 40px;
   padding: 8px 16px;
   border: 0;
@@ -119,7 +118,26 @@ h1 {
   font-weight: 600;
 }
 
-#debug-file-result {
+.result-summary {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #d7deea;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+}
+
+.result-summary:empty {
+  display: none;
+}
+
+.result-summary div {
+  overflow-wrap: anywhere;
+}
+
+.case-result {
   min-height: 72px;
   margin: 0;
   padding: 12px;

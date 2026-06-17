@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -54,11 +55,92 @@ def get_case_dir(case_id: str) -> Path:
     return get_data_root() / case_id
 
 
+def get_uploads_raw_dir(case_id: str) -> Path:
+    return ensure_dir(get_case_dir(case_id) / "uploads" / "raw")
+
+
+def get_uploads_processed_dir(case_id: str) -> Path:
+    return ensure_dir(get_case_dir(case_id) / "uploads" / "processed")
+
+
+def ensure_case_structure(case_id: str) -> None:
+    case_dir = ensure_dir(get_case_dir(case_id))
+    ensure_dir(case_dir / "uploads" / "raw")
+    ensure_dir(case_dir / "uploads" / "processed")
+    ensure_dir(case_dir / "identity" / "extract")
+    ensure_dir(case_dir / "final")
+
+
+def read_files_index(case_id: str) -> dict:
+    files_index = read_json(get_case_dir(case_id) / "files_index.json", {"files": []})
+    if not isinstance(files_index, dict):
+        return {"files": []}
+
+    files = files_index.get("files")
+    if not isinstance(files, list):
+        files_index["files"] = []
+
+    return files_index
+
+
+def generate_file_id(case_id: str) -> str:
+    file_numbers = []
+    for file_record in read_files_index(case_id).get("files", []):
+        file_id = str(file_record.get("file_id", ""))
+        file_number = file_id.removeprefix("file_")
+        if file_id.startswith("file_") and file_number.isdigit():
+            file_numbers.append(int(file_number))
+
+    return f"file_{max(file_numbers, default=0) + 1:03d}"
+
+
+def generate_file_no(case_id: str) -> str:
+    file_numbers = []
+    for file_record in read_files_index(case_id).get("files", []):
+        file_no = str(file_record.get("file_no", ""))
+        if file_no.isdigit():
+            file_numbers.append(int(file_no))
+
+    return f"{max(file_numbers, default=0) + 1:03d}"
+
+
+def append_file_index(case_id: str, file_record: dict) -> dict:
+    files_index = read_files_index(case_id)
+    files_index["files"].append(file_record)
+    save_json(get_case_dir(case_id) / "files_index.json", files_index)
+    return file_record
+
+
+def update_file_index(case_id: str, file_id: str, patch: dict) -> dict | None:
+    files_index = read_files_index(case_id)
+    updated_record = None
+
+    for file_record in files_index["files"]:
+        if file_record.get("file_id") == file_id:
+            file_record.update(patch)
+            updated_record = file_record
+            break
+
+    if updated_record is None:
+        return None
+
+    save_json(get_case_dir(case_id) / "files_index.json", files_index)
+    return updated_record
+
+
+def safe_filename(original_file_name: str) -> str:
+    file_name = Path(original_file_name or "uploaded_file").name.strip()
+    file_name = re.sub(r'[\\/:\*\?"<>\|\x00-\x1f]+', "_", file_name)
+    file_name = re.sub(r"\s+", " ", file_name).strip().lstrip(".")
+    return file_name or "uploaded_file"
+
+
 def create_case(case_data: dict) -> dict:
     case_id = generate_case_id()
     case_dir = ensure_dir(get_case_dir(case_id))
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    ensure_case_structure(case_id)
     ensure_dir(case_dir / "identity" / "raw")
     ensure_dir(case_dir / "identity" / "ocr")
     ensure_dir(case_dir / "identity" / "extract")
