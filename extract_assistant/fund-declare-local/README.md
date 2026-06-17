@@ -69,6 +69,39 @@ http://127.0.0.1:8000
 http://127.0.0.1:8000
 ```
 
+## 配置 DeepSeek LLM
+
+在 `apps/api` 目录下复制环境变量文件：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `apps/api/.env`：
+
+```text
+LLM_PROVIDER=openai_compatible
+LLM_API_KEY=你的 DeepSeek API Key
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
+LLM_TIMEOUT_SECONDS=120
+```
+
+`.env` 只用于本地配置，不会提交到 git。
+修改 `.env` 后请重启 FastAPI 后端，让新配置生效。
+
+测试 LLM 连接：
+
+```bash
+curl http://127.0.0.1:8000/api/llm/health
+```
+
+重跑 Chinaclear 抽取：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/cases/case_001/files/file_001/extract
+```
+
 ## 测试文件处理
 
 ```bash

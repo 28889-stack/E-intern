@@ -9,6 +9,8 @@ dist/
 
 # Local environment
 .env
+*.env
+!.env.example
 .DS_Store
 
 # Runtime outputs

@@ -6,6 +6,8 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.pipeline import content_classifier
 from app.pipeline.document_processor import process_document
+from app.pipeline.extraction_input_builder import build_extraction_input
+from app.pipeline.single_file_extractor import extract_single_file
 from app.services import local_store
 
 
@@ -43,6 +45,7 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
         "process_status": "uploaded",
         "ocr_status": None,
         "extract_status": None,
+        "extract_result_path": None,
         "content_classify_status": "not_started",
         "manual_review_required": False,
         "review_reasons": [],
@@ -83,6 +86,8 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
                 "updated_at": _now(),
             },
         )
+        extract_result = extract_single_file(case_id, updated_record)
+        updated_record = _get_file_record_or_404(case_id, file_id)
 
         return {
             "case_id": case_id,
@@ -91,6 +96,7 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
             "process_result": _relativize_process_result(process_result),
             "content_classification": classification,
             "content_classification_path": _relative_to_project(classification_path),
+            "extract_result": extract_result,
         }
     except Exception as exc:
         failure_reason = f"文件处理失败：{exc}"
@@ -115,6 +121,7 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
                 "review_reasons": [failure_reason],
             },
             "content_classification": None,
+            "extract_result": None,
         }
 
 
@@ -127,11 +134,45 @@ def list_case_files(case_id: str) -> dict:
     }
 
 
+@router.post("/{case_id}/files/{file_id}/extract")
+def rerun_case_file_extract(case_id: str, file_id: str) -> dict:
+    _read_case_or_404(case_id)
+    file_record = _get_file_record_or_404(case_id, file_id)
+    extract_result = extract_single_file(case_id, file_record)
+    updated_record = _get_file_record_or_404(case_id, file_id)
+
+    return {
+        "case_id": case_id,
+        "file_id": file_id,
+        "file": updated_record,
+        "extract_result": extract_result,
+    }
+
+
+@router.get("/{case_id}/files/{file_id}/extract-input")
+def get_case_file_extract_input(case_id: str, file_id: str) -> dict:
+    _read_case_or_404(case_id)
+    file_record = _get_file_record_or_404(case_id, file_id)
+    output_dir = local_store.PROJECT_ROOT / file_record["output_dir"]
+    input_payload = build_extraction_input(output_dir)
+    input_text = input_payload["input_text"]
+
+    return {
+        "case_id": case_id,
+        "file_id": file_id,
+        "content_type": file_record.get("content_type"),
+        "input_text_preview": input_text[:3000],
+        "input_text_length": len(input_text),
+        "sources": input_payload["sources"],
+    }
+
+
 @router.get("/{case_id}/files/{file_id}/result")
 def get_case_file_result(case_id: str, file_id: str) -> dict:
     _read_case_or_404(case_id)
     file_record = _get_file_record_or_404(case_id, file_id)
     output_dir = local_store.PROJECT_ROOT / file_record["output_dir"]
+    extract_result_path = output_dir / "extract_result.json"
 
     return {
         "case_id": case_id,
@@ -145,6 +186,12 @@ def get_case_file_result(case_id: str, file_id: str) -> dict:
         "raw_text": local_store.read_json(output_dir / "raw_text.json", None),
         "tables": local_store.read_json(output_dir / "tables.json", None),
         "ocr_result": local_store.read_json(output_dir / "ocr_result.json", None),
+        "extract_result_path": (
+            _relative_to_project(extract_result_path)
+            if extract_result_path.exists()
+            else None
+        ),
+        "extract_result": local_store.read_json(extract_result_path, None),
     }
 
 

@@ -72,6 +72,12 @@ h1 {
   background: #dc2626;
 }
 
+.llm-tools {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 .work-form {
   display: grid;
   gap: 14px;
@@ -104,6 +110,7 @@ h1 {
   font: inherit;
 }
 
+.llm-tools button,
 .work-form button {
   width: fit-content;
   max-width: 100%;

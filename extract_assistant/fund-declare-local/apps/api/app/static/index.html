@@ -15,6 +15,10 @@
           <span id="status-dot" class="status-dot status-dot--checking"></span>
           <span id="status-text">正在检查后端服务</span>
         </div>
+        <div class="llm-tools">
+          <button id="llm-health-button" type="button">LLM 健康检查</button>
+          <pre id="llm-health-result" class="case-result" aria-live="polite"></pre>
+        </div>
 
         <form id="create-case-form" class="work-form">
           <h2>创建任务</h2>
@@ -46,6 +50,14 @@
           </label>
           <button type="submit">上传并处理</button>
           <div id="case-file-summary" class="result-summary" aria-live="polite"></div>
+          <label>
+            file_id
+            <input id="extract-file-id" name="file_id" type="text" />
+          </label>
+          <button id="view-extract-input-button" type="button" disabled>
+            查看抽取输入
+          </button>
+          <button id="rerun-extract-button" type="button" disabled>重跑抽取</button>
           <pre id="case-file-result" class="case-result" aria-live="polite"></pre>
         </form>
 

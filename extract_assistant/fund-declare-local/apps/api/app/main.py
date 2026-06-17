@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes_cases import router as cases_router
 from app.api.routes_debug import router as debug_router
 from app.api.routes_files import router as files_router
+from app.api.routes_llm import router as llm_router
 
 app = FastAPI(title="Fund Declare Local API")
 
@@ -17,6 +18,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(cases_router)
 app.include_router(debug_router)
 app.include_router(files_router)
+app.include_router(llm_router)
 
 
 @app.get("/")
