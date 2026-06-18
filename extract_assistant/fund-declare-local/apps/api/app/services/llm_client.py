@@ -7,6 +7,7 @@ import requests
 from app.core.config import (
     LLM_API_KEY,
     LLM_BASE_URL,
+    LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_PROVIDER,
     LLM_TIMEOUT_SECONDS,
@@ -21,12 +22,14 @@ class LLMClient:
         base_url: str = LLM_BASE_URL,
         model: str = LLM_MODEL,
         timeout_seconds: int = LLM_TIMEOUT_SECONDS,
+        max_tokens: int = LLM_MAX_TOKENS,
     ) -> None:
         self.provider = provider or "mock"
         self.api_key = api_key or ""
         self.base_url = (base_url or "").rstrip("/")
         self.model = model or ""
         self.timeout_seconds = timeout_seconds
+        self.max_tokens = max_tokens
         self.session = requests.Session()
         self.session.trust_env = False
 
@@ -91,6 +94,9 @@ class LLMClient:
                     "content": final_prompt,
                 },
             ],
+            "thinking": {"type": "disabled"},
+            "response_format": {"type": "json_object"},
+            "max_tokens": self.max_tokens,
             "temperature": 0,
             "stream": False,
         }
@@ -126,9 +132,11 @@ class LLMClient:
 
         try:
             response_json = response.json()
+            choice = self._extract_choice(response_json)
             raw_output = self._strip_json_code_fence(
-                self._extract_message_content(response_json)
+                self._extract_message_content(choice)
             )
+            response_metadata = self._build_response_metadata(response_json, choice)
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             return {
                 "extract_status": "llm_request_failed",
@@ -140,25 +148,54 @@ class LLMClient:
         try:
             parsed_output = json.loads(raw_output)
         except ValueError:
+            review_reason = "LLM 输出不是合法 JSON"
+            if response_metadata.get("finish_reason") == "length":
+                review_reason = "LLM 输出被截断：finish_reason=length"
+
             return {
                 "extract_status": "json_parse_failed",
                 "raw_llm_output": raw_output,
+                "llm_response_metadata": response_metadata,
                 "manual_review_required": True,
-                "review_reasons": ["LLM 输出不是合法 JSON"],
+                "review_reasons": [review_reason],
             }
 
         if not isinstance(parsed_output, dict):
             return {
                 "extract_status": "json_parse_failed",
                 "raw_llm_output": raw_output,
+                "llm_response_metadata": response_metadata,
                 "manual_review_required": True,
                 "review_reasons": ["LLM 输出 JSON 不是对象"],
             }
 
+        parsed_output.setdefault("llm_response_metadata", response_metadata)
         return parsed_output
 
-    def _extract_message_content(self, response_json: dict[str, Any]) -> str:
-        return response_json["choices"][0]["message"]["content"]
+    def _extract_choice(self, response_json: dict[str, Any]) -> dict[str, Any]:
+        return response_json["choices"][0]
+
+    def _extract_message_content(self, choice: dict[str, Any]) -> str:
+        return choice["message"]["content"]
+
+    def _build_response_metadata(
+        self,
+        response_json: dict[str, Any],
+        choice: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "id": response_json.get("id"),
+            "model": response_json.get("model"),
+            "finish_reason": choice.get("finish_reason"),
+            "usage": response_json.get("usage"),
+            "request_options": {
+                "thinking": {"type": "disabled"},
+                "response_format": {"type": "json_object"},
+                "max_tokens": self.max_tokens,
+                "temperature": 0,
+                "stream": False,
+            },
+        }
 
     def _strip_json_code_fence(self, raw_output: str) -> str:
         text = raw_output.strip()

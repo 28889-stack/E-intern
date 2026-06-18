@@ -45,8 +45,9 @@ def _get_output_dir(file_record: dict) -> Path:
 
     case_id = file_record.get("case_id", "")
     file_id = file_record.get("file_id", "")
+    module = file_record.get("module") or "account_info"
     return local_store.ensure_dir(
-        local_store.get_uploads_processed_dir(case_id) / file_id
+        local_store.get_module_processed_dir(case_id, module) / file_id
     )
 
 

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-v4-flash"
     llm_timeout_seconds: int = 120
+    llm_max_tokens: int = 8192
 
     model_config = SettingsConfigDict(
         env_file=str(API_ROOT / ".env"),
@@ -33,3 +34,4 @@ LLM_API_KEY = settings.llm_api_key
 LLM_BASE_URL = settings.llm_base_url
 LLM_MODEL = settings.llm_model
 LLM_TIMEOUT_SECONDS = settings.llm_timeout_seconds
+LLM_MAX_TOKENS = settings.llm_max_tokens

@@ -42,6 +42,17 @@ CONTENT_KEYWORDS = {
     ],
 }
 
+MODULE_BY_CONTENT_TYPE = {
+    "identity": "identity_info",
+    "guangfa": "account_info",
+    "chinaclear": "account_info",
+    "unknown": "unknown",
+}
+
+
+def module_for_content_type(content_type: str | None) -> str:
+    return MODULE_BY_CONTENT_TYPE.get(content_type or "unknown", "unknown")
+
 
 def classify_content(
     file_path: str | Path,
@@ -107,6 +118,7 @@ def classify_content(
 
     return {
         "content_type": content_type,
+        "suggested_module": module_for_content_type(content_type),
         "confidence": confidence,
         "matched_keywords": matched_keywords,
         "reason": reason,

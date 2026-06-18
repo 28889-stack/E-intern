@@ -6,6 +6,8 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
+MODULES = {"identity_info", "account_info"}
+LEGACY_CASE_DIRS = ("accounts", "identity", "uploads")
 
 
 def get_data_root() -> Path:
@@ -55,20 +57,79 @@ def get_case_dir(case_id: str) -> Path:
     return get_data_root() / case_id
 
 
-def get_uploads_raw_dir(case_id: str) -> Path:
-    return ensure_dir(get_case_dir(case_id) / "uploads" / "raw")
+def get_module_dir(case_id: str, module: str) -> Path:
+    if module not in MODULES:
+        raise ValueError(f"unsupported module: {module}")
+    return get_case_dir(case_id) / module
 
 
-def get_uploads_processed_dir(case_id: str) -> Path:
-    return ensure_dir(get_case_dir(case_id) / "uploads" / "processed")
+def get_module_raw_dir(case_id: str, module: str) -> Path:
+    return ensure_dir(get_module_dir(case_id, module) / "raw")
+
+
+def get_module_processed_dir(case_id: str, module: str) -> Path:
+    return ensure_dir(get_module_dir(case_id, module) / "processed")
+
+
+def get_module_extract_dir(case_id: str, module: str) -> Path:
+    return ensure_dir(get_module_dir(case_id, module) / "extract")
+
+
+def iter_existing_processed_dirs(case_id: str) -> list[Path]:
+    case_dir = get_case_dir(case_id)
+    processed_dirs = [
+        case_dir / "identity_info" / "processed",
+        case_dir / "account_info" / "processed",
+        case_dir / "uploads" / "processed",
+    ]
+    return [path for path in processed_dirs if path.exists()]
 
 
 def ensure_case_structure(case_id: str) -> None:
     case_dir = ensure_dir(get_case_dir(case_id))
-    ensure_dir(case_dir / "uploads" / "raw")
-    ensure_dir(case_dir / "uploads" / "processed")
-    ensure_dir(case_dir / "identity" / "extract")
+    for module in sorted(MODULES):
+        ensure_dir(case_dir / module / "raw")
+        ensure_dir(case_dir / module / "processed")
+        ensure_dir(case_dir / module / "extract")
     ensure_dir(case_dir / "final")
+
+
+def cleanup_empty_legacy_dirs(case_id: str) -> dict:
+    case_dir = get_case_dir(case_id)
+    deleted_dirs = []
+    skipped_dirs = []
+
+    for dir_name in LEGACY_CASE_DIRS:
+        legacy_dir = case_dir / dir_name
+        if not legacy_dir.exists():
+            continue
+        if not legacy_dir.is_dir():
+            skipped_dirs.append(str(legacy_dir))
+            continue
+        if any(path.is_file() for path in legacy_dir.rglob("*")):
+            skipped_dirs.append(str(legacy_dir))
+            continue
+        _remove_empty_tree(legacy_dir)
+        if not legacy_dir.exists():
+            deleted_dirs.append(str(legacy_dir))
+        else:
+            skipped_dirs.append(str(legacy_dir))
+
+    return {
+        "case_id": case_id,
+        "deleted_dirs": deleted_dirs,
+        "skipped_dirs": skipped_dirs,
+    }
+
+
+def _remove_empty_tree(path: Path) -> None:
+    for child in sorted(path.iterdir(), key=lambda item: len(item.parts), reverse=True):
+        if child.is_dir():
+            _remove_empty_tree(child)
+    try:
+        path.rmdir()
+    except OSError:
+        return
 
 
 def read_files_index(case_id: str) -> dict:
@@ -141,11 +202,6 @@ def create_case(case_data: dict) -> dict:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     ensure_case_structure(case_id)
-    ensure_dir(case_dir / "identity" / "raw")
-    ensure_dir(case_dir / "identity" / "ocr")
-    ensure_dir(case_dir / "identity" / "extract")
-    ensure_dir(case_dir / "accounts")
-    ensure_dir(case_dir / "final")
 
     case = {
         "case_id": case_id,

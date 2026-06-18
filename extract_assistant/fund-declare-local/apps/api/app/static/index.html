@@ -38,18 +38,33 @@
           <pre id="create-case-result" class="case-result" aria-live="polite"></pre>
         </form>
 
-        <form id="case-file-form" class="work-form">
-          <h2>上传材料并自动分流</h2>
+        <form id="identity-upload-form" class="work-form">
+          <h2>身份材料上传</h2>
           <label>
             case_id
-            <input id="case-upload-id" name="case_id" type="text" />
+            <input id="identity-upload-case-id" name="case_id" type="text" />
           </label>
           <label>
             选择文件
-            <input id="case-file" name="file" type="file" />
+            <input id="identity-file" name="file" type="file" />
           </label>
           <button type="submit">上传并处理</button>
-          <div id="case-file-summary" class="result-summary" aria-live="polite"></div>
+          <div id="identity-file-summary" class="result-summary" aria-live="polite"></div>
+          <pre id="identity-file-result" class="case-result" aria-live="polite"></pre>
+        </form>
+
+        <form id="account-upload-form" class="work-form">
+          <h2>账户交易材料上传</h2>
+          <label>
+            case_id
+            <input id="account-upload-case-id" name="case_id" type="text" />
+          </label>
+          <label>
+            选择文件
+            <input id="account-file" name="file" type="file" />
+          </label>
+          <button type="submit">上传并处理</button>
+          <div id="account-file-summary" class="result-summary" aria-live="polite"></div>
           <label>
             file_id
             <input id="extract-file-id" name="file_id" type="text" />
@@ -58,7 +73,7 @@
             查看抽取输入
           </button>
           <button id="rerun-extract-button" type="button" disabled>重跑抽取</button>
-          <pre id="case-file-result" class="case-result" aria-live="polite"></pre>
+          <pre id="account-file-result" class="case-result" aria-live="polite"></pre>
         </form>
 
         <form id="case-files-list-form" class="work-form">
@@ -67,8 +82,31 @@
             case_id
             <input id="files-list-case-id" name="case_id" type="text" />
           </label>
+          <label>
+            module 过滤
+            <select id="files-list-module" name="module">
+              <option value="">全部</option>
+              <option value="identity_info">identity_info</option>
+              <option value="account_info">account_info</option>
+            </select>
+          </label>
           <button type="submit">查询文件列表</button>
+          <div id="case-files-list-summary" class="result-summary" aria-live="polite"></div>
           <pre id="case-files-list-result" class="case-result" aria-live="polite"></pre>
+        </form>
+
+        <form id="finalize-form" class="work-form">
+          <h2>最终产物</h2>
+          <label>
+            case_id
+            <input id="finalize-case-id" name="case_id" type="text" />
+          </label>
+          <button type="submit">生成 Excel</button>
+          <div id="finalize-summary" class="result-summary" aria-live="polite"></div>
+          <a id="download-excel-link" class="download-link is-disabled" href="#" aria-disabled="true">
+            下载 Excel
+          </a>
+          <pre id="finalize-result" class="case-result" aria-live="polite"></pre>
         </form>
 
         <form id="debug-file-form" class="work-form">

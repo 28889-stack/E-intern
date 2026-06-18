@@ -2,7 +2,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 from app.pipeline import content_classifier
 from app.pipeline.document_processor import process_document
@@ -12,10 +12,26 @@ from app.services import local_store
 
 
 router = APIRouter(prefix="/api/cases", tags=["case-files"])
+MODULE_IDENTITY_INFO = "identity_info"
+MODULE_ACCOUNT_INFO = "account_info"
+VALID_MODULES = {MODULE_IDENTITY_INFO, MODULE_ACCOUNT_INFO}
+LEGACY_MODULE_MAP = {
+    "identity": MODULE_IDENTITY_INFO,
+    "account_material": MODULE_ACCOUNT_INFO,
+}
 
 
-@router.post("/{case_id}/files")
-def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
+@router.post("/{case_id}/identity-info/files")
+def upload_identity_info_file(case_id: str, file: UploadFile = File(...)) -> dict:
+    return _upload_case_file(case_id, MODULE_IDENTITY_INFO, file)
+
+
+@router.post("/{case_id}/account-info/files")
+def upload_account_info_file(case_id: str, file: UploadFile = File(...)) -> dict:
+    return _upload_case_file(case_id, MODULE_ACCOUNT_INFO, file)
+
+
+def _upload_case_file(case_id: str, module: str, file: UploadFile) -> dict:
     case = _read_case_or_404(case_id)
     local_store.ensure_case_structure(case_id)
 
@@ -23,8 +39,8 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
     file_no = local_store.generate_file_no(case_id)
     original_file_name = local_store.safe_filename(file.filename or "uploaded_file")
     stored_file_name = f"{file_no}_{original_file_name}"
-    raw_dir = local_store.get_uploads_raw_dir(case_id)
-    processed_dir = local_store.get_uploads_processed_dir(case_id)
+    raw_dir = local_store.get_module_raw_dir(case_id, module)
+    processed_dir = local_store.get_module_processed_dir(case_id, module)
     stored_path = raw_dir / stored_file_name
     output_dir = local_store.ensure_dir(processed_dir / file_id)
     now = _now()
@@ -42,6 +58,7 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
         "output_dir": _relative_to_project(output_dir),
         "route_type": None,
         "content_type": None,
+        "module": module,
         "process_status": "uploaded",
         "ocr_status": None,
         "extract_status": None,
@@ -63,6 +80,7 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
         )
         classification_path = output_dir / "content_classification.json"
         local_store.save_json(classification_path, classification)
+        content_type = classification.get("content_type") or "unknown"
 
         review_reasons = [
             *process_result.get("review_reasons", []),
@@ -73,7 +91,8 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
             file_id,
             {
                 "route_type": process_result.get("route_type"),
-                "content_type": classification.get("content_type"),
+                "content_type": content_type,
+                "module": module,
                 "process_status": process_result.get("process_status", "failed"),
                 "ocr_status": process_result.get("ocr_status"),
                 "extract_status": process_result.get("extract_status"),
@@ -106,6 +125,7 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
             {
                 "process_status": "failed",
                 "content_classify_status": "failed",
+                "module": module,
                 "manual_review_required": True,
                 "review_reasons": [failure_reason],
                 "updated_at": _now(),
@@ -126,11 +146,27 @@ def upload_case_file(case_id: str, file: UploadFile = File(...)) -> dict:
 
 
 @router.get("/{case_id}/files")
-def list_case_files(case_id: str) -> dict:
+def list_case_files(
+    case_id: str,
+    module: str | None = Query(default=None),
+) -> dict:
     _read_case_or_404(case_id)
+    module = module or None
+    if module is not None and module not in VALID_MODULES:
+        raise HTTPException(status_code=400, detail="invalid module")
+
+    files = _read_files_with_modules(case_id)
+    filtered_files = (
+        [file_record for file_record in files if file_record.get("module") == module]
+        if module
+        else files
+    )
+
     return {
         "case_id": case_id,
-        "files": local_store.read_files_index(case_id).get("files", []),
+        "module": module,
+        "summary": _build_module_summary(files),
+        "files": filtered_files,
     }
 
 
@@ -203,10 +239,61 @@ def _read_case_or_404(case_id: str) -> dict:
 
 
 def _get_file_record_or_404(case_id: str, file_id: str) -> dict:
-    for file_record in local_store.read_files_index(case_id).get("files", []):
+    for file_record in _read_files_with_modules(case_id):
         if file_record.get("file_id") == file_id:
             return file_record
     raise HTTPException(status_code=404, detail="file not found")
+
+
+def _read_files_with_modules(case_id: str) -> list[dict]:
+    files_index = local_store.read_files_index(case_id)
+    files = files_index.get("files", [])
+    changed = False
+
+    for file_record in files:
+        module = _normalize_module(
+            file_record.get("module"),
+            file_record.get("content_type"),
+        )
+        if file_record.get("module") != module:
+            file_record["module"] = module
+            changed = True
+
+    if changed:
+        local_store.save_json(
+            local_store.get_case_dir(case_id) / "files_index.json",
+            files_index,
+        )
+
+    return files
+
+
+def _normalize_module(module: str | None, content_type: str | None = None) -> str:
+    if module in VALID_MODULES:
+        return module
+    if module in LEGACY_MODULE_MAP:
+        return LEGACY_MODULE_MAP[module]
+
+    inferred_module = content_classifier.module_for_content_type(content_type)
+    if module is None and inferred_module in VALID_MODULES:
+        return inferred_module
+
+    return module or "unknown"
+
+
+def _build_module_summary(files: list[dict]) -> dict:
+    return {
+        "identity_info_file_count": sum(
+            1
+            for file_record in files
+            if file_record.get("module") == MODULE_IDENTITY_INFO
+        ),
+        "account_info_file_count": sum(
+            1
+            for file_record in files
+            if file_record.get("module") == MODULE_ACCOUNT_INFO
+        ),
+    }
 
 
 def _relative_to_project(path: Path | str) -> str:

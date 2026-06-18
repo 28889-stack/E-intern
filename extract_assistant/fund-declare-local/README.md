@@ -85,6 +85,7 @@ LLM_API_KEY=你的 DeepSeek API Key
 LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-flash
 LLM_TIMEOUT_SECONDS=120
+LLM_MAX_TOKENS=8192
 ```
 
 `.env` 只用于本地配置，不会提交到 git。
