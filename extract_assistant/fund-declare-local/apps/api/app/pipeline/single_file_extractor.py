@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.pipeline.chinaclear_extractor import ChinaclearExtractor
+from app.pipeline.guangfa_extractor import GuangfaExtractor
 from app.services import local_store
 
 
@@ -19,12 +20,7 @@ def extract_single_file(case_id: str, file_record: dict) -> dict:
             manual_review_required=False,
         )
     elif content_type == "guangfa":
-        extract_result = _skipped_result(
-            case_id,
-            file_record,
-            reason="guangfa prompt placeholder only",
-            manual_review_required=False,
-        )
+        extract_result = GuangfaExtractor().extract(case_id, file_record, output_dir)
     else:
         extract_result = _skipped_result(
             case_id,

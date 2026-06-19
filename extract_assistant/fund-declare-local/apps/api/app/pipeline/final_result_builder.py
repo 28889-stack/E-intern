@@ -5,6 +5,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.pipeline.normalizers import normalize_chinaclear, normalize_guangfa
+from app.pipeline.normalizers.common import (
+    empty_normalized_result,
+    is_final_declaration_row as normalizer_is_final_declaration_row,
+    movement_type as normalizer_movement_type,
+    review_item as normalizer_review_item,
+)
 from app.services import local_store
 
 
@@ -97,26 +104,6 @@ REVIEW_COLUMNS = [
     "message",
 ]
 
-FINAL_DECLARATION_EVENT_TYPES = {
-    "ordinary_trade",
-    "security_registration",
-    "bonus_share",
-}
-FINAL_DECLARATION_DIRECTIONS = {
-    "buy",
-    "sell",
-    "transfer_in",
-    "transfer_out",
-    "registration_in",
-    "rights_event",
-}
-EXCLUDED_FINAL_EVENT_TYPES = {
-    "cash_dividend",
-    "bond_interest",
-    "cash_flow",
-    "bank_transfer",
-}
-
 CRITICAL_EVENT_FIELDS = [
     "event_type",
     "market",
@@ -159,6 +146,7 @@ def build_final_result(case_id: str) -> dict:
     extract_items = _collect_extract_results(case_id, file_records_by_id)
     review_items: list[dict] = []
     complete_rows: list[dict] = []
+    final_rows: list[dict] = []
     holding_rows: list[dict] = []
     source_extract_results = []
 
@@ -172,6 +160,7 @@ def build_final_result(case_id: str) -> dict:
             {
                 "file_id": file_id,
                 "content_type": extract_result.get("content_type", ""),
+                "source_type": extract_result.get("source_type", ""),
                 "schema_version": extract_result.get("schema_version", ""),
                 "extract_status": extract_result.get("extract_status", ""),
                 "extract_result_path": _relative_to_project(extract_path),
@@ -203,16 +192,15 @@ def build_final_result(case_id: str) -> dict:
                     )
                 )
 
-        rows = _normalize_extract_result(case_id, extract_result, file_record)
-        complete_rows.extend(rows)
-        holding_rows.extend(
-            _normalize_holding_rows(
-                case_id,
-                extract_result,
-                file_record,
-                extract_result.get("document_info") or {},
-            )
+        normalized = _normalize_source_extract_result(
+            case_id,
+            extract_result,
+            file_record,
         )
+        complete_rows.extend(normalized["full_transaction_rows"])
+        final_rows.extend(normalized["final_declaration_rows"])
+        holding_rows.extend(normalized["holding_rows"])
+        review_items.extend(normalized["review_items"])
 
     if not extract_items:
         review_items.append(
@@ -229,7 +217,6 @@ def build_final_result(case_id: str) -> dict:
     for row in complete_rows:
         review_items.extend(_missing_field_reviews(row))
 
-    final_rows = [row for row in complete_rows if _is_final_declaration_row(row)]
     checklist_rows = _build_checklist_rows(complete_rows, holding_rows)
     export_audit = _build_export_audit(complete_rows, final_rows)
     if any(row.get("状态") == "需人工复核" for row in checklist_rows):
@@ -334,107 +321,32 @@ def _collect_extract_results(case_id: str, file_records_by_id: dict[str, dict]) 
     return items
 
 
-def _normalize_extract_result(
+def _normalize_source_extract_result(
     case_id: str,
     extract_result: dict,
     file_record: dict,
-) -> list[dict]:
-    document_info = extract_result.get("document_info") or {}
-    rows: list[dict] = []
+) -> dict:
+    source_type = str(
+        extract_result.get("source_type") or extract_result.get("content_type") or ""
+    )
+    if source_type == "chinaclear":
+        return normalize_chinaclear(case_id, extract_result, file_record)
+    if source_type == "guangfa":
+        return normalize_guangfa(case_id, extract_result, file_record)
 
-    trade_group = extract_result.get("trade_group") or {}
-    trade_columns = trade_group.get("trade_columns") or []
-    for trade_index, trade_values in enumerate(_as_list(trade_group.get("trades"))):
-        if not isinstance(trade_values, list):
-            continue
-        trade = {
-            str(column): trade_values[index] if index < len(trade_values) else ""
-            for index, column in enumerate(trade_columns)
-        }
-        rows.append(
-            _normalize_event_row(
-                case_id,
-                file_record,
-                document_info,
-                {
-                    "event_id": trade.get("trade_id") or f"trade_{trade_index + 1}",
-                    "event_type": "ordinary_trade",
-                    "market": trade.get("market", ""),
-                    "event_date": trade.get("trade_date", ""),
-                    "security_code": trade.get("security_code", ""),
-                    "security_name": trade.get("security_name", ""),
-                    "direction": trade.get("direction", ""),
-                    "quantity_raw": trade.get("quantity_raw", ""),
-                    "price_raw": trade.get("price_raw", ""),
-                    "balance_after_raw": trade.get("balance_after_raw", ""),
-                    "transfer_type_raw": trade.get("transfer_type_raw", ""),
-                    "source_pages": _join_values([trade.get("source_page", "")]),
-                    "row_nos": _join_values([trade.get("row_no", "")]),
-                    "review_reason": "",
-                },
+    file_id = file_record.get("file_id") or extract_result.get("file_id") or ""
+    return empty_normalized_result(
+        [
+            normalizer_review_item(
+                "warning",
+                "extract_result",
+                file_id,
+                "",
+                "content_type",
+                f"暂不支持的归一化来源：{source_type or 'unknown'}",
             )
-        )
-
-    for other_event in _as_list(extract_result.get("other_events")):
-        if isinstance(other_event, dict):
-            rows.append(
-                _normalize_event_row(case_id, file_record, document_info, other_event)
-            )
-
-    for legacy_event in _as_list(extract_result.get("events")):
-        if isinstance(legacy_event, dict):
-            rows.append(
-                _normalize_event_row(case_id, file_record, document_info, legacy_event)
-            )
-
-    return rows
-
-
-def _normalize_holding_rows(
-    case_id: str,
-    extract_result: dict,
-    file_record: dict,
-    document_info: dict,
-) -> list[dict]:
-    rows = []
-    for holding in _as_list(extract_result.get("holdings")):
-        if not isinstance(holding, dict):
-            continue
-
-        rows.append(
-            {
-                "case_id": case_id,
-                "file_id": file_record.get("file_id") or extract_result.get("file_id") or "",
-                "file_no": file_record.get("file_no", ""),
-                "original_file_name": file_record.get("original_file_name")
-                or document_info.get("file_name")
-                or "",
-                "market": holding.get("market") or document_info.get("market") or "",
-                "holding_date": holding.get("holding_date")
-                or holding.get("date")
-                or document_info.get("period_end")
-                or "",
-                "security_code": holding.get("security_code", ""),
-                "security_name": holding.get("security_name", ""),
-                "quantity_raw": holding.get("quantity_raw")
-                or holding.get("holding_quantity_raw")
-                or holding.get("balance_raw")
-                or "",
-                "security_category_raw": holding.get("security_category_raw", ""),
-                "source_pages": _join_values(
-                    holding.get("source_pages")
-                    if "source_pages" in holding
-                    else [holding.get("source_page", "")]
-                ),
-                "row_nos": _join_values(
-                    holding.get("row_nos")
-                    if "row_nos" in holding
-                    else [holding.get("row_no", "")]
-                ),
-                "review_reason": holding.get("review_reason", ""),
-            }
-        )
-    return rows
+        ]
+    )
 
 
 def _build_identity_rows(case: dict) -> list[dict]:
@@ -451,81 +363,8 @@ def _build_identity_rows(case: dict) -> list[dict]:
     ]
 
 
-def _normalize_event_row(
-    case_id: str,
-    file_record: dict,
-    document_info: dict,
-    event: dict,
-) -> dict:
-    row = {
-        "case_id": case_id,
-        "file_id": file_record.get("file_id") or event.get("file_id") or "",
-        "file_no": file_record.get("file_no", ""),
-        "original_file_name": file_record.get("original_file_name")
-        or document_info.get("file_name")
-        or "",
-    }
-    for column in DOCUMENT_COLUMNS:
-        row[column] = document_info.get(column, "")
-
-    row.update(
-        {
-            "event_id": event.get("event_id") or event.get("trade_id") or "",
-            "event_type": _normalize_event_type(event),
-            "market": event.get("market") or document_info.get("market") or "",
-            "event_date": event.get("event_date") or event.get("trade_date") or "",
-            "security_code": event.get("security_code", ""),
-            "security_name": event.get("security_name", ""),
-            "direction": event.get("direction", ""),
-            "quantity_raw": event.get("quantity_raw", ""),
-            "price_raw": event.get("price_raw", ""),
-            "balance_after_raw": event.get("balance_after_raw", ""),
-            "transfer_type_raw": event.get("transfer_type_raw")
-            or event.get("event_type_raw")
-            or "",
-            "rights_category_raw": event.get("rights_category_raw", ""),
-            "security_category_raw": event.get("security_category_raw", ""),
-            "source_pages": _join_values(
-                event.get("source_pages")
-                if "source_pages" in event
-                else [event.get("source_page", "")]
-            ),
-            "row_nos": _join_values(
-                event.get("row_nos") if "row_nos" in event else [event.get("row_no", "")]
-            ),
-            "review_reason": event.get("review_reason", ""),
-        }
-    )
-    return row
-
-
-def _normalize_event_type(event: dict) -> str:
-    event_type = str(event.get("event_type") or "").strip()
-    if event_type:
-        return event_type
-
-    transfer_type = str(event.get("transfer_type_raw") or event.get("event_type_raw") or "")
-    if transfer_type in {"买入", "卖出", "交易过户"}:
-        return "ordinary_trade"
-    if "股份登记" in transfer_type:
-        return "security_registration"
-    if any(keyword in transfer_type for keyword in ("分红", "红利", "股息", "派息")):
-        return "cash_dividend"
-    return "unknown_event"
-
-
 def _is_final_declaration_row(row: dict) -> bool:
-    event_type = str(row.get("event_type") or "")
-    direction = str(row.get("direction") or "")
-    transfer_type = str(row.get("transfer_type_raw") or "")
-
-    if event_type in EXCLUDED_FINAL_EVENT_TYPES:
-        return False
-    if any(keyword in transfer_type for keyword in ("红利", "分红", "股息", "派息", "兑息", "利息", "银证转账")):
-        return False
-    if event_type in FINAL_DECLARATION_EVENT_TYPES:
-        return True
-    return direction in FINAL_DECLARATION_DIRECTIONS
+    return normalizer_is_final_declaration_row(row)
 
 
 def _build_checklist_rows(rows: list[dict], holding_rows: list[dict]) -> list[dict]:
@@ -575,12 +414,7 @@ def _type_summary(rows: list[dict]) -> list[dict]:
 
 
 def _movement_type(row: dict) -> str:
-    return (
-        str(row.get("transfer_type_raw") or "").strip()
-        or str(row.get("event_type") or "").strip()
-        or str(row.get("direction") or "").strip()
-        or "unknown"
-    )
+    return normalizer_movement_type(row)
 
 
 def _missing_field_reviews(row: dict) -> list[dict]:
@@ -682,26 +516,6 @@ def _update_status(case_id: str, final_result: dict) -> None:
         }
     )
     local_store.save_json(status_path, status)
-
-
-def _parse_number(value: Any) -> float | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    text = text.replace(",", "").replace("，", "").replace(" ", "")
-    if text.startswith("(") and text.endswith(")"):
-        text = f"-{text[1:-1]}"
-    try:
-        return float(text)
-    except ValueError:
-        return None
-
-
-def _join_values(value: Any) -> str:
-    values = _as_list(value)
-    return ",".join(str(item) for item in values if item not in (None, ""))
 
 
 def _as_list(value: Any) -> list:
