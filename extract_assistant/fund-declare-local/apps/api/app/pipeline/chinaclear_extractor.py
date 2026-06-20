@@ -25,6 +25,19 @@ TRADE_COLUMNS = [
     "source_page",
     "row_no",
 ]
+POSITION_COLUMNS = [
+    "position_id",
+    "market",
+    "holding_date",
+    "security_code",
+    "security_name",
+    "security_category_raw",
+    "quantity_raw",
+    "custody_or_trading_unit",
+    "custody_or_trading_unit_name",
+    "source_page",
+    "row_no",
+]
 
 
 class ChinaclearExtractor:
@@ -115,8 +128,11 @@ class ChinaclearExtractor:
                 "3. 普通交易只输出到 trade_group.trades，不要输出到 other_events。",
                 "4. trade_group.trade_columns 固定为：[\"trade_id\",\"market\",\"trade_date\",\"security_code\",\"security_name\",\"direction\",\"quantity_raw\",\"price_raw\",\"balance_after_raw\",\"transfer_type_raw\",\"source_page\",\"row_no\"]。",
                 "5. trade_group.trades 中每一行必须严格按 trade_columns 顺序输出；没有值的位置用空字符串。",
-                "6. other_events 只放非普通交易事件：security_registration、cash_dividend、bond_interest、bonus_share、unknown_event。",
-                "7. 不输出 raw_text、confidence、llm_confidence、related_rows、business_interpretation、calculation_policy。",
+                "6. 持仓快照只输出到 position_group.positions，不要输出到 trade_group.trades 或 other_events。",
+                "7. position_group.position_columns 固定为：[\"position_id\",\"market\",\"holding_date\",\"security_code\",\"security_name\",\"security_category_raw\",\"quantity_raw\",\"custody_or_trading_unit\",\"custody_or_trading_unit_name\",\"source_page\",\"row_no\"]。",
+                "8. position_group.positions 中每一行必须严格按 position_columns 顺序输出；没有值的位置用空字符串。",
+                "9. other_events 只放非普通交易事件：security_registration、cash_dividend、bond_interest、bonus_share、unknown_event。",
+                "10. 不输出 raw_text、confidence、llm_confidence、related_rows、business_interpretation、calculation_policy。",
             ]
         )
 
@@ -287,6 +303,11 @@ class ChinaclearExtractor:
                 "trade_columns": TRADE_COLUMNS,
                 "trades": [],
             },
+            "position_group": {
+                "event_type": "holding_snapshot_group",
+                "position_columns": POSITION_COLUMNS,
+                "positions": [],
+            },
             "other_events": [],
             "quality": {"warnings": []},
             "extract_status": "success",
@@ -304,6 +325,7 @@ class ChinaclearExtractor:
         }
 
         trades_by_key: dict[str, list[Any]] = {}
+        positions_by_key: dict[str, list[Any]] = {}
         other_events_by_key: dict[str, dict] = {}
 
         for result in batch_results:
@@ -320,6 +342,7 @@ class ChinaclearExtractor:
                 merged["document_info"] = result["document_info"]
 
             self._merge_trades(trades_by_key, result)
+            self._merge_positions(positions_by_key, result)
             self._merge_other_events(other_events_by_key, result)
             self._merge_warnings(merged, result)
 
@@ -337,6 +360,10 @@ class ChinaclearExtractor:
         merged["trade_group"]["trades"] = sorted(
             trades_by_key.values(),
             key=self._trade_sort_key,
+        )
+        merged["position_group"]["positions"] = sorted(
+            positions_by_key.values(),
+            key=self._position_sort_key,
         )
         merged["other_events"] = sorted(
             other_events_by_key.values(),
@@ -382,6 +409,49 @@ class ChinaclearExtractor:
                 normalized_trade
             ) > self._filled_count(existing_trade):
                 trades_by_key[key] = normalized_trade
+
+    def _merge_positions(
+        self,
+        positions_by_key: dict[str, list[Any]],
+        result: dict,
+    ) -> None:
+        position_group = result.get("position_group")
+        if not isinstance(position_group, dict):
+            return
+
+        columns = position_group.get("position_columns") or POSITION_COLUMNS
+        for position in self._as_list(position_group.get("positions")):
+            if not isinstance(position, list):
+                continue
+
+            position_record = self._row_to_record(columns, position)
+            row_no = str(position_record.get("row_no", "")).strip()
+            source_page = str(position_record.get("source_page", "")).strip()
+            key = (
+                f"{source_page}|{row_no}"
+                if row_no
+                else "|".join(
+                    str(position_record.get(field, ""))
+                    for field in (
+                        "market",
+                        "holding_date",
+                        "security_code",
+                        "security_name",
+                        "quantity_raw",
+                    )
+                )
+            )
+            if not key:
+                continue
+
+            normalized_position = [
+                position_record.get(column, "") for column in POSITION_COLUMNS
+            ]
+            existing_position = positions_by_key.get(key)
+            if existing_position is None or self._filled_count(
+                normalized_position
+            ) > self._filled_count(existing_position):
+                positions_by_key[key] = normalized_position
 
     def _merge_other_events(
         self,
@@ -448,6 +518,17 @@ class ChinaclearExtractor:
         row_no = str(trade[TRADE_COLUMNS.index("row_no")] if len(trade) > 11 else "")
         return (self._to_int(source_page), self._to_int(row_no), row_no)
 
+    def _position_sort_key(self, position: list) -> tuple[int, str]:
+        source_page = str(
+            position[POSITION_COLUMNS.index("source_page")]
+            if len(position) > 9
+            else ""
+        )
+        row_no = str(
+            position[POSITION_COLUMNS.index("row_no")] if len(position) > 10 else ""
+        )
+        return (self._to_int(source_page), self._to_int(row_no), row_no)
+
     def _other_event_sort_key(self, event: dict) -> tuple[int, str]:
         row_nos = self._as_list(event.get("row_nos"))
         first_row_no = str(row_nos[0]) if row_nos else ""
@@ -506,6 +587,14 @@ class ChinaclearExtractor:
         }
         extract_result.setdefault("extract_status", "success")
         extract_result.setdefault("accounts", [])
+        extract_result.setdefault(
+            "position_group",
+            {
+                "event_type": "holding_snapshot_group",
+                "position_columns": POSITION_COLUMNS,
+                "positions": [],
+            },
+        )
         extract_result.setdefault("holdings", [])
         extract_result.setdefault("transactions", [])
         extract_result.setdefault("events", [])
@@ -534,6 +623,11 @@ class ChinaclearExtractor:
                 "content_type": "chinaclear",
             },
             "accounts": [],
+            "position_group": {
+                "event_type": "holding_snapshot_group",
+                "position_columns": POSITION_COLUMNS,
+                "positions": [],
+            },
             "holdings": [],
             "transactions": [],
             "events": [],

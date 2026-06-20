@@ -5,6 +5,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.pipeline.case_event_resolver import (
+    PROBLEM_COLUMNS,
+    resolve_case_events,
+)
 from app.pipeline.normalizers import normalize_chinaclear, normalize_guangfa
 from app.pipeline.normalizers.common import (
     empty_normalized_result,
@@ -23,6 +27,7 @@ SHEET_COMPLETE = "完整表"
 SHEET_HOLDINGS = "持仓"
 SHEET_IDENTITY = "身份信息"
 SHEET_CHECKLIST = "checklist结果"
+SHEET_PROBLEMS = "问题清单"
 
 DOCUMENT_COLUMNS = [
     "document_type",
@@ -32,7 +37,9 @@ DOCUMENT_COLUMNS = [
     "period_end",
     "holder_name",
     "one_code_account",
+    "fund_account",
     "securities_account",
+    "account_type",
 ]
 
 EVENT_COLUMNS = [
@@ -44,22 +51,31 @@ EVENT_COLUMNS = [
     "document_title",
     "holder_name",
     "one_code_account",
+    "fund_account",
     "securities_account",
+    "account_type",
     "event_id",
     "event_type",
+    "event_type_raw",
     "market",
     "event_date",
+    "event_time",
     "security_code",
     "security_name",
     "direction",
     "quantity_raw",
     "price_raw",
+    "amount_raw",
     "balance_after_raw",
     "transfer_type_raw",
     "rights_category_raw",
     "security_category_raw",
     "source_pages",
     "row_nos",
+    "manual_review_required",
+    "problem_types",
+    "missing_fields",
+    "conflict_fields",
     "review_reason",
 ]
 
@@ -74,14 +90,26 @@ HOLDING_COLUMNS = [
     "file_id",
     "file_no",
     "original_file_name",
+    "document_type",
+    "holder_name",
+    "one_code_account",
+    "fund_account",
+    "securities_account",
     "market",
+    "account_type",
     "holding_date",
     "security_code",
     "security_name",
     "quantity_raw",
+    "market_value_raw",
+    "currency",
     "security_category_raw",
     "source_pages",
     "row_nos",
+    "manual_review_required",
+    "problem_types",
+    "missing_fields",
+    "conflict_fields",
     "review_reason",
 ]
 
@@ -145,10 +173,10 @@ def build_final_result(case_id: str) -> dict:
     prompt_schema = _load_prompt_schema()
     extract_items = _collect_extract_results(case_id, file_records_by_id)
     review_items: list[dict] = []
-    complete_rows: list[dict] = []
-    final_rows: list[dict] = []
-    holding_rows: list[dict] = []
+    normalized_transaction_rows: list[dict] = []
+    normalized_holding_rows: list[dict] = []
     source_extract_results = []
+    review_items.extend(_file_record_review_items(files_index.get("files", [])))
 
     for item in extract_items:
         extract_result = item["extract_result"]
@@ -197,9 +225,8 @@ def build_final_result(case_id: str) -> dict:
             extract_result,
             file_record,
         )
-        complete_rows.extend(normalized["full_transaction_rows"])
-        final_rows.extend(normalized["final_declaration_rows"])
-        holding_rows.extend(normalized["holding_rows"])
+        normalized_transaction_rows.extend(normalized["full_transaction_rows"])
+        normalized_holding_rows.extend(normalized["holding_rows"])
         review_items.extend(normalized["review_items"])
 
     if not extract_items:
@@ -214,11 +241,7 @@ def build_final_result(case_id: str) -> dict:
             )
         )
 
-    for row in complete_rows:
-        review_items.extend(_missing_field_reviews(row))
-
-    checklist_rows = _build_checklist_rows(complete_rows, holding_rows)
-    export_audit = _build_export_audit(complete_rows, final_rows)
+    checklist_rows = _build_checklist_rows(normalized_transaction_rows, normalized_holding_rows)
     if any(row.get("状态") == "需人工复核" for row in checklist_rows):
         review_items.append(
             _review_item(
@@ -230,6 +253,19 @@ def build_final_result(case_id: str) -> dict:
                 "材料不足，暂无法校验‘上次持仓 + 交易 = 本次持仓’。",
             )
         )
+
+    resolved = resolve_case_events(
+        normalized_transaction_rows,
+        normalized_holding_rows,
+        review_items=review_items,
+        checklist_rows=checklist_rows,
+    )
+    complete_rows = resolved["full_transaction_rows"]
+    final_rows = resolved["final_declaration_rows"]
+    holding_rows = resolved["holding_rows"]
+    problem_events = resolved["problem_events"]
+    problem_rows = resolved["problem_list_rows"]
+    export_audit = _build_export_audit(complete_rows, final_rows)
 
     sheets = {
         SHEET_FINAL: {
@@ -252,7 +288,12 @@ def build_final_result(case_id: str) -> dict:
             "columns": CHECKLIST_COLUMNS,
             "rows": [_select_columns(row, CHECKLIST_COLUMNS) for row in checklist_rows],
         },
+        SHEET_PROBLEMS: {
+            "columns": PROBLEM_COLUMNS,
+            "rows": [_select_columns(row, PROBLEM_COLUMNS) for row in problem_rows],
+        },
     }
+    identity_rows = _build_identity_rows(case)
 
     return {
         "schema_version": FINAL_RESULT_SCHEMA_VERSION,
@@ -275,7 +316,8 @@ def build_final_result(case_id: str) -> dict:
             "holding_row_count": len(holding_rows),
             "identity_row_count": 1,
             "review_item_count": len(review_items),
-            "manual_review_required": bool(review_items),
+            "problem_event_count": len(problem_events),
+            "manual_review_required": bool(review_items or problem_events),
         },
         "export_audit": export_audit,
         "sheet_order": [
@@ -284,8 +326,21 @@ def build_final_result(case_id: str) -> dict:
             SHEET_HOLDINGS,
             SHEET_IDENTITY,
             SHEET_CHECKLIST,
+            SHEET_PROBLEMS,
         ],
         "sheets": sheets,
+        SHEET_FINAL: sheets[SHEET_FINAL]["rows"],
+        SHEET_COMPLETE: sheets[SHEET_COMPLETE]["rows"],
+        SHEET_HOLDINGS: sheets[SHEET_HOLDINGS]["rows"],
+        SHEET_IDENTITY: identity_rows[0] if identity_rows else {},
+        SHEET_CHECKLIST: sheets[SHEET_CHECKLIST]["rows"],
+        SHEET_PROBLEMS: sheets[SHEET_PROBLEMS]["rows"],
+        "verified_events": resolved["verified_events"],
+        "pending_review_events": resolved["pending_review_events"],
+        "verified_holdings": resolved["verified_holdings"],
+        "pending_review_holdings": resolved["pending_review_holdings"],
+        "problem_events": problem_events,
+        "merge_audit": resolved["merge_audit"],
         "review_items": review_items,
     }
 
@@ -349,6 +404,55 @@ def _normalize_source_extract_result(
     )
 
 
+def _file_record_review_items(file_records: list[dict]) -> list[dict]:
+    items = []
+    failed_process_statuses = {"failed", "ocr_failed"}
+    failed_extract_statuses = {
+        "failed",
+        "llm_request_failed",
+        "json_parse_failed",
+        "partial_failed",
+    }
+
+    for file_record in file_records:
+        if not isinstance(file_record, dict):
+            continue
+        file_id = str(file_record.get("file_id") or "")
+        process_status = str(file_record.get("process_status") or "")
+        extract_status = str(file_record.get("extract_status") or "")
+        common = {
+            "file_no": file_record.get("file_no", ""),
+            "original_file_name": file_record.get("original_file_name", ""),
+        }
+
+        if process_status in failed_process_statuses:
+            problem_type = "ocr_failed" if process_status == "ocr_failed" else "process_failed"
+            item = _review_item(
+                "warning",
+                "file",
+                file_id,
+                "",
+                problem_type,
+                f"文件处理状态为 {process_status}，需人工复核",
+            )
+            item.update(common)
+            items.append(item)
+
+        if extract_status in failed_extract_statuses:
+            item = _review_item(
+                "warning",
+                "extract_result",
+                file_id,
+                "",
+                "extract_status",
+                f"抽取状态为 {extract_status}，需人工复核",
+            )
+            item.update(common)
+            items.append(item)
+
+    return items
+
+
 def _build_identity_rows(case: dict) -> list[dict]:
     return [
         {
@@ -382,7 +486,10 @@ def _build_checklist_rows(rows: list[dict], holding_rows: list[dict]) -> list[di
 
 
 def _build_export_audit(complete_rows: list[dict], final_rows: list[dict]) -> dict:
-    excluded_rows = [row for row in complete_rows if not _is_final_declaration_row(row)]
+    final_keys = {_row_compare_key(row) for row in final_rows}
+    excluded_rows = [
+        row for row in complete_rows if _row_compare_key(row) not in final_keys
+    ]
     warnings = []
     if complete_rows and len(complete_rows) == len(final_rows):
         warnings.append(
@@ -417,6 +524,20 @@ def _movement_type(row: dict) -> str:
     return normalizer_movement_type(row)
 
 
+def _row_compare_key(row: dict) -> tuple:
+    return (
+        row.get("file_id", ""),
+        row.get("event_id", ""),
+        row.get("securities_account", ""),
+        row.get("event_type", ""),
+        row.get("event_date", ""),
+        row.get("security_code", ""),
+        row.get("quantity_raw", ""),
+        row.get("price_raw", ""),
+        row.get("amount_raw", ""),
+    )
+
+
 def _missing_field_reviews(row: dict) -> list[dict]:
     reviews = []
     for field in CRITICAL_EVENT_FIELDS:
@@ -440,6 +561,8 @@ def _load_prompt_schema() -> dict:
             "source_exists": False,
             "document_columns": DOCUMENT_COLUMNS,
             "event_columns": EVENT_COLUMNS,
+            "holding_columns": HOLDING_COLUMNS,
+            "problem_columns": PROBLEM_COLUMNS,
         }
 
     prompt_text = PROMPT_SCHEMA_PATH.read_text(encoding="utf-8")
@@ -447,6 +570,7 @@ def _load_prompt_schema() -> dict:
         "source_exists": True,
         "document_info_fields": _extract_object_keys(prompt_text, "document_info"),
         "trade_columns": _extract_trade_columns(prompt_text) or [],
+        "position_columns": _extract_position_columns(prompt_text) or [],
         "other_event_fields": _extract_object_keys(prompt_text, "other_events"),
         "excel_sheets": [
             SHEET_FINAL,
@@ -454,8 +578,11 @@ def _load_prompt_schema() -> dict:
             SHEET_HOLDINGS,
             SHEET_IDENTITY,
             SHEET_CHECKLIST,
+            SHEET_PROBLEMS,
         ],
         "normalized_event_columns": EVENT_COLUMNS,
+        "normalized_holding_columns": HOLDING_COLUMNS,
+        "problem_columns": PROBLEM_COLUMNS,
     }
 
 
@@ -476,8 +603,23 @@ def _extract_trade_columns(prompt_text: str) -> list[str]:
     return re.findall(r'"([^"]+)"', match.group("body"))
 
 
+def _extract_position_columns(prompt_text: str) -> list[str]:
+    match = re.search(r'"position_columns"\s*:\s*\[(?P<body>.*?)\]', prompt_text, re.S)
+    if not match:
+        return []
+    return re.findall(r'"([^"]+)"', match.group("body"))
+
+
 def _select_columns(row: dict, columns: list[str]) -> dict:
-    return {column: row.get(column, "") for column in columns}
+    return {column: _display_value(row.get(column, "")) for column in columns}
+
+
+def _display_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return ",".join(str(item) for item in value if item not in (None, ""))
+    if isinstance(value, dict):
+        return ""
+    return value
 
 
 def _review_item(

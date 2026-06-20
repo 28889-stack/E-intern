@@ -18,9 +18,10 @@
 6. 一行持仓 = 一条持仓记录。
 7. 一行证券买入 / 证券卖出 = 一笔交易明细，不要合并成汇总。
 8. 不计算金额、红利、利息、税费、盈亏。
-9. `amount` 只取原文“清算金额”，不要用数量乘价格反推。
-10. 不输出整行原文、大段解释、复杂置信度对象或大量 `null`。
-11. 只输出合法 JSON。
+9. `settlement_amount_raw` 只取原文“清算金额 / 结算金额”，不要用数量乘价格反推。
+10. 场内交割流水明细表里该列通常显示为“清算金额”；如果 OCR 识别成“结算金额”，也按同一字段输出。
+11. 不输出整行原文、大段解释、复杂置信度对象或大量 `null`。
+12. 只输出合法 JSON。
 
 ## 二、输出 JSON 结构
 
@@ -63,7 +64,7 @@
       "direction",
       "quantity",
       "price",
-      "amount",
+      "settlement_amount_raw",
       "currency",
       "event_type_raw",
       "order_no",
@@ -145,7 +146,7 @@
 * `证券名称` → `security_name`
 * `成交数量` → `quantity`
 * `成交价格` → `price`
-* `清算金额` → `amount`
+* `清算金额 / 结算金额` → `settlement_amount_raw`
 * `货币名称` → `currency`
 * `业务标志名称` → `event_type_raw`
 * `委托编号` → `order_no`
@@ -201,7 +202,7 @@
   "instrument_type": "",
   "quantity": "",
   "price": "",
-  "amount": "",
+  "settlement_amount_raw": "",
   "currency": "",
   "event_type_raw": "",
   "order_no": "",
@@ -246,4 +247,3 @@ OCR / PDF 解析文本：
 OCR 置信度信息，如有：
 
 {{ocr_confidence}}
-

@@ -13,6 +13,7 @@ from app.pipeline.final_result_builder import (
     SHEET_FINAL,
     SHEET_HOLDINGS,
     SHEET_IDENTITY,
+    SHEET_PROBLEMS,
 )
 from app.services import local_store
 
@@ -23,7 +24,72 @@ DEFAULT_SHEET_ORDER = [
     SHEET_HOLDINGS,
     SHEET_IDENTITY,
     SHEET_CHECKLIST,
+    SHEET_PROBLEMS,
 ]
+
+REVIEW_SHEET_COLUMNS = {
+    SHEET_FINAL: [
+        "账户类型",
+        "证券账号",
+        "证券代码",
+        "证券名称",
+        "变动类型",
+        "日期",
+        "成交数量",
+        "成交单价",
+        "收付金额",
+    ],
+    SHEET_COMPLETE: [
+        "账户类型",
+        "证券账号",
+        "证券代码",
+        "证券名称",
+        "变动类型",
+        "日期",
+        "成交数量",
+        "成交单价",
+        "收付金额",
+    ],
+    SHEET_HOLDINGS: [
+        "账户类型",
+        "证券账号",
+        "证券代码",
+        "证券名称",
+        "持有数量",
+        "市值",
+        "查询结果所属日期",
+        "币种",
+    ],
+    SHEET_IDENTITY: [
+        "姓名",
+        "电话",
+        "关系类型",
+        "身份证姓名",
+        "身份证号码",
+        "地址",
+        "有效期起",
+        "有效期止",
+    ],
+    SHEET_CHECKLIST: [
+        "checklist条件",
+        "状态",
+        "说明",
+    ],
+    SHEET_PROBLEMS: [
+        "问题ID",
+        "问题对象类型",
+        "问题类型",
+        "严重程度",
+        "状态",
+        "关联文件编号",
+        "关联文件名",
+        "关联记录ID",
+        "缺失字段",
+        "冲突字段",
+        "问题说明",
+        "处理建议",
+    ],
+}
 
 
 def export_excel_from_final_result(final_result_path: str | Path, output_path: str | Path) -> Path:
@@ -43,6 +109,9 @@ def export_excel(final_result: dict, output_path: str | Path) -> Path:
 
 
 def _build_sheet_payloads(final_result: dict) -> list[dict]:
+    if isinstance(final_result.get("review_data"), dict):
+        return _build_review_sheet_payloads(final_result["review_data"])
+
     result_sheets = final_result.get("sheets") or {}
     sheet_order = final_result.get("sheet_order") or DEFAULT_SHEET_ORDER
     payloads = []
@@ -65,6 +134,58 @@ def _build_sheet_payloads(final_result: dict) -> list[dict]:
         )
 
     return payloads
+
+
+def _build_review_sheet_payloads(review_data: dict) -> list[dict]:
+    return [
+        _review_rows_payload(SHEET_FINAL, review_data.get(SHEET_FINAL)),
+        _review_rows_payload(SHEET_COMPLETE, review_data.get(SHEET_COMPLETE)),
+        _review_rows_payload(SHEET_HOLDINGS, review_data.get(SHEET_HOLDINGS)),
+        _review_identity_payload(review_data.get(SHEET_IDENTITY)),
+        _review_rows_payload(SHEET_CHECKLIST, review_data.get(SHEET_CHECKLIST)),
+        _review_rows_payload(SHEET_PROBLEMS, review_data.get(SHEET_PROBLEMS)),
+    ]
+
+
+def _review_rows_payload(sheet_name: str, rows: Any) -> dict:
+    source_rows = rows if isinstance(rows, list) else []
+    columns = _review_columns(sheet_name, source_rows)
+    matrix = [columns]
+
+    for row in source_rows:
+        if not isinstance(row, dict):
+            continue
+        matrix.append([_cell_value(row.get(column, "")) for column in columns])
+
+    return {
+        "name": _safe_sheet_name(sheet_name),
+        "matrix": matrix,
+    }
+
+
+def _review_identity_payload(identity_info: Any) -> dict:
+    identity = identity_info if isinstance(identity_info, dict) else {}
+    rows = [identity] if identity else []
+    columns = _review_columns(SHEET_IDENTITY, rows)
+    matrix = [columns]
+    if identity:
+        matrix.append([_cell_value(identity.get(column, "")) for column in columns])
+    return {
+        "name": _safe_sheet_name(SHEET_IDENTITY),
+        "matrix": matrix,
+    }
+
+
+def _review_columns(sheet_name: str, rows: list[dict]) -> list[str]:
+    columns = list(REVIEW_SHEET_COLUMNS[sheet_name])
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for column in row:
+            if column.startswith("_") or column in columns:
+                continue
+            columns.append(column)
+    return columns
 
 
 def _write_xlsx(output_path: Path, sheets: list[dict]) -> None:

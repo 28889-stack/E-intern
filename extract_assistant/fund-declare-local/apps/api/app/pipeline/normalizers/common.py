@@ -11,7 +11,9 @@ DOCUMENT_COLUMNS = [
     "period_end",
     "holder_name",
     "one_code_account",
+    "fund_account",
     "securities_account",
+    "account_type",
 ]
 
 FINAL_DECLARATION_EVENT_TYPES = {
@@ -100,6 +102,25 @@ def build_event_row(
     document_info: dict,
     event: dict,
 ) -> dict:
+    market = event.get("market") or document_info.get("market") or ""
+    securities_account = (
+        event.get("securities_account")
+        or event.get("stock_account")
+        or document_info.get("securities_account")
+        or ""
+    )
+    account_type = derive_account_type(
+        event.get("account_type") or document_info.get("account_type"),
+        market,
+        securities_account,
+    )
+    event_id = (
+        event.get("event_id")
+        or event.get("trade_id")
+        or event.get("transaction_id")
+        or event.get("cash_flow_id")
+        or ""
+    )
     row = {
         "case_id": case_id,
         "file_id": file_record.get("file_id") or event.get("file_id") or "",
@@ -113,18 +134,26 @@ def build_event_row(
 
     row.update(
         {
-            "event_id": event.get("event_id")
-            or event.get("trade_id")
-            or event.get("transaction_id")
-            or event.get("cash_flow_id")
+            "fund_account": event.get("fund_account")
+            or event.get("capital_account")
+            or document_info.get("fund_account")
             or "",
+            "securities_account": securities_account,
+            "account_type": account_type,
+            "event_id": event_id,
             "event_type": normalize_event_type(event),
-            "market": event.get("market") or document_info.get("market") or "",
+            "event_type_raw": event.get("event_type_raw")
+            or event.get("transaction_type_raw")
+            or event.get("business_type_raw")
+            or event.get("transfer_type_raw")
+            or "",
+            "market": market,
             "event_date": event.get("event_date")
             or event.get("trade_date")
             or event.get("transaction_date")
             or event.get("business_date")
             or "",
+            "event_time": event.get("event_time") or event.get("time") or "",
             "security_code": event.get("security_code", ""),
             "security_name": event.get("security_name", ""),
             "direction": normalize_direction(event),
@@ -136,6 +165,13 @@ def build_event_row(
             "price_raw": event.get("price_raw")
             or event.get("price")
             or event.get("trade_price_raw")
+            or "",
+            "amount_raw": event.get("amount_raw")
+            or event.get("settlement_amount_raw")
+            or event.get("settlement_amount")
+            or event.get("clearing_amount_raw")
+            or event.get("clearing_amount")
+            or event.get("amount")
             or "",
             "balance_after_raw": event.get("balance_after_raw")
             or event.get("holding_balance_raw")
@@ -159,8 +195,13 @@ def build_event_row(
                 event.get("row_nos") if "row_nos" in event else [event.get("row_no", "")]
             ),
             "review_reason": event.get("review_reason", ""),
+            "manual_review_required": bool(event.get("manual_review_required", False)),
+            "problem_types": unique_list(event.get("problem_types")),
+            "missing_fields": unique_list(event.get("missing_fields")),
+            "conflict_fields": unique_list(event.get("conflict_fields")),
         }
     )
+    row["source_evidence"] = build_source_evidence(file_record, event, event_id)
     return row
 
 
@@ -170,14 +211,37 @@ def build_holding_row(
     document_info: dict,
     holding: dict,
 ) -> dict:
-    return {
+    market = holding.get("market") or document_info.get("market") or ""
+    securities_account = (
+        holding.get("securities_account")
+        or holding.get("stock_account")
+        or document_info.get("securities_account")
+        or ""
+    )
+    account_type = derive_account_type(
+        holding.get("account_type") or document_info.get("account_type"),
+        market,
+        securities_account,
+    )
+    holding_id = holding.get("holding_id") or holding.get("position_id") or ""
+    row = {
         "case_id": case_id,
         "file_id": file_record.get("file_id") or holding.get("file_id") or "",
         "file_no": file_record.get("file_no", ""),
         "original_file_name": file_record.get("original_file_name")
         or document_info.get("file_name")
         or "",
-        "market": holding.get("market") or document_info.get("market") or "",
+        "document_type": document_info.get("document_type", ""),
+        "holder_name": document_info.get("holder_name", ""),
+        "one_code_account": document_info.get("one_code_account", ""),
+        "fund_account": holding.get("fund_account")
+        or holding.get("capital_account")
+        or document_info.get("fund_account")
+        or "",
+        "securities_account": securities_account,
+        "market": market,
+        "account_type": account_type,
+        "holding_id": holding_id,
         "holding_date": holding.get("holding_date")
         or holding.get("date")
         or document_info.get("period_end")
@@ -190,6 +254,11 @@ def build_holding_row(
         or holding.get("stock_balance_raw")
         or holding.get("balance_raw")
         or "",
+        "market_value_raw": holding.get("market_value_raw")
+        or holding.get("market_value")
+        or holding.get("valuation_raw")
+        or "",
+        "currency": holding.get("currency", ""),
         "security_category_raw": holding.get("security_category_raw")
         or holding.get("instrument_type")
         or "",
@@ -202,7 +271,57 @@ def build_holding_row(
             holding.get("row_nos") if "row_nos" in holding else [holding.get("row_no", "")]
         ),
         "review_reason": holding.get("review_reason", ""),
+        "manual_review_required": bool(holding.get("manual_review_required", False)),
+        "problem_types": unique_list(holding.get("problem_types")),
+        "missing_fields": unique_list(holding.get("missing_fields")),
+        "conflict_fields": unique_list(holding.get("conflict_fields")),
     }
+    row["source_evidence"] = build_source_evidence(file_record, holding, holding_id)
+    return row
+
+
+def derive_account_type(explicit_account_type: Any, market: Any, securities_account: Any) -> str:
+    explicit = str(explicit_account_type or "").strip()
+    if explicit:
+        return explicit
+
+    account = str(securities_account or "").strip()
+    if not account:
+        return ""
+
+    normalized_market = str(market or "").strip().upper()
+    if normalized_market in {"SH", "SSE"} or str(market or "").strip() in {"上海", "沪市"}:
+        return "沪A" if "B" not in account.upper() else "沪B"
+    if normalized_market in {"SZ", "SZSE"} or str(market or "").strip() in {"深圳", "深市"}:
+        return "深A" if "B" not in account.upper() else "深B"
+    if "沪A" in account or "上海A" in account:
+        return "沪A"
+    if "深A" in account or "深圳A" in account:
+        return "深A"
+    return ""
+
+
+def build_source_evidence(file_record: dict, raw_record: dict, source_row_id: Any) -> list[dict]:
+    return [
+        {
+            "file_id": file_record.get("file_id") or raw_record.get("file_id") or "",
+            "file_no": file_record.get("file_no", ""),
+            "file_name": file_record.get("original_file_name", ""),
+            "source_type": file_record.get("content_type") or file_record.get("source_type") or "",
+            "source_page": join_values(
+                raw_record.get("source_pages")
+                if "source_pages" in raw_record
+                else [raw_record.get("source_page", "")]
+            ),
+            "row_no": join_values(
+                raw_record.get("row_nos")
+                if "row_nos" in raw_record
+                else [raw_record.get("row_no", "")]
+            ),
+            "source_row_id": str(source_row_id or ""),
+            "raw_record": raw_record,
+        }
+    ]
 
 
 def normalize_event_type(event: dict) -> str:
@@ -324,6 +443,20 @@ def review_item(
 def join_values(value: Any) -> str:
     values = as_list(value)
     return ",".join(str(item) for item in values if item not in (None, ""))
+
+
+def unique_list(value: Any) -> list:
+    seen = set()
+    items = []
+    for item in as_list(value):
+        if item in (None, ""):
+            continue
+        text = str(item)
+        if text in seen:
+            continue
+        seen.add(text)
+        items.append(text)
+    return items
 
 
 def as_list(value: Any) -> list:

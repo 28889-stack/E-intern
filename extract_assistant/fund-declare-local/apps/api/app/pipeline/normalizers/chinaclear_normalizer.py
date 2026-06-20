@@ -8,6 +8,21 @@ from app.pipeline.normalizers.common import (
 )
 
 
+POSITION_COLUMNS = [
+    "position_id",
+    "market",
+    "holding_date",
+    "security_code",
+    "security_name",
+    "security_category_raw",
+    "quantity_raw",
+    "custody_or_trading_unit",
+    "custody_or_trading_unit_name",
+    "source_page",
+    "row_no",
+]
+
+
 def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) -> dict:
     document_info = extract_result.get("document_info") or {}
     full_rows = []
@@ -60,7 +75,44 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
 
     holding_rows = [
         build_holding_row(case_id, file_record, document_info, holding)
+        for holding in _position_group_rows(extract_result.get("position_group"))
+    ]
+    holding_rows.extend(
+        build_holding_row(case_id, file_record, document_info, holding)
         for holding in as_list(extract_result.get("holdings"))
         if isinstance(holding, dict)
-    ]
+    )
     return build_normalized_result(full_rows, holding_rows)
+
+
+def _position_group_rows(position_group: dict | None) -> list[dict]:
+    if not isinstance(position_group, dict):
+        return []
+
+    columns = (
+        position_group.get("position_columns")
+        or position_group.get("columns")
+        or POSITION_COLUMNS
+    )
+    rows = []
+    for position_values in as_list(position_group.get("positions")):
+        if isinstance(position_values, dict):
+            rows.append(_map_position(position_values))
+            continue
+        if not isinstance(position_values, list):
+            continue
+
+        position = {
+            str(column): position_values[index] if index < len(position_values) else ""
+            for index, column in enumerate(columns)
+        }
+        rows.append(_map_position(position))
+    return rows
+
+
+def _map_position(position: dict) -> dict:
+    payload = dict(position)
+    payload.setdefault("holding_id", payload.get("position_id") or "")
+    payload.setdefault("quantity_raw", payload.get("holding_quantity_raw") or payload.get("quantity") or "")
+    payload.setdefault("security_category_raw", payload.get("security_category") or "")
+    return payload

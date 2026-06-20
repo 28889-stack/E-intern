@@ -114,6 +114,15 @@ def _map_group_event(event: dict) -> dict:
     payload.setdefault("transaction_type_raw", payload.get("event_type_raw") or "")
     payload.setdefault("quantity_raw", payload.get("quantity") or "")
     payload.setdefault("price_raw", payload.get("price") or "")
+    payload.setdefault(
+        "amount_raw",
+        payload.get("settlement_amount_raw")
+        or payload.get("settlement_amount")
+        or payload.get("clearing_amount_raw")
+        or payload.get("clearing_amount")
+        or payload.get("amount")
+        or "",
+    )
     payload.setdefault("security_category_raw", payload.get("instrument_type") or "")
     return payload
 
