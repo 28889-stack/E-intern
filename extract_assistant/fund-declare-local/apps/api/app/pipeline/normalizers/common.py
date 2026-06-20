@@ -137,6 +137,15 @@ def build_event_row(
             or event.get("price")
             or event.get("trade_price_raw")
             or "",
+            "amount_raw": event.get("amount_raw")
+            or event.get("amount")
+            or event.get("settlement_amount_raw")
+            or event.get("settlement_amount")
+            or event.get("clearing_amount_raw")
+            or event.get("clearing_amount")
+            or event.get("net_amount_raw")
+            or event.get("net_amount")
+            or "",
             "balance_after_raw": event.get("balance_after_raw")
             or event.get("holding_balance_raw")
             or event.get("stock_balance_raw")

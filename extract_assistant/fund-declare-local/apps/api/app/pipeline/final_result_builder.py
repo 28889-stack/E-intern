@@ -54,6 +54,7 @@ EVENT_COLUMNS = [
     "direction",
     "quantity_raw",
     "price_raw",
+    "amount_raw",
     "balance_after_raw",
     "transfer_type_raw",
     "rights_category_raw",
