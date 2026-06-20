@@ -375,40 +375,76 @@ async function uploadCaseFileForModule(event, config) {
   }
 
   if (!config.fileInput.files.length) {
-    config.resultContainer.textContent = "请选择一个文件";
+    config.resultContainer.textContent = "请选择一个或多个文件";
     return;
   }
 
-  const formData = new FormData();
-  formData.append("file", config.fileInput.files[0]);
+  const files = Array.from(config.fileInput.files);
+  const results = [];
   config.summaryContainer.replaceChildren();
-  config.resultContainer.textContent = config.pendingText;
+  config.resultContainer.textContent = `${config.pendingText}（0/${files.length}）`;
 
-  try {
-    const response = await fetch(
-      `/api/cases/${encodeURIComponent(caseId)}/${config.endpointSuffix}`,
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || "上传处理失败");
+  for (const [index, file] of files.entries()) {
+    config.resultContainer.textContent = `${config.pendingText}（${index + 1}/${files.length}：${file.name}）`;
+    try {
+      const data = await uploadSingleCaseFile(caseId, config.endpointSuffix, file);
+      results.push({
+        ok: true,
+        file_name: file.name,
+        data,
+      });
+    } catch (error) {
+      results.push({
+        ok: false,
+        file_name: file.name,
+        error: error.message || "上传处理失败",
+      });
     }
+    renderCaseFileSummaries(results, config.summaryContainer);
+  }
 
-    renderCaseFileSummary(data.file || {}, config.summaryContainer);
-    extractFileIdInput.value = data.file?.file_id || "";
+  const successfulResults = results.filter((result) => result.ok);
+  const lastSuccessfulFile = successfulResults[successfulResults.length - 1]?.data?.file;
+  if (lastSuccessfulFile?.file_id) {
+    extractFileIdInput.value = lastSuccessfulFile.file_id;
+  }
+  if (successfulResults.length) {
     filesListCaseIdInput.value = caseId;
     finalizeCaseIdInput.value = caseId;
     reviewCaseIdInput.value = caseId;
     setDownloadExcelLink(caseId);
-    updateRerunExtractButtonState();
-    config.resultContainer.textContent = JSON.stringify(data, null, 2);
-  } catch (error) {
-    config.resultContainer.textContent = error.message || "上传处理失败";
   }
+  updateRerunExtractButtonState();
+  config.resultContainer.textContent = JSON.stringify(
+    {
+      case_id: caseId,
+      selected_count: files.length,
+      uploaded_count: successfulResults.length,
+      failed_count: results.length - successfulResults.length,
+      results,
+    },
+    null,
+    2,
+  );
+}
+
+async function uploadSingleCaseFile(caseId, endpointSuffix, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetch(
+    `/api/cases/${encodeURIComponent(caseId)}/${endpointSuffix}`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.detail || `${file.name} 上传处理失败`);
+  }
+
+  return data;
 }
 
 async function viewExtractInput() {
@@ -549,6 +585,7 @@ async function finalizeCase(event) {
     exportReviewedExcelButton.disabled = true;
     resetDownloadExcelLink();
     finalizeResult.textContent = JSON.stringify(data, null, 2);
+    await loadReviewData();
   } catch (error) {
     finalizeResult.textContent = error.message || "生成最终产物失败";
   }
@@ -564,6 +601,37 @@ function renderCaseFileSummary(file, container) {
   addSummaryItem("extract_status", file.extract_status, container);
   addSummaryItem("manual_review_required", file.manual_review_required, container);
   addSummaryItem("review_reasons", (file.review_reasons || []).join("；"), container);
+}
+
+function renderCaseFileSummaries(results, container) {
+  container.replaceChildren();
+  const successfulResults = results.filter((result) => result.ok);
+  addSummaryItem("selected_count", results.length, container);
+  addSummaryItem("uploaded_count", successfulResults.length, container);
+  addSummaryItem("failed_count", results.length - successfulResults.length, container);
+
+  for (const result of results) {
+    const item = document.createElement("div");
+    item.className = `upload-summary-item${result.ok ? "" : " is-error"}`;
+    if (!result.ok) {
+      item.textContent = `${result.file_name}: ${result.error}`;
+      container.appendChild(item);
+      continue;
+    }
+
+    const file = result.data?.file || {};
+    item.textContent = [
+      `file_name=${result.file_name}`,
+      `file_id=${file.file_id || ""}`,
+      `module=${file.module || ""}`,
+      `content_type=${file.content_type || ""}`,
+      `process_status=${file.process_status || ""}`,
+      `extract_status=${file.extract_status || ""}`,
+      `manual_review_required=${file.manual_review_required ?? ""}`,
+      `review_reasons=${(file.review_reasons || []).join("；")}`,
+    ].join("; ");
+    container.appendChild(item);
+  }
 }
 
 function renderCaseFilesList(data) {
@@ -714,7 +782,13 @@ async function loadReviewData() {
     setDownloadExcelLink(caseId, payload.review_status?.excel_export_allowed === true);
     reviewResult.textContent = JSON.stringify(payload, null, 2);
   } catch (error) {
-    reviewResult.textContent = error.message || "加载复核数据失败";
+    const message = error.message || "加载复核数据失败";
+    reviewResult.textContent = message.includes("final_result.json 不存在")
+      ? "final_result.json 不存在，请先点击右侧“生成 final_result”，生成成功后再加载复核数据。"
+      : message;
+    saveReviewButton.disabled = true;
+    exportReviewedExcelButton.disabled = true;
+    resetDownloadExcelLink();
   }
 }
 

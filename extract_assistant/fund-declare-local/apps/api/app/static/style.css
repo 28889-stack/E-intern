@@ -901,6 +901,15 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.upload-summary-item {
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 73, 118, 0.12);
+}
+
+.upload-summary-item.is-error {
+  color: #b84034;
+}
+
 .case-result {
   min-height: 72px;
   max-height: 240px;
