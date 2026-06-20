@@ -1,8 +1,19 @@
 const statusText = document.getElementById("status-text");
 const statusDot = document.getElementById("status-dot");
 const llmHealthButton = document.getElementById("llm-health-button");
+const llmHealthProxyButton = document.getElementById("llm-health-proxy-button");
 const llmHealthResult = document.getElementById("llm-health-result");
+const chatbotToggle = document.getElementById("chatbot-toggle");
+const cuteChatbot = document.querySelector(".cute-chatbot");
+const chatbotPanel = document.getElementById("chatbot-panel");
+const chatbotClose = document.getElementById("chatbot-close");
+const chatbotReset = document.getElementById("chatbot-reset");
+const chatbotHeader = document.querySelector(".chatbot-header");
+const chatbotMessages = document.getElementById("chatbot-messages");
+const chatbotForm = document.getElementById("chatbot-form");
+const chatbotInput = document.getElementById("chatbot-input");
 const createCaseForm = document.getElementById("create-case-form");
+const createCaseEntryButton = document.getElementById("create-case-entry-button");
 const caseNameInput = document.getElementById("case-name");
 const casePhoneInput = document.getElementById("case-phone");
 const caseRelationLabelInput = document.getElementById("case-relation-label");
@@ -59,10 +70,191 @@ const reviewTableConfigs = {
 const identityReviewColumns = ["姓名", "电话", "关系类型", "身份证姓名", "身份证号码", "地址", "有效期起", "有效期止"];
 const checklistReviewColumns = ["checklist条件", "状态", "说明"];
 let currentReviewData = null;
+let chatbotDragState = null;
+let chatbotIsSubmitting = false;
+let chatbotMessagesState = [
+  {
+    role: "assistant",
+    content: "你好，我是小易。可以问我材料准备、复核状态、问题清单或 Excel 导出的事项。",
+  },
+];
 
 function setStatus(kind, message) {
   statusText.textContent = message;
   statusDot.className = `status-dot status-dot--${kind}`;
+}
+
+function openCreateCaseForm() {
+  createCaseForm.classList.remove("is-hidden");
+  createCaseEntryButton?.setAttribute("aria-expanded", "true");
+  caseNameInput.focus();
+}
+
+function toggleChatbot(forceOpen) {
+  const shouldOpen =
+    typeof forceOpen === "boolean"
+      ? forceOpen
+      : !cuteChatbot.classList.contains("is-open");
+  cuteChatbot.classList.toggle("is-open", shouldOpen);
+  chatbotPanel.setAttribute("aria-hidden", String(!shouldOpen));
+  chatbotToggle.setAttribute("aria-expanded", String(shouldOpen));
+  if (shouldOpen) {
+    renderChatbotMessages();
+    chatbotInput.focus();
+  }
+}
+
+function startChatbotDrag(event) {
+  const pointer = event.touches?.[0] || event;
+  if (!pointer || !cuteChatbot) {
+    return;
+  }
+  const interactiveTarget = event.target.closest("input, button, a, select, textarea");
+  if (interactiveTarget && interactiveTarget !== chatbotToggle) {
+    return;
+  }
+
+  const rect = cuteChatbot.getBoundingClientRect();
+  chatbotDragState = {
+    startY: pointer.clientY,
+    startTop: rect.top,
+    moved: false,
+  };
+  cuteChatbot.classList.add("is-dragging");
+  document.addEventListener("mousemove", dragChatbot);
+  document.addEventListener("mouseup", stopChatbotDrag);
+  document.addEventListener("touchmove", dragChatbot, { passive: false });
+  document.addEventListener("touchend", stopChatbotDrag);
+}
+
+function dragChatbot(event) {
+  if (!chatbotDragState || !cuteChatbot) {
+    return;
+  }
+  const pointer = event.touches?.[0] || event;
+  if (!pointer) {
+    return;
+  }
+  event.preventDefault();
+
+  const deltaY = pointer.clientY - chatbotDragState.startY;
+  const nextTop = clamp(
+    chatbotDragState.startTop + deltaY,
+    8,
+    window.innerHeight - cuteChatbot.offsetHeight - 8,
+  );
+
+  chatbotDragState.moved =
+    chatbotDragState.moved || Math.abs(deltaY) > 4;
+  cuteChatbot.style.top = `${nextTop}px`;
+}
+
+function stopChatbotDrag() {
+  if (!chatbotDragState || !cuteChatbot) {
+    return;
+  }
+  if (chatbotDragState.moved) {
+    chatbotToggle.dataset.justDragged = "true";
+    window.setTimeout(() => {
+      delete chatbotToggle.dataset.justDragged;
+    }, 140);
+  }
+  chatbotDragState = null;
+  cuteChatbot.classList.remove("is-dragging");
+  document.removeEventListener("mousemove", dragChatbot);
+  document.removeEventListener("mouseup", stopChatbotDrag);
+  document.removeEventListener("touchmove", dragChatbot);
+  document.removeEventListener("touchend", stopChatbotDrag);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function renderChatbotMessages() {
+  chatbotMessages.replaceChildren();
+  for (const message of chatbotMessagesState) {
+    const item = document.createElement("article");
+    item.className = `chatbot-message chatbot-message-${message.role}`;
+    const label = document.createElement("span");
+    label.className = "chatbot-message-label";
+    label.textContent = message.role === "user" ? "你" : "小易";
+    const content = document.createElement("p");
+    content.textContent = message.content;
+    item.append(label, content);
+    chatbotMessages.appendChild(item);
+  }
+  chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+}
+
+function normalizeChatbotMessages(messages) {
+  const normalized = (messages || [])
+    .filter((message) => message && ["user", "assistant"].includes(message.role))
+    .map((message) => ({
+      role: message.role,
+      content: String(message.content || ""),
+    }))
+    .filter((message) => message.content);
+
+  return normalized.length
+    ? normalized
+    : [
+        {
+          role: "assistant",
+          content: "你好，我是小易。可以问我材料准备、复核状态、问题清单或 Excel 导出的事项。",
+        },
+      ];
+}
+
+function loadChatbotSession() {
+  renderChatbotMessages();
+}
+
+function resetChatbotSession() {
+  chatbotMessagesState = normalizeChatbotMessages([]);
+  renderChatbotMessages();
+}
+
+function submitChatbotQuestion(question) {
+  const content = question.trim();
+  if (!content || chatbotIsSubmitting) {
+    return;
+  }
+
+  chatbotIsSubmitting = true;
+  chatbotInput.disabled = true;
+  chatbotMessagesState.push({
+    role: "user",
+    content,
+  });
+  chatbotMessagesState.push({
+    role: "assistant",
+    content: buildChatbotReply(content),
+  });
+  renderChatbotMessages();
+  chatbotIsSubmitting = false;
+  chatbotInput.disabled = false;
+  chatbotInput.focus();
+}
+
+function buildChatbotReply(question) {
+  const text = question.toLowerCase();
+  if (question.includes("证券账号") || question.includes("账号")) {
+    return "如果材料里只有资金账号、没有证券账号，这类记录应进入人工复核，不能直接作为最终申报表的可核验记录。";
+  }
+  if (question.includes("材料") || question.includes("上传")) {
+    return "身份材料走左侧“身份材料上传”，账户交易材料走“账户交易材料上传”。上传后可在右侧文件列表查看 module、content_type 和抽取状态。";
+  }
+  if (question.includes("excel") || question.includes("导出")) {
+    return "当前流程是先生成 final_result，再加载并保存人工复核结果 reviewed_final_result，保存后才可以下载 Excel。";
+  }
+  if (question.includes("复核") || question.includes("checklist") || question.includes("问题清单")) {
+    return "复核区可以编辑最终申报表、完整表、持仓和身份信息；checklist结果只读，保存时以后端原始 checklist 为准。";
+  }
+  if (text.includes("hello") || text.includes("hi")) {
+    return "你好，我在这里帮你快速确认申报流程。可以问我上传、复核或导出 Excel 的问题。";
+  }
+  return "这个问题建议结合当前材料、复核表格和公司制度人工确认。本轮 UI 合入只保留前端流程提示，不接入新的问答后端。";
 }
 
 async function checkApiHealth() {
@@ -355,7 +547,7 @@ async function finalizeCase(event) {
     currentReviewData = null;
     saveReviewButton.disabled = true;
     exportReviewedExcelButton.disabled = true;
-    setDownloadExcelLink(caseId);
+    resetDownloadExcelLink();
     finalizeResult.textContent = JSON.stringify(data, null, 2);
   } catch (error) {
     finalizeResult.textContent = error.message || "生成最终产物失败";
@@ -415,7 +607,6 @@ function renderCaseFilesList(data) {
 function renderFinalizeSummary(data) {
   finalizeSummary.replaceChildren();
   addSummaryItem("final_result_path", data.final_result_path, finalizeSummary);
-  addSummaryItem("excel_path", data.excel_path, finalizeSummary);
   addSummaryItem("message", data.message, finalizeSummary);
   addSummaryItem(
     "excel_export_allowed",
@@ -475,6 +666,21 @@ function updateRerunExtractButtonState() {
   rerunExtractButton.disabled = disabled;
 }
 
+function initFilePickerLabels() {
+  for (const input of document.querySelectorAll(".file-picker input[type='file']")) {
+    input.addEventListener("change", () => {
+      const labelText = input.closest(".file-picker")?.querySelector("span");
+      if (!labelText) {
+        return;
+      }
+
+      labelText.textContent = input.files.length
+        ? input.files[0].name
+        : "选择文件";
+    });
+  }
+}
+
 async function loadReviewData() {
   const caseId = reviewCaseIdInput.value.trim() || getActiveCaseId();
   if (!caseId) {
@@ -504,8 +710,7 @@ async function loadReviewData() {
     renderReviewStatus(payload.review_status || {});
     renderReviewData(currentReviewData);
     saveReviewButton.disabled = false;
-    exportReviewedExcelButton.disabled =
-      payload.review_status?.excel_export_allowed !== true;
+    exportReviewedExcelButton.disabled = payload.review_status?.excel_export_allowed !== true;
     setDownloadExcelLink(caseId, payload.review_status?.excel_export_allowed === true);
     reviewResult.textContent = JSON.stringify(payload, null, 2);
   } catch (error) {
@@ -594,8 +799,8 @@ function renderReviewData(data) {
   for (const [key, config] of Object.entries(reviewTableConfigs)) {
     renderEditableReviewTable(key, config.title, config.columns, data[key] || []);
   }
-  renderIdentityReviewTable(data["身份信息"] || {});
-  renderChecklistTable(data["checklist结果"] || []);
+  renderIdentityReviewTable(data["身份信息"] || data.identity_info || {});
+  renderChecklistTable(data["checklist结果"] || data.checklist_rows || []);
 }
 
 function renderEditableReviewTable(key, title, columns, rows) {
@@ -637,14 +842,13 @@ function renderEditableReviewTable(key, title, columns, rows) {
 }
 
 function renderIdentityReviewTable(identityInfo) {
-  const identity = identityInfo && typeof identityInfo === "object" ? identityInfo : {};
   const columns = [
     ...identityReviewColumns,
-    ...Object.keys(identity).filter(
+    ...Object.keys(identityInfo).filter(
       (column) => column !== "_meta" && !identityReviewColumns.includes(column),
     ),
   ];
-  renderEditableReviewTable("身份信息", "身份信息", columns, [identity]);
+  renderEditableReviewTable("身份信息", "身份信息", columns, [identityInfo]);
 }
 
 function renderChecklistTable(rows) {
@@ -724,7 +928,8 @@ function collectReviewData() {
       完整表: collectReviewRows("完整表"),
       持仓: collectReviewRows("持仓"),
       身份信息: collectIdentityInfo(),
-      checklist结果: currentReviewData?.["checklist结果"] || [],
+      checklist结果: currentReviewData?.["checklist结果"] || currentReviewData?.checklist_rows || [],
+      问题清单: currentReviewData?.["问题清单"] || currentReviewData?.review_items || [],
     },
   };
 }
@@ -810,8 +1015,38 @@ async function processDebugFile(event) {
   }
 }
 
-window.addEventListener("DOMContentLoaded", checkApiHealth);
+window.addEventListener("DOMContentLoaded", () => {
+  initFilePickerLabels();
+  checkApiHealth();
+  loadChatbotSession();
+});
+chatbotToggle.addEventListener("mousedown", startChatbotDrag);
+chatbotToggle.addEventListener("touchstart", startChatbotDrag, { passive: true });
+chatbotHeader.addEventListener("mousedown", startChatbotDrag);
+chatbotHeader.addEventListener("touchstart", startChatbotDrag, { passive: true });
+chatbotToggle.addEventListener("click", () => {
+  if (chatbotToggle.dataset.justDragged === "true") {
+    return;
+  }
+  toggleChatbot();
+});
+chatbotClose.addEventListener("click", () => toggleChatbot(false));
+chatbotReset.addEventListener("click", resetChatbotSession);
+chatbotForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitChatbotQuestion(chatbotInput.value);
+  chatbotInput.value = "";
+});
+for (const promptButton of document.querySelectorAll("[data-chatbot-prompt]")) {
+  promptButton.addEventListener("click", () => {
+    const prompt = promptButton.getAttribute("data-chatbot-prompt") || "";
+    toggleChatbot(true);
+    submitChatbotQuestion(prompt);
+  });
+}
 llmHealthButton.addEventListener("click", checkLlmHealth);
+llmHealthProxyButton?.addEventListener("click", checkLlmHealth);
+createCaseEntryButton?.addEventListener("click", openCreateCaseForm);
 createCaseForm.addEventListener("submit", createCase);
 identityUploadForm.addEventListener("submit", uploadIdentityFile);
 accountUploadForm.addEventListener("submit", uploadAccountFile);
