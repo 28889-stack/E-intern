@@ -25,6 +25,56 @@ DEFAULT_SHEET_ORDER = [
     SHEET_CHECKLIST,
 ]
 
+REVIEW_SHEET_COLUMNS = {
+    SHEET_FINAL: [
+        "账户类型",
+        "证券账号",
+        "证券代码",
+        "证券名称",
+        "变动类型",
+        "日期",
+        "成交数量",
+        "成交单价",
+        "收付金额",
+    ],
+    SHEET_COMPLETE: [
+        "账户类型",
+        "证券账号",
+        "证券代码",
+        "证券名称",
+        "变动类型",
+        "日期",
+        "成交数量",
+        "成交单价",
+        "收付金额",
+    ],
+    SHEET_HOLDINGS: [
+        "账户类型",
+        "证券账号",
+        "证券代码",
+        "证券名称",
+        "持有数量",
+        "市值",
+        "查询结果所属日期",
+        "币种",
+    ],
+    SHEET_IDENTITY: [
+        "姓名",
+        "电话",
+        "关系类型",
+        "身份证姓名",
+        "身份证号码",
+        "地址",
+        "有效期起",
+        "有效期止",
+    ],
+    SHEET_CHECKLIST: [
+        "checklist条件",
+        "状态",
+        "说明",
+    ],
+}
+
 
 def export_excel_from_final_result(final_result_path: str | Path, output_path: str | Path) -> Path:
     final_result = local_store.read_json(final_result_path)
@@ -43,6 +93,9 @@ def export_excel(final_result: dict, output_path: str | Path) -> Path:
 
 
 def _build_sheet_payloads(final_result: dict) -> list[dict]:
+    if isinstance(final_result.get("review_data"), dict):
+        return _build_review_sheet_payloads(final_result["review_data"])
+
     result_sheets = final_result.get("sheets") or {}
     sheet_order = final_result.get("sheet_order") or DEFAULT_SHEET_ORDER
     payloads = []
@@ -65,6 +118,47 @@ def _build_sheet_payloads(final_result: dict) -> list[dict]:
         )
 
     return payloads
+
+
+def _build_review_sheet_payloads(review_data: dict) -> list[dict]:
+    return [
+        _review_rows_payload(SHEET_FINAL, review_data.get(SHEET_FINAL)),
+        _review_rows_payload(SHEET_COMPLETE, review_data.get(SHEET_COMPLETE)),
+        _review_rows_payload(SHEET_HOLDINGS, review_data.get(SHEET_HOLDINGS)),
+        _review_identity_payload(review_data.get(SHEET_IDENTITY)),
+        _review_rows_payload(SHEET_CHECKLIST, review_data.get(SHEET_CHECKLIST)),
+    ]
+
+
+def _review_rows_payload(sheet_name: str, rows: Any) -> dict:
+    columns = REVIEW_SHEET_COLUMNS[sheet_name]
+    matrix = [columns]
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        matrix.append([_cell_value(row.get(column, "")) for column in columns])
+    return {
+        "name": _safe_sheet_name(sheet_name),
+        "matrix": matrix,
+    }
+
+
+def _review_identity_payload(identity_info: Any) -> dict:
+    identity = identity_info if isinstance(identity_info, dict) else {}
+    columns = list(REVIEW_SHEET_COLUMNS[SHEET_IDENTITY])
+    extra_columns = [
+        column
+        for column in identity
+        if column != "_meta" and column not in columns
+    ]
+    columns.extend(extra_columns)
+    matrix = [columns]
+    if identity:
+        matrix.append([_cell_value(identity.get(column, "")) for column in columns])
+    return {
+        "name": _safe_sheet_name(SHEET_IDENTITY),
+        "matrix": matrix,
+    }
 
 
 def _write_xlsx(output_path: Path, sheets: list[dict]) -> None:

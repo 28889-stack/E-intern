@@ -30,9 +30,35 @@ const finalizeCaseIdInput = document.getElementById("finalize-case-id");
 const finalizeSummary = document.getElementById("finalize-summary");
 const finalizeResult = document.getElementById("finalize-result");
 const downloadExcelLink = document.getElementById("download-excel-link");
+const reviewCaseIdInput = document.getElementById("review-case-id");
+const loadReviewButton = document.getElementById("load-review-button");
+const saveReviewButton = document.getElementById("save-review-button");
+const exportReviewedExcelButton = document.getElementById("export-reviewed-excel-button");
+const reviewStatusSummary = document.getElementById("review-status-summary");
+const reviewTables = document.getElementById("review-tables");
+const reviewChecklist = document.getElementById("review-checklist");
+const reviewResult = document.getElementById("review-result");
 const debugFileForm = document.getElementById("debug-file-form");
 const debugFileInput = document.getElementById("debug-file");
 const debugFileResult = document.getElementById("debug-file-result");
+
+const reviewTableConfigs = {
+  最终申报表: {
+    title: "最终申报表",
+    columns: ["账户类型", "证券账号", "证券代码", "证券名称", "变动类型", "日期", "成交数量", "成交单价", "收付金额"],
+  },
+  完整表: {
+    title: "完整表",
+    columns: ["账户类型", "证券账号", "证券代码", "证券名称", "变动类型", "日期", "成交数量", "成交单价", "收付金额"],
+  },
+  持仓: {
+    title: "持仓",
+    columns: ["账户类型", "证券账号", "证券代码", "证券名称", "持有数量", "市值", "查询结果所属日期", "币种"],
+  },
+};
+const identityReviewColumns = ["姓名", "电话", "关系类型", "身份证姓名", "身份证号码", "地址", "有效期起", "有效期止"];
+const checklistReviewColumns = ["checklist条件", "状态", "说明"];
+let currentReviewData = null;
 
 function setStatus(kind, message) {
   statusText.textContent = message;
@@ -116,6 +142,7 @@ async function createCase(event) {
     accountUploadCaseIdInput.value = data.case_id;
     filesListCaseIdInput.value = data.case_id;
     finalizeCaseIdInput.value = data.case_id;
+    reviewCaseIdInput.value = data.case_id;
     setDownloadExcelLink(data.case_id);
     updateRerunExtractButtonState();
     createCaseResult.textContent = JSON.stringify(data, null, 2);
@@ -183,6 +210,7 @@ async function uploadCaseFileForModule(event, config) {
     extractFileIdInput.value = data.file?.file_id || "";
     filesListCaseIdInput.value = caseId;
     finalizeCaseIdInput.value = caseId;
+    reviewCaseIdInput.value = caseId;
     setDownloadExcelLink(caseId);
     updateRerunExtractButtonState();
     config.resultContainer.textContent = JSON.stringify(data, null, 2);
@@ -323,6 +351,10 @@ async function finalizeCase(event) {
     }
 
     renderFinalizeSummary(data);
+    reviewCaseIdInput.value = caseId;
+    currentReviewData = null;
+    saveReviewButton.disabled = true;
+    exportReviewedExcelButton.disabled = true;
     setDownloadExcelLink(caseId);
     finalizeResult.textContent = JSON.stringify(data, null, 2);
   } catch (error) {
@@ -384,6 +416,12 @@ function renderFinalizeSummary(data) {
   finalizeSummary.replaceChildren();
   addSummaryItem("final_result_path", data.final_result_path, finalizeSummary);
   addSummaryItem("excel_path", data.excel_path, finalizeSummary);
+  addSummaryItem("message", data.message, finalizeSummary);
+  addSummaryItem(
+    "excel_export_allowed",
+    data.review_status?.excel_export_allowed,
+    finalizeSummary,
+  );
 
   const summary = data.summary || {};
   addSummaryItem("complete_row_count", summary.complete_row_count, finalizeSummary);
@@ -406,18 +444,27 @@ function getActiveCaseId() {
     accountUploadCaseIdInput.value.trim() ||
     identityUploadCaseIdInput.value.trim() ||
     filesListCaseIdInput.value.trim() ||
-    finalizeCaseIdInput.value.trim()
+    finalizeCaseIdInput.value.trim() ||
+    reviewCaseIdInput.value.trim()
   );
 }
 
-function setDownloadExcelLink(caseId) {
+function setDownloadExcelLink(caseId, enabled = false) {
   downloadExcelLink.href = `/api/cases/${encodeURIComponent(caseId)}/export/excel`;
-  downloadExcelLink.classList.remove("is-disabled");
-  downloadExcelLink.setAttribute("aria-disabled", "false");
+  if (enabled) {
+    downloadExcelLink.textContent = "下载 Excel";
+    downloadExcelLink.classList.remove("is-disabled");
+    downloadExcelLink.setAttribute("aria-disabled", "false");
+  } else {
+    downloadExcelLink.textContent = "下载 Excel（请先保存人工复核结果）";
+    downloadExcelLink.classList.add("is-disabled");
+    downloadExcelLink.setAttribute("aria-disabled", "true");
+  }
 }
 
 function resetDownloadExcelLink() {
   downloadExcelLink.href = "#";
+  downloadExcelLink.textContent = "下载 Excel（请先保存人工复核结果）";
   downloadExcelLink.classList.add("is-disabled");
   downloadExcelLink.setAttribute("aria-disabled", "true");
 }
@@ -426,6 +473,312 @@ function updateRerunExtractButtonState() {
   const disabled = !getActiveCaseId() || !extractFileIdInput.value.trim();
   viewExtractInputButton.disabled = disabled;
   rerunExtractButton.disabled = disabled;
+}
+
+async function loadReviewData() {
+  const caseId = reviewCaseIdInput.value.trim() || getActiveCaseId();
+  if (!caseId) {
+    reviewResult.textContent = "请填写 case_id";
+    return;
+  }
+
+  reviewCaseIdInput.value = caseId;
+  reviewResult.textContent = "正在加载复核数据...";
+  reviewStatusSummary.replaceChildren();
+  reviewTables.replaceChildren();
+  reviewChecklist.replaceChildren();
+
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}/review`, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.detail || "加载复核数据失败");
+    }
+
+    currentReviewData = payload.data || {};
+    renderReviewStatus(payload.review_status || {});
+    renderReviewData(currentReviewData);
+    saveReviewButton.disabled = false;
+    exportReviewedExcelButton.disabled =
+      payload.review_status?.excel_export_allowed !== true;
+    setDownloadExcelLink(caseId, payload.review_status?.excel_export_allowed === true);
+    reviewResult.textContent = JSON.stringify(payload, null, 2);
+  } catch (error) {
+    reviewResult.textContent = error.message || "加载复核数据失败";
+  }
+}
+
+async function saveReviewData() {
+  const caseId = reviewCaseIdInput.value.trim() || getActiveCaseId();
+  if (!caseId) {
+    reviewResult.textContent = "请填写 case_id";
+    return;
+  }
+
+  const data = collectReviewData();
+  reviewResult.textContent = "正在保存复核结果...";
+
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}/review`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.detail || "保存复核结果失败");
+    }
+
+    currentReviewData = data.review_data;
+    renderReviewStatus(payload.review_status || {});
+    exportReviewedExcelButton.disabled = false;
+    setDownloadExcelLink(caseId, true);
+    reviewResult.textContent = `复核结果已保存，可以导出 Excel\n${JSON.stringify(payload, null, 2)}`;
+  } catch (error) {
+    reviewResult.textContent = error.message || "保存复核结果失败";
+  }
+}
+
+async function exportReviewedExcel() {
+  const caseId = reviewCaseIdInput.value.trim() || getActiveCaseId();
+  if (!caseId) {
+    reviewResult.textContent = "请填写 case_id";
+    return;
+  }
+
+  reviewResult.textContent = "正在导出 Excel...";
+
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}/export/excel`);
+    if (!response.ok) {
+      let message = "导出 Excel 失败";
+      try {
+        const payload = await response.json();
+        message = payload.detail || message;
+      } catch {
+        // Keep default message for non-JSON errors.
+      }
+      if (response.status === 409) {
+        message = "请先保存人工复核结果，再导出 Excel";
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    downloadBlob(blob, `${caseId}_final.xlsx`);
+    reviewResult.textContent = "Excel 已开始下载";
+  } catch (error) {
+    reviewResult.textContent = error.message || "导出 Excel 失败";
+  }
+}
+
+function renderReviewStatus(status) {
+  reviewStatusSummary.replaceChildren();
+  addSummaryItem("review_saved", status.review_saved, reviewStatusSummary);
+  addSummaryItem("review_saved_at", status.review_saved_at, reviewStatusSummary);
+  addSummaryItem("excel_export_allowed", status.excel_export_allowed, reviewStatusSummary);
+  addSummaryItem("review_source", status.review_source, reviewStatusSummary);
+}
+
+function renderReviewData(data) {
+  reviewTables.replaceChildren();
+  for (const [key, config] of Object.entries(reviewTableConfigs)) {
+    renderEditableReviewTable(key, config.title, config.columns, data[key] || []);
+  }
+  renderIdentityReviewTable(data["身份信息"] || {});
+  renderChecklistTable(data["checklist结果"] || []);
+}
+
+function renderEditableReviewTable(key, title, columns, rows) {
+  const section = document.createElement("section");
+  section.className = "review-table-block";
+  section.dataset.reviewKey = key;
+
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  section.appendChild(heading);
+
+  const actions = document.createElement("div");
+  actions.className = "button-row";
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.textContent = "新增一行";
+  addButton.addEventListener("click", () => addEditableRow(key, columns, {}));
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.textContent = "删除选中行";
+  deleteButton.addEventListener("click", () => deleteSelectedRows(key));
+  actions.append(addButton, deleteButton);
+  section.appendChild(actions);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "review-table-wrapper";
+  const table = document.createElement("table");
+  table.className = "review-table";
+  table.dataset.reviewKey = key;
+  table.dataset.columns = JSON.stringify(columns);
+  table.innerHTML = `<thead><tr><th>选择</th>${columns.map((column) => `<th>${column}</th>`).join("")}</tr></thead><tbody></tbody>`;
+  wrapper.appendChild(table);
+  section.appendChild(wrapper);
+  reviewTables.appendChild(section);
+
+  for (const row of rows) {
+    addEditableRow(key, columns, row);
+  }
+}
+
+function renderIdentityReviewTable(identityInfo) {
+  const identity = identityInfo && typeof identityInfo === "object" ? identityInfo : {};
+  const columns = [
+    ...identityReviewColumns,
+    ...Object.keys(identity).filter(
+      (column) => column !== "_meta" && !identityReviewColumns.includes(column),
+    ),
+  ];
+  renderEditableReviewTable("身份信息", "身份信息", columns, [identity]);
+}
+
+function renderChecklistTable(rows) {
+  const section = document.createElement("section");
+  section.className = "review-table-block";
+  const heading = document.createElement("h3");
+  heading.textContent = "checklist结果";
+  section.appendChild(heading);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "review-table-wrapper";
+  const table = document.createElement("table");
+  table.className = "review-table";
+  table.innerHTML = `<thead><tr>${checklistReviewColumns.map((column) => `<th>${column}</th>`).join("")}</tr></thead><tbody></tbody>`;
+  const tbody = table.querySelector("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const column of checklistReviewColumns) {
+      const td = document.createElement("td");
+      td.textContent = row[column] || "";
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  wrapper.appendChild(table);
+  section.appendChild(wrapper);
+  reviewChecklist.replaceChildren(section);
+}
+
+function addEditableRow(key, columns, row) {
+  const table = reviewTables.querySelector(`table[data-review-key="${key}"]`);
+  if (!table) {
+    return;
+  }
+
+  const tbody = table.querySelector("tbody");
+  const tr = document.createElement("tr");
+  tr.dataset.meta = JSON.stringify(row._meta || {});
+
+  const selectCell = document.createElement("td");
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.setAttribute("aria-label", "选择行");
+  selectCell.appendChild(checkbox);
+  tr.appendChild(selectCell);
+
+  for (const column of columns) {
+    const td = document.createElement("td");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = row[column] ?? "";
+    input.dataset.column = column;
+    td.appendChild(input);
+    tr.appendChild(td);
+  }
+  tbody.appendChild(tr);
+}
+
+function deleteSelectedRows(key) {
+  const table = reviewTables.querySelector(`table[data-review-key="${key}"]`);
+  if (!table) {
+    return;
+  }
+
+  const rows = [...table.querySelectorAll("tbody tr")];
+  const selectedRows = rows.filter((row) => row.querySelector('input[type="checkbox"]')?.checked);
+  const rowsToDelete = selectedRows.length ? selectedRows : rows.slice(-1);
+  for (const row of rowsToDelete) {
+    row.remove();
+  }
+}
+
+function collectReviewData() {
+  return {
+    review_data: {
+      最终申报表: collectReviewRows("最终申报表"),
+      完整表: collectReviewRows("完整表"),
+      持仓: collectReviewRows("持仓"),
+      身份信息: collectIdentityInfo(),
+      checklist结果: currentReviewData?.["checklist结果"] || [],
+    },
+  };
+}
+
+function collectReviewRows(key) {
+  const table = reviewTables.querySelector(`table[data-review-key="${key}"]`);
+  if (!table) {
+    return [];
+  }
+
+  const columns = JSON.parse(table.dataset.columns || "[]");
+  const rows = [];
+  for (const tr of table.querySelectorAll("tbody tr")) {
+    const row = {};
+    let hasValue = false;
+    for (const column of columns) {
+      const value = tr.querySelector(`input[data-column="${column}"]`)?.value.trim() || "";
+      row[column] = value;
+      hasValue = hasValue || Boolean(value);
+    }
+    const meta = parseJsonObject(tr.dataset.meta);
+    if (Object.keys(meta).length) {
+      row._meta = meta;
+    }
+    if (hasValue || Object.keys(meta).length) {
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function collectIdentityInfo() {
+  const rows = collectReviewRows("身份信息");
+  return rows[0] || {};
+}
+
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function processDebugFile(event) {
@@ -467,6 +820,7 @@ accountUploadCaseIdInput.addEventListener("input", updateRerunExtractButtonState
 filesListCaseIdInput.addEventListener("input", updateRerunExtractButtonState);
 finalizeCaseIdInput.addEventListener("input", () => {
   const caseId = finalizeCaseIdInput.value.trim();
+  reviewCaseIdInput.value = caseId;
   if (caseId) {
     setDownloadExcelLink(caseId);
   } else {
@@ -474,11 +828,22 @@ finalizeCaseIdInput.addEventListener("input", () => {
   }
   updateRerunExtractButtonState();
 });
+reviewCaseIdInput.addEventListener("input", () => {
+  const caseId = reviewCaseIdInput.value.trim();
+  if (caseId) {
+    setDownloadExcelLink(caseId);
+  } else {
+    resetDownloadExcelLink();
+  }
+});
 extractFileIdInput.addEventListener("input", updateRerunExtractButtonState);
 viewExtractInputButton.addEventListener("click", viewExtractInput);
 rerunExtractButton.addEventListener("click", rerunExtract);
 caseFilesListForm.addEventListener("submit", listCaseFiles);
 finalizeForm.addEventListener("submit", finalizeCase);
+loadReviewButton.addEventListener("click", loadReviewData);
+saveReviewButton.addEventListener("click", saveReviewData);
+exportReviewedExcelButton.addEventListener("click", exportReviewedExcel);
 debugFileForm.addEventListener("submit", processDebugFile);
 downloadExcelLink.addEventListener("click", (event) => {
   if (downloadExcelLink.getAttribute("aria-disabled") === "true") {

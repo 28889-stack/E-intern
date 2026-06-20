@@ -18,7 +18,7 @@ body {
 }
 
 .panel {
-  width: min(640px, 100%);
+  width: min(1180px, 100%);
   margin: 0 auto;
   padding: 40px;
   border: 1px solid #e5eaf3;
@@ -111,6 +111,17 @@ h1 {
   font: inherit;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.work-form button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
 .llm-tools button,
 .work-form button,
 .download-link {
@@ -168,6 +179,76 @@ h1 {
   color: #0f172a;
   font-size: 14px;
   white-space: pre-wrap;
+}
+
+.review-tables,
+.review-checklist {
+  display: grid;
+  gap: 18px;
+}
+
+.review-table-block {
+  display: grid;
+  gap: 10px;
+}
+
+.review-table-block h3 {
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 16px;
+}
+
+.review-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #d7deea;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.review-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.review-table th,
+.review-table td {
+  padding: 8px;
+  border-bottom: 1px solid #e5eaf3;
+  border-right: 1px solid #e5eaf3;
+  text-align: left;
+  vertical-align: top;
+}
+
+.review-table th {
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.review-table th:first-child,
+.review-table td:first-child {
+  width: 56px;
+  text-align: center;
+}
+
+.review-table td input[type="text"] {
+  width: 100%;
+  min-width: 112px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: #f8fafc;
+  font: inherit;
+}
+
+.review-table td input[type="text"]:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  outline: none;
 }
 
 @media (max-width: 640px) {

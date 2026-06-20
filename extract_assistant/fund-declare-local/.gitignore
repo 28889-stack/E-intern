@@ -1,7 +1,9 @@
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .venv/
+.venv-ocr/
 
 # Node
 node_modules/
@@ -14,6 +16,7 @@ dist/
 .DS_Store
 
 # Runtime outputs
+output/
 exports/*
 !exports/.gitkeep
 data/cases/*

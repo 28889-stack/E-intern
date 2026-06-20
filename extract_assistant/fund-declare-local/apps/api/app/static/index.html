@@ -101,13 +101,30 @@
             case_id
             <input id="finalize-case-id" name="case_id" type="text" />
           </label>
-          <button type="submit">生成 Excel</button>
+          <button type="submit">生成 final_result</button>
           <div id="finalize-summary" class="result-summary" aria-live="polite"></div>
           <a id="download-excel-link" class="download-link is-disabled" href="#" aria-disabled="true">
-            下载 Excel
+            下载 Excel（请先保存人工复核结果）
           </a>
           <pre id="finalize-result" class="case-result" aria-live="polite"></pre>
         </form>
+
+        <section id="review-section" class="work-form">
+          <h2>人工复核与修改</h2>
+          <label>
+            case_id
+            <input id="review-case-id" name="case_id" type="text" />
+          </label>
+          <div class="button-row">
+            <button id="load-review-button" type="button">加载复核数据</button>
+            <button id="save-review-button" type="button" disabled>保存复核结果</button>
+            <button id="export-reviewed-excel-button" type="button" disabled>导出 Excel</button>
+          </div>
+          <div id="review-status-summary" class="result-summary" aria-live="polite"></div>
+          <div id="review-tables" class="review-tables"></div>
+          <div id="review-checklist" class="review-checklist"></div>
+          <pre id="review-result" class="case-result" aria-live="polite"></pre>
+        </section>
 
         <form id="debug-file-form" class="work-form">
           <h2>文件分流 / OCR / PDF 读取调试</h2>

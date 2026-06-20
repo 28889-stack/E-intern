@@ -1,1 +1,10 @@
 .DS_Store
+*.pyc
+__pycache__/
+**/__pycache__/
+.venv/
+.venv-ocr/
+output/
+data/cases/
+data/debug_uploads/
+data/debug_outputs/
