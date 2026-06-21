@@ -74,10 +74,11 @@ class GuangfaExtractor:
             [
                 "最终输出约束：",
                 "1. 只输出一个合法 JSON 对象，不要输出解释文字、Markdown 或代码块。",
-                "2. 保留 Guangfa prompt 中定义的来源专属 schema，不要改成 Chinaclear schema。",
-                "3. 如果 prompt 定义了 position_group、trade_group、other_events，请按该结构输出。",
+                "2. 保留 Guangfa prompt 中定义的 business_events 来源专属 schema，不要改成 Chinaclear schema。",
+                "3. 根对象优先输出 schema_version=guangfa_business_event_understanding_v1。",
                 "4. 需要在根对象中包含或允许后处理补齐 source_type=guangfa，content_type=guangfa。",
-                "5. 无法判断字段时用空字符串，不要编造。",
+                "5. 每条业务记录尽量输出 final_field_candidates 和 source_evidence。",
+                "6. 无法判断字段时用空字符串，并写入 manual_review_required / review_reasons，不要编造。",
             ]
         )
 
@@ -88,7 +89,19 @@ class GuangfaExtractor:
         llm_result: dict,
     ) -> dict:
         extract_result = dict(llm_result) if isinstance(llm_result, dict) else {}
-        extract_result.setdefault("schema_version", "guangfa_extract_v1")
+        has_business_events = isinstance(extract_result.get("business_events"), list)
+        if has_business_events:
+            extract_result.setdefault(
+                "schema_version",
+                "guangfa_business_event_understanding_v1",
+            )
+            extract_result.setdefault("file_summary", {})
+            extract_result.setdefault("account_candidates", [])
+            extract_result.setdefault("holding_records", [])
+            extract_result.setdefault("negative_proofs", [])
+            extract_result.setdefault("document_level_review_items", [])
+        else:
+            extract_result.setdefault("schema_version", "guangfa_extract_v1")
         extract_result["source_type"] = "guangfa"
         extract_result["file_id"] = file_record.get("file_id")
         extract_result["case_id"] = case_id

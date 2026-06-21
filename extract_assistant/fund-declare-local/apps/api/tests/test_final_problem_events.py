@@ -129,6 +129,83 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["final_declaration_rows"]), 2)
         self.assertEqual(resolved["review_issue_rows"], [])
 
+    def test_distinct_trades_with_generic_table_record_id_are_not_source_conflicts(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "深A",
+            "securities_account": "0022608195",
+            "event_id": "资金流水明细",
+            "event_type": "ordinary_trade",
+            "event_date": "2025-04-14",
+            "security_code": "000951",
+            "security_name": "中国重汽",
+            "direction": "buy",
+            "quantity_raw": "5000.0000",
+            "source_evidence": [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "file_name": "statement.pdf",
+                    "source_row_id": "资金流水明细",
+                    "source_page": "1",
+                    "row_no": "资金流水明细",
+                }
+            ],
+        }
+        resolved = resolve_case_events(
+            [
+                dict(
+                    base_row,
+                    price_raw="18.7400",
+                    amount_raw="-93716.4400",
+                    raw_text="2025-04-14 191115 805409415 证券买入 中国重汽 5000 18.7400 -93716.4400",
+                ),
+                dict(
+                    base_row,
+                    price_raw="18.7800",
+                    amount_raw="-93916.4800",
+                    raw_text="2025-04-14 191115 805409416 证券买入 中国重汽 5000 18.7800 -93916.4800",
+                ),
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 2)
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_same_economic_fields_with_different_trade_times_are_not_merged(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "深A",
+            "securities_account": "0022608195",
+            "event_type": "ordinary_trade",
+            "event_date": "2025-04-14",
+            "security_code": "000951",
+            "security_name": "中国重汽",
+            "direction": "buy",
+            "quantity_raw": "5000.0000",
+            "price_raw": "18.7400",
+            "amount_raw": "-93716.4400",
+        }
+        resolved = resolve_case_events(
+            [
+                dict(base_row, event_id="trade_001", event_time="09:30:01"),
+                dict(base_row, event_id="trade_002", event_time="10:30:01"),
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 2)
+        self.assertEqual(resolved["merge_audit"], [])
+
     def test_unknown_event_creates_one_review_issue(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 
@@ -506,7 +583,7 @@ class FinalProblemEventsTest(unittest.TestCase):
                 "trade_group": {"trade_columns": [], "trades": []},
                 "other_events": [],
                 "holdings": [],
-                "input_text": "证券账户开户状态查询\n查询日期：2024-12-31\n未开立证券账户",
+                "input_text": "证券账户开户状态查询\n查询日期：2024-12-31\n截至2024-12-31，张三无账户信息",
             },
             {
                 "file_id": "file_004",
@@ -517,17 +594,146 @@ class FinalProblemEventsTest(unittest.TestCase):
 
         self.assertEqual(len(normalized["full_transaction_rows"]), 1)
         row = normalized["full_transaction_rows"][0]
-        self.assertEqual(row["event_type"], "no_account_record")
-        self.assertEqual(row["securities_account"], "未开立")
+        self.assertEqual(row["event_type"], "no_account_info")
+        self.assertEqual(row["transfer_type_raw"], "无账户信息")
         self.assertEqual(row["event_date"], "2024-12-31")
-        self.assertEqual(row["transfer_type_raw"], "未开立账户")
+        self.assertEqual(row["person_name"], "张三")
+        self.assertEqual(row["security_code"], "")
+        self.assertEqual(row["quantity_raw"], "")
         self.assertEqual(len(normalized["final_declaration_rows"]), 1)
 
         resolved = resolve_case_events(normalized["full_transaction_rows"])
         self.assertEqual(len(resolved["final_declaration_rows"]), 1)
         self.assertEqual(resolved["review_issue_rows"], [])
 
-    def test_no_account_without_period_requires_review_but_not_account_review(self):
+    def test_chinaclear_negative_proof_no_account_info_is_supported(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
+
+        normalized = normalize_chinaclear(
+            "case_test",
+            {
+                "document_info": {"file_name": "account_status.pdf"},
+                "trade_group": {"trade_columns": [], "trades": []},
+                "negative_proofs": [
+                    {
+                        "proof_type": "无账户信息",
+                        "person_name": "李四",
+                        "as_of_date": "2024-12-31",
+                        "source_evidence": {
+                            "page": 1,
+                            "row_no": "1",
+                            "raw_text": "截至2024-12-31，李四无账户信息。",
+                        },
+                    }
+                ],
+            },
+            {
+                "file_id": "file_004",
+                "file_no": "004",
+                "original_file_name": "account_status.pdf",
+            },
+        )
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        row = resolved["final_declaration_rows"][0]
+        self.assertEqual(row["event_type"], "no_account_info")
+        self.assertEqual(row["person_name"], "李四")
+        self.assertEqual(row["event_date"], "2024-12-31")
+
+    def test_chinaclear_negative_proof_uses_raw_summary_as_evidence(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
+
+        normalized = normalize_chinaclear(
+            "case_test",
+            {
+                "document_info": {"file_name": "account_status.pdf"},
+                "trade_group": {"trade_columns": [], "trades": []},
+                "negative_proofs": [
+                    {
+                        "proof_type": "无账户信息",
+                        "person_name": "李四",
+                        "as_of_date": "2024-12-31",
+                        "raw_summary": "截至2024-12-31，李四无账户信息。",
+                        "source_evidence": {
+                            "page": 1,
+                            "row_no": "1",
+                        },
+                    }
+                ],
+            },
+            {
+                "file_id": "file_004",
+                "file_no": "004",
+                "original_file_name": "account_status.pdf",
+            },
+        )
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_chinaclear_no_account_other_event_uses_raw_text_input_source_as_evidence(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
+        from app.services.local_store import save_json
+
+        with TemporaryDirectory() as tmp_dir:
+            raw_text_path = Path(tmp_dir) / "raw_text.json"
+            save_json(
+                raw_text_path,
+                {
+                    "pages": [
+                        {
+                            "page": 1,
+                            "text": "未曾开立证券账户证明\n截至2026年03月06日，申请人张，未曾开立证券账户。",
+                        }
+                    ]
+                },
+            )
+
+            normalized = normalize_chinaclear(
+                "case_test",
+                {
+                    "document_info": {
+                        "file_name": "account_status.pdf",
+                        "document_title": "未曾开立证券账户证明",
+                        "period_end": "2026-03-06",
+                        "holder_name": "张",
+                    },
+                    "trade_group": {"trade_columns": [], "trades": []},
+                    "other_events": [
+                        {
+                            "event_id": "e1",
+                            "event_type": "no_account_info",
+                            "event_date": "2026-03-06",
+                            "transfer_type_raw": "无账户信息",
+                            "source_pages": [1],
+                        }
+                    ],
+                    "input_sources": {
+                        "raw_text_path": str(raw_text_path),
+                    },
+                },
+                {
+                    "file_id": "file_004",
+                    "file_no": "004",
+                    "original_file_name": "account_status.pdf",
+                },
+            )
+
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        self.assertEqual(resolved["review_issue_rows"], [])
+        row = resolved["final_declaration_rows"][0]
+        self.assertEqual(row["event_type"], "no_account_info")
+        self.assertEqual(row["person_name"], "张")
+        self.assertIn("未曾开立证券账户证明", row["source_evidence"][0]["raw_text"])
+
+    def test_no_account_without_period_or_name_requires_review_but_not_trade_field_review(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
 
@@ -551,7 +757,61 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["review_issue_rows"]), 1)
         issue = resolved["review_issue_rows"][0]
         self.assertIn("查询日期/期间", issue["待复核原因"])
+        self.assertIn("姓名", issue["待复核原因"])
         self.assertNotIn("证券账号", issue["待复核原因"])
+        self.assertNotIn("证券代码", issue["待复核原因"])
+
+    def test_no_account_info_checklist_passes_when_name_and_date_exist(self):
+        from app.pipeline.final_result_builder import _build_checklist_rows
+
+        rows = _build_checklist_rows(
+            [],
+            [],
+            account_info_rows=[
+                {
+                    "event_type": "no_account_info",
+                    "event_date": "2024-12-31",
+                    "person_name": "张三",
+                    "transfer_type_raw": "无账户信息",
+                }
+            ],
+        )
+
+        account_check = [row for row in rows if row["checklist条件"] == "账户信息检查"][0]
+        self.assertEqual(account_check["状态"], "通过")
+        self.assertEqual(account_check["说明"], "截至2024-12-31，张三无账户信息。")
+
+    def test_no_account_info_checklist_requires_review_when_name_or_date_missing(self):
+        from app.pipeline.final_result_builder import _build_checklist_rows
+
+        rows = _build_checklist_rows(
+            [],
+            [],
+            pending_review_events=[
+                {
+                    "event_type": "no_account_info",
+                    "transfer_type_raw": "无账户信息",
+                    "missing_fields": ["person_name", "event_date"],
+                }
+            ],
+        )
+
+        account_check = [row for row in rows if row["checklist条件"] == "账户信息检查"][0]
+        self.assertEqual(account_check["状态"], "需人工复核")
+        self.assertIn("缺少姓名或截止日期", account_check["说明"])
+
+    def test_no_account_info_is_not_exported_to_complete_transaction_sheet(self):
+        from app.pipeline.final_result_builder import _complete_sheet_rows
+
+        rows = _complete_sheet_rows(
+            [
+                {"event_type": "no_account_info", "transfer_type_raw": "无账户信息"},
+                {"event_type": "ordinary_trade", "transfer_type_raw": "买入"},
+            ]
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["event_type"], "ordinary_trade")
 
     def test_empty_record_without_account_or_period_requires_review(self):
         from app.pipeline.case_event_resolver import resolve_case_events
@@ -684,6 +944,52 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["review_issue_rows"]), 1)
         self.assertIn("持仓记录", resolved["review_issue_rows"][0]["问题描述"])
         self.assertIn("浦发银行", resolved["review_issue_rows"][0]["问题描述"])
+
+    def test_missing_securities_account_does_not_report_account_type_missing(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        resolved = resolve_case_events(
+            [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "普通账户",
+                    "event_id": "event_001",
+                    "event_type": "ordinary_trade",
+                    "event_date": "2026-01-01",
+                    "security_code": "600000",
+                    "security_name": "浦发银行",
+                    "direction": "buy",
+                    "quantity_raw": "100",
+                    "price_raw": "10",
+                    "amount_raw": "-1000",
+                }
+            ]
+        )
+
+        issue = resolved["review_issues"][0]
+        self.assertIn("securities_account_missing", issue["issue_types"])
+        self.assertNotIn("account_type_missing", issue["issue_types"])
+        self.assertEqual(issue["missing_fields"], ["securities_account"])
+        self.assertIn("证券账号", resolved["review_issue_rows"][0]["待复核原因"])
+        self.assertNotIn("账户类型", resolved["review_issue_rows"][0]["待复核原因"])
+
+    def test_checklist_mentions_pending_review_data_before_reconciliation(self):
+        from app.pipeline.final_result_builder import _build_checklist_rows
+
+        rows = _build_checklist_rows(
+            [],
+            [],
+            pending_review_event_count=2,
+            pending_review_holding_count=1,
+        )
+
+        self.assertEqual(rows[0]["checklist条件"], "上次持仓 + 交易 = 本次持仓")
+        self.assertEqual(rows[0]["状态"], "需人工复核")
+        self.assertIn("2条待复核交易", rows[0]["说明"])
+        self.assertIn("1条待复核持仓", rows[0]["说明"])
+        self.assertIn("暂无法自动校验", rows[0]["说明"])
 
 
 if __name__ == "__main__":

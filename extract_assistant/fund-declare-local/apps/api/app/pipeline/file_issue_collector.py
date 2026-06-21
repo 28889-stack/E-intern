@@ -167,6 +167,8 @@ def _collect_from_processed_files(case_id: str, state: dict, file_record: dict) 
     ocr_result = local_store.read_json(output_dir / "ocr_result.json", {})
     if isinstance(ocr_result, dict):
         _collect_ocr_confidence(state, ocr_result)
+        _collect_ocr_page_failures(state, ocr_result)
+        _collect_ocr_quality_issues(state, ocr_result)
         _collect_status_issue(
             state,
             "ocr_status",
@@ -284,6 +286,38 @@ def _collect_ocr_confidence(state: dict, ocr_result: dict) -> None:
         )
 
 
+def _collect_ocr_page_failures(state: dict, ocr_result: dict) -> None:
+    failed_pages = _as_list(ocr_result.get("ocr_failed_pages"))
+    for page in _as_list(ocr_result.get("page_results") or ocr_result.get("pages")):
+        if isinstance(page, dict) and str(page.get("status") or "") not in {"", "success"}:
+            failed_pages.append(page.get("page"))
+    failed_pages = _unique(failed_pages)
+    if not failed_pages:
+        return
+    _add_issue(
+        state,
+        "ocr_partial_failed",
+        "warning",
+        f"部分页面 OCR 结果为空或解析失败：第 {','.join(failed_pages)} 页。",
+        "请核对原文件和 OCR 结果。",
+    )
+
+
+def _collect_ocr_quality_issues(state: dict, ocr_result: dict) -> None:
+    for issue in _as_list(ocr_result.get("quality_issues")):
+        if not isinstance(issue, dict):
+            continue
+        issue_type = str(issue.get("issue_type") or "")
+        message = str(issue.get("message") or "").strip()
+        _add_issue(
+            state,
+            issue_type,
+            str(issue.get("severity") or "warning"),
+            message or _quality_issue_label(issue_type),
+            "请核对原文件和 OCR 结果；如存在遮挡或涂抹，请重新上传无遮挡材料。",
+        )
+
+
 def _collect_extract_issues(state: dict, extract_result: dict) -> None:
     status = str(extract_result.get("extract_status") or "").strip()
     _collect_status_issue(state, "extract_status", status, _extract_issue_type(status))
@@ -387,7 +421,15 @@ def _issue_type_from_text(text: str) -> str:
         return "schema_invalid"
     if "ocr" in lowered or "文字识别" in text:
         return "ocr_failed"
+    if "遮挡" in text or "涂抹" in text:
+        return "suspected_occlusion"
     return "extract_failed"
+
+
+def _quality_issue_label(issue_type: str) -> str:
+    return {
+        "suspected_occlusion": "材料存在疑似遮挡或涂抹。",
+    }.get(issue_type, "存在 OCR 质量问题。")
 
 
 def _file_issue_type_from_review_type(issue_type: str) -> str:

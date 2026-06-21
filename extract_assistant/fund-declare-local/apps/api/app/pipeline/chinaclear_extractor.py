@@ -115,8 +115,9 @@ class ChinaclearExtractor:
                 "3. 普通交易只输出到 trade_group.trades，不要输出到 other_events。",
                 "4. trade_group.trade_columns 固定为：[\"trade_id\",\"market\",\"trade_date\",\"security_code\",\"security_name\",\"direction\",\"quantity_raw\",\"price_raw\",\"balance_after_raw\",\"transfer_type_raw\",\"source_page\",\"row_no\"]。",
                 "5. trade_group.trades 中每一行必须严格按 trade_columns 顺序输出；没有值的位置用空字符串。",
-                "6. other_events 只放非普通交易事件：security_registration、cash_dividend、bond_interest、bonus_share、unknown_event。",
-                "7. 不输出 raw_text、confidence、llm_confidence、related_rows、business_interpretation、calculation_policy。",
+                "6. other_events 只放非普通交易事件：security_registration、cash_dividend、bond_interest、bonus_share、no_account_info、no_trade_record、no_holding_record、unknown_event。",
+                "7. no_account_info 表示未曾开立/未查询到证券账户，不等于 no_holding_record 或 no_trade_record。",
+                "8. no_account_info、no_trade_record、no_holding_record 必须尽量保留简短 raw_text 原文证据；其他事件不要输出 confidence、llm_confidence、related_rows、business_interpretation、calculation_policy。",
             ]
         )
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.pipeline import file_router, pdf_table_extractor, pdf_text_extractor
+from app.pipeline.ocr_quality_checker import inspect_ocr_quality
 from app.services.local_store import ensure_dir, save_json
 from app.services.ocr_client import OcrClient
 
@@ -62,7 +63,24 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
 
     if route_type in {"scanned_pdf", "image"}:
         file_type = 0 if route_type == "scanned_pdf" else 1
+        quality_result = inspect_ocr_quality(file_path, route_type)
         ocr_result = OcrClient().infer(file_path, file_type=file_type)
+        ocr_result = {
+            **ocr_result,
+            "quality_status": quality_result.get("quality_status", "normal"),
+            "quality_issues": quality_result.get("quality_issues", []),
+            "quality_metrics": quality_result.get("metrics", {}),
+            "manual_review_required": (
+                ocr_result.get("manual_review_required", False)
+                or quality_result.get("manual_review_required", False)
+            ),
+            "review_reasons": _unique(
+                [
+                    *ocr_result.get("review_reasons", []),
+                    *quality_result.get("review_reasons", []),
+                ]
+            ),
+        }
         ocr_result_path = output_path / "ocr_result.json"
         save_json(ocr_result_path, ocr_result)
 
@@ -72,6 +90,7 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
                 "ocr_done" if ocr_result.get("ocr_status") == "success" else "ocr_failed"
             ),
             "ocr_status": ocr_result.get("ocr_status", "failed"),
+            "ocr_quality_status": quality_result.get("quality_status", "normal"),
             "ocr_result_path": str(ocr_result_path),
             "manual_review_required": (
                 route_result.get("manual_review_required", False)
@@ -86,4 +105,15 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
         return process_result
 
     save_json(process_result_path, result)
+    return result
+
+
+def _unique(values: list) -> list:
+    result = []
+    seen = set()
+    for value in values:
+        if value in (None, "") or value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
     return result

@@ -20,10 +20,12 @@
 7. 不计算红利、利息、交易金额、盈亏、税费。
 8. 如果材料中没有交易金额，不输出 `amount`，不要用“数量 × 价格”反推。
 9. 为避免 JSON 被截断，普通交易必须使用“列定义 + 行数组”格式，不要使用对象数组。
-10. 如果材料明确显示某一账户在某一查询日或时间段内“无持仓”“未持仓”“共0条”“没有相应查询信息”，不要当成抽取失败；应输出空结果事件。
-11. 空结果事件也必须尽量抽取证券账户 / 一码通账户、查询日期或起止日期；如果账户号或时间缺失，仍输出事件，但在 `quality.warnings` 说明需要人工复核。
-12. 不要输出整行原文、置信度对象、大段解释或大量 `null` 字段。
-13. 输出只能是合法 JSON，不要输出解释文字。
+10. 如果材料明确显示某人截至某日无账户信息 / 未查询到证券账户 / 未曾开立证券账户 / 未开立证券账户 / 未开户证明 / 无证券账户 / 无股东账户，不要当成抽取失败；应输出 `no_account_info` 负向证明事件。
+11. 如果材料明确显示某一账户在某一查询日或时间段内“无持仓”“未持仓”“共0条”“没有相应查询信息”，不要当成抽取失败；应输出空结果事件。
+12. 空结果事件也必须尽量抽取证券账户 / 一码通账户、查询日期或起止日期；如果账户号或时间缺失，仍输出事件，但在 `quality.warnings` 说明需要人工复核。
+13. “无账户信息”不是“无持仓”，也不是“无交易”：无账户信息表示没有证券账户；无持仓表示有账户但无持仓；无交易表示有账户但某期间无交易。
+14. 不要输出整行原文、置信度对象、大段解释或大量 `null` 字段。
+15. 输出只能是合法 JSON，不要输出解释文字。
 
 ## 二、输出 JSON 结构
 
@@ -64,7 +66,7 @@
   "other_events": [
     {
       "event_id": "",
-      "event_type": "security_registration | cash_dividend | bond_interest | bonus_share | no_trade_record | no_holding_record | unknown_event",
+      "event_type": "security_registration | cash_dividend | bond_interest | bonus_share | no_trade_record | no_holding_record | no_account_info | unknown_event",
       "market": "SH | SZ",
       "event_date": "",
       "period_start": "",
@@ -95,6 +97,12 @@
 
 空结果事件规则：
 
+* `no_account_info`：某人截至某日没有证券账户信息 / 未查询到证券账户 / 未曾开立证券账户 / 未开立证券账户 / 未开户证明 / 无证券账户 / 无股东账户。
+  * `transfer_type_raw` 填“无账户信息”。
+  * `event_date` 填截止日期或查询日期。
+  * `holder_name` 或事件中的 `person_name` 尽量填姓名。
+  * `security_code`、`security_name`、`quantity_raw`、`price_raw`、`balance_after_raw` 留空，不要填 0。
+  * 必须保留相关原文证据；如缺少姓名或截止日期，在 `review_reason` 或 `quality.warnings` 说明需要人工复核。
 * `no_trade_record`：某证券账户在某一查询日或时间段内持有变更 / 交易记录明确为 0 条。
 * `no_holding_record`：某证券账户在某一查询日或时间段内明确无持仓 / 未持仓。
 * `event_date` 优先填查询日；如果只有时间段，填 `period_end`。

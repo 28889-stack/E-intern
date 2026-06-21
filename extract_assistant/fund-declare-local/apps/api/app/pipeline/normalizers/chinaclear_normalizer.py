@@ -7,10 +7,12 @@ from app.pipeline.normalizers.common import (
     build_normalized_result,
     empty_record_event_from_semantics,
 )
+from app.services.local_store import read_json
 
 
 def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) -> dict:
     document_info = extract_result.get("document_info") or {}
+    source_text = _source_text_from_extract_result(extract_result)
     full_rows = []
 
     trade_group = extract_result.get("trade_group") or {}
@@ -50,7 +52,12 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
     for other_event in as_list(extract_result.get("other_events")):
         if isinstance(other_event, dict):
             full_rows.append(
-                build_event_row(case_id, file_record, document_info, other_event)
+                build_event_row(
+                    case_id,
+                    file_record,
+                    document_info,
+                    _normalize_other_event(other_event, document_info, source_text),
+                )
             )
 
     for legacy_event in as_list(extract_result.get("events")):
@@ -58,6 +65,12 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
             full_rows.append(
                 build_event_row(case_id, file_record, document_info, legacy_event)
             )
+
+    for index, proof in enumerate(as_list(extract_result.get("negative_proofs"))):
+        if isinstance(proof, dict):
+            event = _negative_proof_event(proof, index)
+            if event:
+                full_rows.append(build_event_row(case_id, file_record, document_info, event))
 
     holding_rows = [
         build_holding_row(case_id, file_record, document_info, holding)
@@ -76,3 +89,200 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
             full_rows.append(empty_record_event)
 
     return build_normalized_result(full_rows, holding_rows)
+
+
+def _normalize_other_event(event: dict, document_info: dict, source_text: str) -> dict:
+    if not _is_no_account_info_event(event, document_info, source_text):
+        return event
+
+    normalized = dict(event)
+    normalized.update(
+        {
+            "event_type": "no_account_info",
+            "event_category": "negative_proof",
+            "proof_type": "无账户信息",
+            "event_date": (
+                event.get("event_date")
+                or event.get("period_end")
+                or document_info.get("period_end")
+                or ""
+            ),
+            "person_name": (
+                event.get("person_name")
+                or event.get("holder_name")
+                or document_info.get("holder_name")
+                or _person_name_from_text(source_text)
+            ),
+            "security_code": "",
+            "security_name": "",
+            "quantity_raw": "",
+            "price_raw": "",
+            "amount_raw": "",
+            "balance_after_raw": "",
+            "transfer_type_raw": "无账户信息",
+            "raw_text": event.get("raw_text") or _source_excerpt(source_text),
+        }
+    )
+    if "source_page" not in normalized:
+        normalized["source_page"] = _first_value(event.get("source_pages"))
+    if "row_no" not in normalized:
+        normalized["row_no"] = _first_value(event.get("row_nos"))
+    return normalized
+
+
+def _is_no_account_info_event(event: dict, document_info: dict, source_text: str) -> bool:
+    event_type = str(event.get("event_type") or "").strip()
+    event_text = "\n".join(
+        str(value)
+        for value in (
+            event.get("event_type"),
+            event.get("transfer_type_raw"),
+            event.get("event_type_raw"),
+            event.get("review_reason"),
+        )
+        if value not in (None, "")
+    )
+    if _has_no_account_signal(event_text):
+        return True
+
+    if event_type not in {"", "unknown_event", "no_holding_record", "no_trade_record"}:
+        return False
+
+    document_text = "\n".join(
+        str(value)
+        for value in (
+            document_info.get("document_title"),
+            source_text,
+        )
+        if value not in (None, "")
+    )
+    return _has_no_account_signal(document_text)
+
+
+def _has_no_account_signal(text: str) -> bool:
+    return any(
+        keyword in str(text or "")
+        for keyword in (
+            "无账户信息",
+            "未查询到证券账户",
+            "未曾开立证券账户",
+            "未开立证券账户",
+            "未开户证明",
+            "未开户",
+            "无证券账户",
+            "无股东账户",
+        )
+    )
+
+
+def _source_text_from_extract_result(extract_result: dict) -> str:
+    text_parts = []
+    for key in ("input_text", "source_text", "raw_text"):
+        value = extract_result.get(key)
+        if isinstance(value, str) and value.strip():
+            text_parts.append(value)
+
+    input_sources = extract_result.get("input_sources")
+    if isinstance(input_sources, dict):
+        for key in ("raw_text_path", "ocr_result_path"):
+            path = input_sources.get(key)
+            if path:
+                text_parts.append(_text_from_json_path(path))
+
+    return "\n".join(part for part in text_parts if part)
+
+
+def _text_from_json_path(path: str) -> str:
+    payload = read_json(path, {})
+    text_parts = []
+    if isinstance(payload, dict):
+        for page in as_list(payload.get("pages") or payload.get("page_results")):
+            if isinstance(page, dict):
+                text_parts.append(str(page.get("text") or ""))
+    return "\n".join(part for part in text_parts if part)
+
+
+def _source_excerpt(source_text: str) -> str:
+    lines = [line.strip() for line in str(source_text or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    for line in lines:
+        if _has_no_account_signal(line):
+            return line
+    return "\n".join(lines[:3])
+
+
+def _person_name_from_text(text: str) -> str:
+    import re
+
+    for pattern in (
+        r"申请人\s*([\u4e00-\u9fff]{1,8})",
+        r"(?:姓名|客户姓名|投资者姓名)[:：\s]*([\u4e00-\u9fff]{2,8})",
+        r"(?:截至|截止).*?([\u4e00-\u9fff]{1,8}).*?(?:未曾开立|未开立|无账户信息)",
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _first_value(value) -> str:
+    values = as_list(value)
+    if not values:
+        return ""
+    first = values[0]
+    return "" if first is None else str(first)
+
+
+def _negative_proof_event(proof: dict, index: int) -> dict | None:
+    proof_type = str(
+        proof.get("proof_type")
+        or proof.get("inferred_event_type")
+        or proof.get("raw_business_type")
+        or ""
+    )
+    if not any(
+        keyword in proof_type
+        for keyword in (
+            "无账户信息",
+            "未查询到证券账户",
+            "未曾开立证券账户",
+            "未开立证券账户",
+            "未开户证明",
+            "未开户",
+            "无证券账户",
+            "无股东账户",
+        )
+    ):
+        return None
+
+    source_evidence = proof.get("source_evidence") or {}
+    if not isinstance(source_evidence, dict):
+        source_evidence = {}
+    return {
+        "event_id": proof.get("event_id") or f"chinaclear_no_account_info_{index + 1}",
+        "event_type": "no_account_info",
+        "event_category": "negative_proof",
+        "proof_type": "无账户信息",
+        "event_date": (
+            proof.get("as_of_date")
+            or proof.get("query_date")
+            or proof.get("event_date")
+            or proof.get("period_end")
+            or ""
+        ),
+        "person_name": proof.get("person_name") or proof.get("holder_name") or "",
+        "security_code": "",
+        "security_name": "",
+        "quantity_raw": "",
+        "price_raw": "",
+        "amount_raw": "",
+        "balance_after_raw": "",
+        "transfer_type_raw": "无账户信息",
+        "source_page": source_evidence.get("page") or proof.get("source_page") or "",
+        "row_no": source_evidence.get("row_no") or proof.get("row_no") or "",
+        "raw_text": source_evidence.get("raw_text")
+        or proof.get("description")
+        or proof.get("raw_summary")
+        or "",
+    }

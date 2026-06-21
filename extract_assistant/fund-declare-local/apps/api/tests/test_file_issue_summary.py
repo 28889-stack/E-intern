@@ -11,6 +11,32 @@ if str(API_ROOT) not in sys.path:
 
 
 class FileIssueSummaryTest(unittest.TestCase):
+    def test_ocr_quality_checker_detects_large_scribble_occlusion(self):
+        from PIL import Image, ImageDraw
+
+        from app.pipeline.ocr_quality_checker import inspect_ocr_quality
+
+        with TemporaryDirectory() as temp_dir:
+            image_path = Path(temp_dir) / "scribbled.png"
+            image = Image.new("RGB", (900, 1200), "white")
+            draw = ImageDraw.Draw(image)
+            for row in range(120, 900, 40):
+                draw.text((80, row), "2026-01-01 600000 100 10.00 1000.00", fill="black")
+            for offset in range(0, 6):
+                draw.line(
+                    [(30, 360 + offset * 18), (820, 760 + offset * 28)],
+                    fill="black",
+                    width=26,
+                )
+            image.save(image_path)
+
+            quality = inspect_ocr_quality(image_path, route_type="image")
+
+        self.assertTrue(quality["manual_review_required"])
+        self.assertIn("suspected_occlusion", quality["issue_types"])
+        self.assertTrue(quality["quality_issues"])
+        self.assertIn("遮挡或涂抹", quality["review_reasons"][0])
+
     def test_collect_file_issues_from_status_ocr_and_review_issues(self):
         from app.pipeline.file_issue_collector import collect_file_issues
         from app.services import local_store
@@ -35,6 +61,13 @@ class FileIssueSummaryTest(unittest.TestCase):
                     output_dir / "ocr_result.json",
                     {
                         "ocr_status": "success",
+                        "quality_issues": [
+                            {
+                                "issue_type": "suspected_occlusion",
+                                "severity": "warning",
+                                "message": "材料存在大面积遮挡或涂抹。",
+                            }
+                        ],
                         "page_results": [
                             {"page": 1, "confidence_avg": 0.72, "status": "success"}
                         ],
@@ -95,6 +128,7 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertEqual(issue["severity"], "error")
         for issue_type in [
             "content_type_unknown",
+            "suspected_occlusion",
             "ocr_low_confidence",
             "json_parse_failed",
             "llm_output_truncated",
@@ -106,6 +140,90 @@ class FileIssueSummaryTest(unittest.TestCase):
             self.assertIn(issue_type, issue["issue_types"])
         self.assertIn("复核问题_001", issue["related_problem_ids"])
         self.assertTrue(issue["evidence"])
+
+    def test_build_final_result_adds_ocr_file_issues_to_review_issue_sheet(self):
+        from app.pipeline.final_result_builder import build_final_result
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                case_id = "case_test"
+                case_dir = project_root / "data/cases/case_test"
+                output_dir = case_dir / "account_info/processed/file_001"
+                local_store.save_json(
+                    case_dir / "case.json",
+                    {
+                        "case_id": case_id,
+                        "name": "张三",
+                        "phone": "13800000000",
+                        "relation_type": "custom",
+                        "relation_type_label": "员工本人",
+                    },
+                )
+                local_store.save_json(
+                    case_dir / "files_index.json",
+                    {
+                        "files": [
+                            {
+                                "file_id": "file_001",
+                                "file_no": "001",
+                                "original_file_name": "涂抹材料.png",
+                                "module": "account_info",
+                                "content_type": "guangfa",
+                                "route_type": "image",
+                                "output_dir": (
+                                    "data/cases/case_test/account_info/processed/file_001"
+                                ),
+                                "process_status": "ocr_done",
+                                "ocr_status": "success",
+                                "extract_status": "success",
+                            }
+                        ]
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "ocr_result.json",
+                    {
+                        "ocr_status": "success",
+                        "quality_issues": [
+                            {
+                                "issue_type": "suspected_occlusion",
+                                "severity": "warning",
+                                "message": "材料存在大面积遮挡或涂抹。",
+                            }
+                        ],
+                        "page_results": [
+                            {"page": 1, "confidence_avg": 0.92, "status": "success"}
+                        ],
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "extract_result.json",
+                    {
+                        "file_id": "file_001",
+                        "case_id": case_id,
+                        "content_type": "guangfa",
+                        "source_type": "guangfa",
+                        "extract_status": "success",
+                        "document_info": {"file_name": "涂抹材料.png"},
+                        "trade_group": {"columns": [], "trades": []},
+                        "position_group": {"columns": [], "positions": []},
+                        "transactions": [],
+                        "events": [],
+                        "other_events": [],
+                        "cash_flows": [],
+                        "holdings": [],
+                    },
+                )
+
+                final_result = build_final_result(case_id)
+
+        rows = final_result["sheets"]["待复核问题"]["rows"]
+        ocr_rows = [row for row in rows if row["待复核原因"] == "OCR问题"]
+        self.assertEqual(len(ocr_rows), 1)
+        self.assertIn("遮挡或涂抹", ocr_rows[0]["问题描述"])
+        self.assertEqual(ocr_rows[0]["对应材料"], "001 涂抹材料.png")
 
     def test_file_issue_summarizer_fallback_without_issues_passes(self):
         from app.pipeline.file_issue_summarizer import summarize_file_issues

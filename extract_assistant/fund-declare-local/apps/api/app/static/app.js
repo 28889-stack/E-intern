@@ -4,6 +4,7 @@ const state = {
   reviewData: null,
   reviewStatus: null,
   reviewPayload: null,
+  reviewDirty: false,
   currentPage: 1,
   currentStep: "create",
   lastError: null,
@@ -167,6 +168,7 @@ async function createCase(event) {
     state.reviewData = null;
     state.reviewStatus = null;
     state.reviewPayload = null;
+    state.reviewDirty = false;
     logDebug("创建任务返回", payload);
     showNotice(els.createMessage, "success", "任务已创建。请继续填写身份信息并上传材料。");
     renderMaterials();
@@ -475,6 +477,7 @@ async function loadReviewData() {
   state.reviewPayload = payload;
   state.reviewData = payload.data || {};
   state.reviewStatus = payload.review_status || {};
+  state.reviewDirty = false;
   logDebug("复核数据返回", payload);
   renderReview();
   updateStepButtons();
@@ -557,7 +560,7 @@ function renderEditableTable(title, columns, rows) {
   els.reviewTables.appendChild(section);
 
   for (const row of rows) {
-    addEditableRow(title, columns, row);
+    addEditableRow(title, columns, row, false);
   }
 }
 
@@ -580,7 +583,7 @@ function renderIdentityTable(identityInfo) {
   wrapper.appendChild(table);
   section.appendChild(wrapper);
   els.reviewTables.appendChild(section);
-  addEditableRow("身份信息", columns, identityInfo);
+  addEditableRow("身份信息", columns, identityInfo, false);
 }
 
 function createEditableTable(key, columns) {
@@ -598,7 +601,7 @@ function createEditableTable(key, columns) {
   return table;
 }
 
-function addEditableRow(key, columns, row) {
+function addEditableRow(key, columns, row, markDirty = true) {
   const table = els.reviewTables.querySelector(`table[data-review-key="${cssEscape(key)}"]`);
   if (!table) {
     return;
@@ -621,10 +624,14 @@ function addEditableRow(key, columns, row) {
     input.type = "text";
     input.value = row[column] ?? "";
     input.dataset.column = column;
+    input.addEventListener("input", markReviewDirty);
     td.appendChild(input);
     tr.appendChild(td);
   }
   tbody.appendChild(tr);
+  if (markDirty) {
+    markReviewDirty();
+  }
 }
 
 function deleteSelectedRows(key) {
@@ -636,6 +643,9 @@ function deleteSelectedRows(key) {
   const selected = rows.filter((row) => row.querySelector('input[type="checkbox"]')?.checked);
   const toDelete = selected.length ? selected : rows.slice(-1);
   toDelete.forEach((row) => row.remove());
+  if (toDelete.length) {
+    markReviewDirty();
+  }
 }
 
 function renderReadonlyChecklist(rows) {
@@ -745,6 +755,7 @@ async function saveReviewData() {
       body: JSON.stringify(collectReviewData()),
     });
     state.reviewStatus = payload.review_status || {};
+    state.reviewDirty = false;
     logDebug("保存复核结果返回", payload);
     els.exportMessage.textContent = "复核结果已保存，可以导出 Excel";
     updateExportState();
@@ -773,7 +784,7 @@ async function exportExcel() {
     downloadBlob(blob, "投资申报复核结果.xlsx");
     els.exportMessage.textContent = "Excel 已开始下载。";
   } catch (error) {
-    els.exportExcelButton.disabled = state.reviewStatus?.excel_export_allowed !== true;
+    els.exportExcelButton.disabled = state.reviewStatus?.excel_export_allowed !== true || state.reviewDirty === true;
     handleFriendlyText(error, "导出 Excel 失败，请稍后重试。");
   }
 }
@@ -821,13 +832,25 @@ function collectIdentityInfo() {
   return collectTableRows("身份信息")[0] || {};
 }
 
+function markReviewDirty() {
+  if (!state.reviewData) {
+    return;
+  }
+  state.reviewDirty = true;
+  updateExportState();
+}
+
 function updateExportState() {
-  const allowed = state.reviewStatus?.excel_export_allowed === true;
+  const allowed = state.reviewStatus?.excel_export_allowed === true && state.reviewDirty !== true;
   els.saveReviewButton.disabled = !state.reviewData;
   els.exportExcelButton.disabled = !allowed;
-  els.exportMessage.textContent = allowed
-    ? "复核结果已保存，可以导出 Excel"
-    : "请先保存人工复核结果";
+  if (state.reviewDirty) {
+    els.exportMessage.textContent = "复核表格已修改，请先保存复核结果";
+  } else if (allowed) {
+    els.exportMessage.textContent = "复核结果已保存，可以导出 Excel";
+  } else {
+    els.exportMessage.textContent = "请先保存人工复核结果";
+  }
 }
 
 function getRows(data, key) {
@@ -1062,7 +1085,9 @@ function issueTypeLabel(type) {
   const labels = {
     content_type_unknown: "文件类型待确认",
     ocr_failed: "OCR 失败",
+    ocr_partial_failed: "部分页面 OCR 失败",
     ocr_low_confidence: "OCR 置信度低",
+    suspected_occlusion: "材料存在遮挡或涂抹",
     file_parse_failed: "文件无法解析",
     extract_failed: "抽取失败",
     extract_partial_failed: "部分抽取失败",

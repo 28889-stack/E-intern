@@ -392,6 +392,7 @@ def _change_type(row: dict) -> str:
         "no_trade_record": "无交易记录",
         "no_holding_record": "无持仓记录",
         "no_account_record": "未开立账户",
+        "no_account_info": "无账户信息",
     }
     return event_type_map.get(event_type, event_type)
 

@@ -33,6 +33,15 @@ EVENT_CONFLICT_FIELDS = [
     "amount_raw",
     "balance_after_raw",
 ]
+WEAK_RECORD_IDS = {
+    "资金流水明细",
+    "场内交割流水明细",
+    "持仓信息",
+    "资金流水",
+    "场内交割流水",
+    "历史成交",
+    "交易流水",
+}
 
 REVIEW_ISSUE_COLUMNS = [
     "序号",
@@ -51,6 +60,8 @@ ISSUE_TYPE_LABELS = {
     "missing_required_fields": "缺少必填字段",
     "securities_account_missing": "缺少证券账号",
     "account_type_missing": "缺少账户类型",
+    "person_name_missing": "缺少姓名",
+    "source_evidence_missing": "缺少原文证据",
     "unknown_event_type": "无法判断事件类型",
     "conflict_between_sources": "来源字段冲突",
     "empty_record_account_missing": "空记录缺少账户",
@@ -80,6 +91,8 @@ FIELD_LABELS = {
     "price_raw": "价格",
     "amount_raw": "收付金额",
     "balance_after_raw": "变动后余额",
+    "person_name": "姓名",
+    "raw_text": "原文证据",
     "guangfa": "广发材料",
     "chinaclear": "中国结算材料",
     "identity": "身份材料",
@@ -107,8 +120,11 @@ def resolve_case_events(
         event_row = dict(row)
         _validate_event_row(event_row)
         if event_row.get("manual_review_required"):
-            pending_review_events.append(event_row)
             review_issues.append(_review_issue_from_row(event_row, "transaction"))
+            if event_row.get("allow_full_table_with_review"):
+                verified_events.append(event_row)
+            else:
+                pending_review_events.append(event_row)
         else:
             verified_events.append(event_row)
 
@@ -229,6 +245,9 @@ def _mark_event_conflicts(rows: list[dict], merge_audit: list[dict]) -> None:
 
 
 def _validate_event_row(row: dict) -> None:
+    if row.get("event_type") == "no_account_info":
+        _validate_no_account_info_row(row)
+        return
     if row.get("event_type") in {"no_trade_record", "no_holding_record", "no_account_record"}:
         _validate_empty_record_row(row)
         return
@@ -238,10 +257,9 @@ def _validate_event_row(row: dict) -> None:
     if missing_fields:
         issue_types.append("missing_required_fields")
     if not row.get("securities_account"):
-        issue_types.extend(["securities_account_missing", "account_type_missing"])
+        issue_types.append("securities_account_missing")
         _append_missing(missing_fields, "securities_account")
-        _append_missing(missing_fields, "account_type")
-    elif not row.get("account_type"):
+    if not row.get("account_type"):
         issue_types.append("account_type_missing")
         _append_missing(missing_fields, "account_type")
     if row.get("event_type") in (None, "", "unknown_event"):
@@ -269,16 +287,44 @@ def _validate_empty_record_row(row: dict) -> None:
         _mark_review_issue(row, issue_types, missing_fields=missing_fields)
 
 
+def _validate_no_account_info_row(row: dict) -> None:
+    missing_fields = []
+    issue_types = []
+    if not row.get("person_name"):
+        issue_types.append("person_name_missing")
+        _append_missing(missing_fields, "person_name")
+    if not (
+        row.get("event_date")
+        or row.get("period_start")
+        or row.get("period_end")
+    ):
+        issue_types.append("empty_record_period_missing")
+        _append_missing(missing_fields, "event_date")
+    if not _row_has_raw_text_evidence(row):
+        issue_types.append("source_evidence_missing")
+        _append_missing(missing_fields, "raw_text")
+    if issue_types:
+        _mark_review_issue(row, issue_types, missing_fields=missing_fields)
+
+
+def _row_has_raw_text_evidence(row: dict) -> bool:
+    if str(row.get("raw_text") or "").strip():
+        return True
+    for item in as_list(row.get("source_evidence")):
+        if isinstance(item, dict) and str(item.get("raw_text") or "").strip():
+            return True
+    return False
+
+
 def _validate_holding_row(row: dict) -> None:
     missing_fields = _missing_fields(row, HOLDING_REQUIRED_FIELDS)
     issue_types = []
     if missing_fields:
         issue_types.append("missing_required_fields")
     if not row.get("securities_account"):
-        issue_types.extend(["securities_account_missing", "account_type_missing"])
+        issue_types.append("securities_account_missing")
         _append_missing(missing_fields, "securities_account")
-        _append_missing(missing_fields, "account_type")
-    elif not row.get("account_type"):
+    if not row.get("account_type"):
         issue_types.append("account_type_missing")
         _append_missing(missing_fields, "account_type")
 
@@ -398,20 +444,33 @@ def _review_issue_message(row: dict, record_category: str) -> str:
     issue_types = set(unique_list(row.get("review_issue_types")))
     if "conflict_between_sources" in issue_types:
         return "疑似同一记录在多个来源中的字段不一致，需人工复核。"
+    if row.get("event_type") == "no_account_info":
+        return "材料显示无账户信息，但缺少姓名、截止日期或原文证据，请人工核对。"
     if issue_types & {"empty_record_account_missing", "empty_record_period_missing"}:
         return "空交易/空持仓记录缺少账户或查询时间，无法确认归属。"
+    if {"securities_account_missing", "account_type_missing"} <= issue_types:
+        return "缺少证券账号和账户类型，无法确认账户和最终申报归属。"
     if "securities_account_missing" in issue_types:
-        return "缺少证券账号，无法确认账户类型和最终申报归属。"
+        return "缺少证券账号，无法确认账户和最终申报归属。"
+    if "account_type_missing" in issue_types:
+        return "缺少账户类型，无法确认账户和最终申报归属。"
     if "unknown_event_type" in issue_types:
         return "无法判断该交易/事件类型是否影响持仓。"
     if "missing_required_fields" in issue_types:
         return "缺少关键字段，无法通过自动核验。"
+    review_reason = str(row.get("review_reason") or "").strip()
+    if review_reason:
+        return review_reason
     if record_category == "holding":
         return "持仓记录需要人工复核。"
     return "交易/事件记录需要人工复核。"
 
 
 def _review_issue_suggestion(row: dict, record_category: str) -> str:
+    if row.get("event_type") == "no_account_info":
+        return "请核对材料中的姓名、截止日期和无账户信息原文。"
+    if not row.get("securities_account") and not row.get("account_type"):
+        return "请补充证券账号和账户类型；如只有资金账号，请在人工复核后确认其对应证券账号。"
     if not row.get("securities_account"):
         return "请补充证券账号；如只有资金账号，请在人工复核后确认其对应证券账号。"
     if record_category == "holding":
@@ -485,6 +544,12 @@ def _record_snapshot_summary(row: dict, category: str) -> str:
             _field_phrase("证券", _security_label(row)),
             _field_phrase("持有数量", row.get("quantity_raw")),
         ]
+    elif row.get("event_type") == "no_account_info":
+        parts = [
+            _field_phrase("姓名", row.get("person_name")),
+            _field_phrase("截止日期", row.get("event_date") or row.get("period_end") or row.get("period_start")),
+            _field_phrase("变动类型", _movement_label(row)),
+        ]
     else:
         parts = [
             _field_phrase("日期", row.get("event_date") or row.get("period_end") or row.get("period_start")),
@@ -533,6 +598,7 @@ def _movement_label(row: dict) -> str:
         "no_trade_record": "无交易记录",
         "no_holding_record": "无持仓记录",
         "no_account_record": "未开立账户",
+        "no_account_info": "无账户信息",
         "unknown_event": "未知事件",
     }
     return event_type_labels.get(event_type, event_type)
@@ -626,6 +692,7 @@ def _exact_event_key(row: dict) -> tuple:
         row.get("account_type"),
         row.get("event_type"),
         row.get("event_date"),
+        row.get("event_time"),
         row.get("security_code"),
         row.get("security_name"),
         row.get("direction"),
@@ -633,6 +700,8 @@ def _exact_event_key(row: dict) -> tuple:
         row.get("price_raw"),
         row.get("amount_raw"),
         row.get("balance_after_raw"),
+        row.get("serial_no"),
+        row.get("order_no"),
     ]
     if not any(part not in (None, "") for part in parts):
         return ()
@@ -641,7 +710,7 @@ def _exact_event_key(row: dict) -> tuple:
 
 def _conflict_event_key(row: dict) -> tuple:
     record_id = str(row.get("event_id") or _first_evidence_value(row, "source_row_id") or "").strip()
-    if not record_id:
+    if not record_id or _is_weak_record_id(record_id):
         return ()
     parts = [
         row.get("file_id"),
@@ -655,6 +724,15 @@ def _conflict_event_key(row: dict) -> tuple:
     if any(part in (None, "") for part in parts):
         return ()
     return tuple(str(part).strip() for part in parts)
+
+
+def _is_weak_record_id(record_id: str) -> bool:
+    text = str(record_id or "").strip()
+    if not text:
+        return True
+    if text in WEAK_RECORD_IDS:
+        return True
+    return text.endswith("明细") and not any(char.isdigit() for char in text)
 
 
 def _review_issue_data_source(issue: dict) -> str:

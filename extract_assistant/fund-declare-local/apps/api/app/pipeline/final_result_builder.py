@@ -246,8 +246,16 @@ def build_final_result(case_id: str) -> dict:
     holding_rows = resolved["holding_rows"]
     for row in complete_rows + holding_rows:
         row["data_source"] = _data_source(row)
+    complete_sheet_rows = _complete_sheet_rows(complete_rows)
 
-    checklist_rows = _build_checklist_rows(complete_rows, holding_rows)
+    checklist_rows = _build_checklist_rows(
+        complete_rows,
+        holding_rows,
+        pending_review_event_count=len(resolved.get("pending_review_events", [])),
+        pending_review_holding_count=len(resolved.get("pending_review_holdings", [])),
+        pending_review_events=resolved.get("pending_review_events", []),
+        account_info_rows=final_rows,
+    )
     if any(row.get("状态") == "需人工复核" for row in checklist_rows):
         review_items.append(
             _review_item(
@@ -270,6 +278,13 @@ def build_final_result(case_id: str) -> dict:
         pending_review_events=resolved.get("pending_review_events", []),
         pending_review_holdings=resolved.get("pending_review_holdings", []),
     )
+    review_issue_rows = [
+        *review_issue_rows,
+        *_review_issue_rows_from_file_issues(
+            file_issues,
+            start_index=len(review_issue_rows) + 1,
+        ),
+    ]
     file_issue_result = summarize_file_issues(
         file_issues,
         review_issue_rows,
@@ -277,7 +292,7 @@ def build_final_result(case_id: str) -> dict:
         llm_client=_file_issue_llm_client(),
     )
     file_issue_summaries = file_issue_result.get("file_issue_summaries", [])
-    export_audit = _build_export_audit(complete_rows, final_rows)
+    export_audit = _build_export_audit(complete_sheet_rows, final_rows)
 
     sheets = {
         SHEET_FINAL: {
@@ -286,7 +301,7 @@ def build_final_result(case_id: str) -> dict:
         },
         SHEET_COMPLETE: {
             "columns": COMPLETE_EVENT_COLUMNS,
-            "rows": [_select_columns(row, COMPLETE_EVENT_COLUMNS) for row in complete_rows],
+            "rows": [_select_columns(row, COMPLETE_EVENT_COLUMNS) for row in complete_sheet_rows],
         },
         SHEET_REVIEW_ISSUES: {
             "columns": REVIEW_ISSUE_COLUMNS,
@@ -325,7 +340,7 @@ def build_final_result(case_id: str) -> dict:
         "source_extract_results": source_extract_results,
         "summary": {
             "source_extract_result_count": len(source_extract_results),
-            "complete_row_count": len(complete_rows),
+            "complete_row_count": len(complete_sheet_rows),
             "final_declaration_row_count": len(final_rows),
             "holding_row_count": len(holding_rows),
             "identity_row_count": 1,
@@ -428,8 +443,127 @@ def _is_final_declaration_row(row: dict) -> bool:
     return normalizer_is_final_declaration_row(row)
 
 
-def _build_checklist_rows(rows: list[dict], holding_rows: list[dict]) -> list[dict]:
-    if not rows and not holding_rows:
+OCR_REVIEW_ISSUE_TYPES = {
+    "ocr_failed",
+    "ocr_partial_failed",
+    "ocr_low_confidence",
+    "suspected_occlusion",
+}
+EXTRACT_REVIEW_ISSUE_TYPES = {
+    "extract_failed",
+    "extract_partial_failed",
+    "llm_request_failed",
+    "json_parse_failed",
+    "llm_output_truncated",
+    "schema_invalid",
+}
+
+
+def _review_issue_rows_from_file_issues(
+    file_issues: list[dict],
+    start_index: int,
+) -> list[dict]:
+    rows = []
+    next_index = start_index
+    for issue in file_issues:
+        issue_types = set(normalizer_as_list(issue.get("issue_types")))
+        for reason, type_set in (
+            ("OCR问题", OCR_REVIEW_ISSUE_TYPES),
+            ("抽取问题", EXTRACT_REVIEW_ISSUE_TYPES),
+        ):
+            matched_types = sorted(issue_types & type_set)
+            if not matched_types:
+                continue
+            rows.append(
+                {
+                    "序号": str(next_index),
+                    "待复核原因": reason,
+                    "问题描述": _file_issue_review_description(issue, matched_types, reason),
+                    "对应材料": _file_issue_source_label(issue),
+                    "_meta": {
+                        "file_id": issue.get("file_id", ""),
+                        "source_row_id": f"file_issue_{next_index}",
+                        "original_row": issue,
+                    },
+                }
+            )
+            next_index += 1
+    return rows
+
+
+def _file_issue_review_description(issue: dict, issue_types: list[str], reason: str) -> str:
+    labels = [_file_issue_type_label(issue_type) for issue_type in issue_types]
+    evidence = [
+        str(item)
+        for item in normalizer_as_list(issue.get("evidence"))
+        if _evidence_matches_issue_types(str(item), issue_types)
+    ][:3]
+    if reason == "OCR问题":
+        action = "请核对原文件与 OCR 识别结果；如存在遮挡或涂抹，请重新上传无遮挡材料。"
+    else:
+        action = "请核对抽取结果，必要时重新抽取或在人工复核页补充缺失内容。"
+    details = "、".join(label for label in labels if label)
+    if evidence:
+        details = f"{details}（{'；'.join(evidence)}）" if details else "；".join(evidence)
+    return f"该材料存在{reason}：{details or '需人工复核'}。{action}"
+
+
+def _file_issue_source_label(issue: dict) -> str:
+    return " ".join(
+        part
+        for part in [str(issue.get("file_no") or ""), str(issue.get("file_name") or "")]
+        if part
+    )
+
+
+def _file_issue_type_label(issue_type: str) -> str:
+    return {
+        "ocr_failed": "OCR 失败",
+        "ocr_partial_failed": "部分页面 OCR 失败",
+        "ocr_low_confidence": "OCR 置信度偏低",
+        "suspected_occlusion": "材料存在遮挡或涂抹",
+        "extract_failed": "抽取失败",
+        "extract_partial_failed": "部分抽取失败",
+        "llm_request_failed": "智能抽取请求失败",
+        "json_parse_failed": "结构化结果解析失败",
+        "llm_output_truncated": "智能抽取输出被截断",
+        "schema_invalid": "抽取结构不合法",
+    }.get(issue_type, issue_type)
+
+
+def _evidence_matches_issue_types(evidence: str, issue_types: list[str]) -> bool:
+    if not evidence:
+        return False
+    if any(issue_type in {"ocr_failed", "ocr_partial_failed"} for issue_type in issue_types):
+        return "OCR" in evidence or "ocr" in evidence
+    if "ocr_low_confidence" in issue_types:
+        return "置信度" in evidence or "confidence" in evidence
+    if "suspected_occlusion" in issue_types:
+        return "遮挡" in evidence or "涂抹" in evidence
+    return any(keyword in evidence for keyword in ("抽取", "LLM", "JSON", "schema", "截断"))
+
+
+def _build_checklist_rows(
+    rows: list[dict],
+    holding_rows: list[dict],
+    pending_review_event_count: int = 0,
+    pending_review_holding_count: int = 0,
+    pending_review_events: list[dict] | None = None,
+    account_info_rows: list[dict] | None = None,
+) -> list[dict]:
+    pending_parts = []
+    if pending_review_event_count:
+        pending_parts.append(f"{pending_review_event_count}条待复核交易")
+    if pending_review_holding_count:
+        pending_parts.append(f"{pending_review_holding_count}条待复核持仓")
+
+    if pending_parts:
+        status = "需人工复核"
+        details = (
+            f"当前存在{'、'.join(pending_parts)}，相关记录尚未进入自动勾稽范围，"
+            "暂无法自动校验‘上次持仓 + 交易 = 本次持仓’。"
+        )
+    elif not rows and not holding_rows:
         status = "无需校验"
         details = "未发现交易和持仓数据，暂不执行‘上次持仓 + 交易 = 本次持仓’校验。"
     elif not rows:
@@ -441,13 +575,49 @@ def _build_checklist_rows(rows: list[dict], holding_rows: list[dict]) -> list[di
     else:
         status = "需人工复核"
         details = "当前已收集交易和持仓数据，但尚未实现跨材料自动勾稽，需人工复核。"
-    return [
+    checklist_rows = [
         {
             "checklist条件": "上次持仓 + 交易 = 本次持仓",
             "状态": status,
             "说明": details,
         }
     ]
+    account_check = _account_info_checklist_row(
+        account_info_rows if account_info_rows is not None else rows,
+        pending_review_events or [],
+    )
+    if account_check:
+        checklist_rows.append(account_check)
+    return checklist_rows
+
+
+def _account_info_checklist_row(
+    account_info_rows: list[dict],
+    pending_review_events: list[dict],
+) -> dict | None:
+    no_account_rows = [
+        row for row in account_info_rows if row.get("event_type") == "no_account_info"
+    ]
+    if no_account_rows:
+        row = no_account_rows[0]
+        person_name = str(row.get("person_name") or row.get("holder_name") or "").strip()
+        as_of_date = str(
+            row.get("event_date") or row.get("period_end") or row.get("period_start") or ""
+        ).strip()
+        if person_name and as_of_date:
+            return {
+                "checklist条件": "账户信息检查",
+                "状态": "通过",
+                "说明": f"截至{as_of_date}，{person_name}无账户信息。",
+            }
+
+    if any(row.get("event_type") == "no_account_info" for row in pending_review_events):
+        return {
+            "checklist条件": "账户信息检查",
+            "状态": "需人工复核",
+            "说明": "材料显示无账户信息，但缺少姓名或截止日期，请人工核对。",
+        }
+    return None
 
 
 def _build_export_audit(complete_rows: list[dict], final_rows: list[dict]) -> dict:
@@ -466,6 +636,10 @@ def _build_export_audit(complete_rows: list[dict], final_rows: list[dict]) -> di
         "excluded_type_summary": _type_summary(excluded_rows),
         "warnings": warnings,
     }
+
+
+def _complete_sheet_rows(rows: list[dict]) -> list[dict]:
+    return [row for row in rows if row.get("event_type") != "no_account_info"]
 
 
 def _type_summary(rows: list[dict]) -> list[dict]:

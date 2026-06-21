@@ -19,6 +19,7 @@ NO_RECORD_EVENT_TYPES = {
     "no_trade_record",
     "no_holding_record",
     "no_account_record",
+    "no_account_info",
 }
 
 FINAL_DECLARATION_EVENT_TYPES = {
@@ -30,6 +31,7 @@ FINAL_DECLARATION_EVENT_TYPES = {
     "no_trade_record",
     "no_holding_record",
     "no_account_record",
+    "no_account_info",
 }
 FINAL_DECLARATION_DIRECTIONS = {
     "buy",
@@ -139,12 +141,22 @@ def build_event_row(
             or event.get("transaction_id")
             or event.get("cash_flow_id")
             or "",
+            "person_name": event.get("person_name")
+            or event.get("holder_name")
+            or document_info.get("holder_name")
+            or "",
+            "proof_type": event.get("proof_type", ""),
+            "event_category": event.get("event_category", ""),
             "event_type": normalize_event_type(event),
             "market": event.get("market") or document_info.get("market") or "",
             "event_date": event.get("event_date")
             or event.get("trade_date")
             or event.get("transaction_date")
             or event.get("business_date")
+            or "",
+            "event_time": event.get("event_time")
+            or event.get("trade_time")
+            or event.get("transaction_time")
             or "",
             "security_code": event.get("security_code", ""),
             "security_name": event.get("security_name", ""),
@@ -180,6 +192,11 @@ def build_event_row(
             "security_category_raw": event.get("security_category_raw")
             or event.get("instrument_type")
             or "",
+            "serial_no": event.get("serial_no")
+            or event.get("transaction_id")
+            or event.get("trade_id")
+            or "",
+            "order_no": event.get("order_no") or "",
             "source_pages": join_values(
                 event.get("source_pages")
                 if "source_pages" in event
@@ -205,10 +222,21 @@ def build_event_row(
                     "row_no": event.get("row_no", ""),
                     "source_pages": event.get("source_pages", ""),
                     "row_nos": event.get("row_nos", ""),
+                    "raw_text": event.get("raw_text", ""),
                 }
             ],
         }
     )
+    for control_field in (
+        "include_in_final_declaration",
+        "allow_full_table_with_review",
+        "manual_review_required",
+        "review_issue_types",
+        "missing_fields",
+        "conflict_fields",
+    ):
+        if control_field in event:
+            row[control_field] = event[control_field]
     return row
 
 
@@ -345,6 +373,9 @@ def normalize_direction_value(value: Any) -> str:
 
 
 def is_final_declaration_row(row: dict) -> bool:
+    if row.get("include_in_final_declaration") is False:
+        return False
+
     event_type = str(row.get("event_type") or "")
     direction = str(row.get("direction") or "")
     transfer_type = str(row.get("transfer_type_raw") or "")
@@ -353,6 +384,8 @@ def is_final_declaration_row(row: dict) -> bool:
         return False
     if any(keyword in transfer_type for keyword in EXCLUDED_TRANSFER_KEYWORDS):
         return False
+    if row.get("include_in_final_declaration") is True:
+        return True
     if event_type in FINAL_DECLARATION_EVENT_TYPES:
         return True
     return direction in FINAL_DECLARATION_DIRECTIONS
@@ -400,6 +433,27 @@ def empty_record_event_from_semantics(
         semantic_document_info["period_start"] = period_start
     if period_end:
         semantic_document_info["period_end"] = period_end
+
+    if event_type == "no_account_info":
+        event = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "event_category": "negative_proof",
+            "proof_type": "无账户信息",
+            "event_date": event_date,
+            "person_name": _semantic_person_name(document_info, extract_result, source_text),
+            "security_code": "",
+            "security_name": "",
+            "quantity_raw": "",
+            "price_raw": "",
+            "amount_raw": "",
+            "balance_after_raw": "",
+            "transfer_type_raw": raw_type,
+            "source_page": 1,
+            "raw_text": _first_line(source_text),
+            "review_reason": "",
+        }
+        return build_event_row(case_id, file_record, semantic_document_info, event)
 
     event = {
         "event_id": event_id,
@@ -537,7 +591,7 @@ def _has_empty_record_signal(text: str) -> bool:
 
 def _empty_record_type(text: str) -> tuple[str, str, str]:
     if _looks_like_no_account_query(text):
-        return "no_account_record", "未开立账户", "no_account_record_1"
+        return "no_account_info", "无账户信息", "no_account_info_1"
     if _looks_like_empty_trade_query(text):
         return "no_trade_record", "无交易记录", "no_trade_record_1"
     if _looks_like_empty_holding_query(text):
@@ -559,6 +613,31 @@ def _looks_like_no_account_query(text: str) -> bool:
             "无账户",
         )
     )
+
+
+def _semantic_person_name(document_info: dict, extract_result: dict, text: str) -> str:
+    for source in (document_info, extract_result):
+        for key in ("person_name", "holder_name", "name", "姓名"):
+            value = str(source.get(key) or "").strip()
+            if value:
+                return value
+
+    for pattern in (
+        r"(?:姓名|客户姓名|投资者姓名)[:：\s]*([\u4e00-\u9fff]{2,8})",
+        r"(?:截至|截止).*?([\u4e00-\u9fff]{2,8})无账户信息",
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _first_line(text: str) -> str:
+    for line in str(text or "").splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return ""
 
 
 def _looks_like_empty_trade_query(text: str) -> bool:
