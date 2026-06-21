@@ -277,7 +277,6 @@ def build_final_result(case_id: str) -> dict:
         llm_client=_file_issue_llm_client(),
     )
     file_issue_summaries = file_issue_result.get("file_issue_summaries", [])
-    checklist_rows.extend(file_issue_result.get("checklist_rows", []))
     export_audit = _build_export_audit(complete_rows, final_rows)
 
     sheets = {

@@ -640,12 +640,17 @@ def _exact_event_key(row: dict) -> tuple:
 
 
 def _conflict_event_key(row: dict) -> tuple:
+    record_id = str(row.get("event_id") or _first_evidence_value(row, "source_row_id") or "").strip()
+    if not record_id:
+        return ()
     parts = [
+        row.get("file_id"),
         row.get("securities_account"),
         row.get("event_type"),
         row.get("event_date"),
         row.get("security_code"),
         row.get("security_name"),
+        record_id,
     ]
     if any(part in (None, "") for part in parts):
         return ()
@@ -679,7 +684,7 @@ def _review_issue_meta(issue: dict) -> dict:
 
 def _review_issue_signatures(issue: dict) -> set[tuple[str, str, str]]:
     record_category = str(issue.get("record_category") or "")
-    record_id = str(issue.get("related_record_id") or "")
+    record_keys = _review_issue_record_keys(issue)
     fields = (
         unique_list(issue.get("missing_fields"))
         or unique_list(issue.get("conflict_fields"))
@@ -687,10 +692,83 @@ def _review_issue_signatures(issue: dict) -> set[tuple[str, str, str]]:
         or [str(issue.get("message") or "")]
     )
     return {
-        (record_category, record_id, field)
+        (record_category, record_key, field)
+        for record_key in record_keys
         for field in fields
-        if record_category or record_id or field
+        if record_category or record_key or field
     }
+
+
+def _review_issue_record_keys(issue: dict) -> list[str]:
+    keys = []
+    related_record_id = str(issue.get("related_record_id") or "").strip()
+    if related_record_id:
+        keys.append(f"id:{_signature_part(related_record_id)}")
+
+    snapshot = issue.get("record_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        date_value = (
+            snapshot.get("event_date")
+            or snapshot.get("holding_date")
+            or snapshot.get("period_start")
+            or snapshot.get("period_end")
+        )
+        record_parts = [
+            issue.get("related_record_id"),
+            snapshot.get("file_id"),
+            snapshot.get("file_no"),
+            snapshot.get("event_id") or snapshot.get("holding_id"),
+            snapshot.get("securities_account"),
+            snapshot.get("account_type"),
+            snapshot.get("event_type"),
+            date_value,
+            snapshot.get("security_code"),
+            snapshot.get("security_name"),
+            snapshot.get("direction"),
+            snapshot.get("quantity_raw"),
+            snapshot.get("price_raw"),
+            snapshot.get("amount_raw"),
+            snapshot.get("balance_after_raw"),
+            snapshot.get("transfer_type_raw"),
+        ]
+        for item in as_list(issue.get("source_evidence")):
+            if not isinstance(item, dict):
+                continue
+            record_parts.extend(
+                [
+                    item.get("file_id"),
+                    item.get("source_row_id"),
+                    item.get("source_page"),
+                    item.get("row_no"),
+                ]
+            )
+        key = "|".join(_signature_part(part) for part in record_parts if part not in (None, ""))
+        if key:
+            keys.append(f"row:{key}")
+
+    fallback_parts = [
+        issue.get("related_record_id"),
+        _join(issue.get("related_file_ids")),
+        _join(issue.get("related_file_nos")),
+        _join(issue.get("related_file_names")),
+        issue.get("message"),
+    ]
+    fallback_key = "|".join(_signature_part(part) for part in fallback_parts if part not in (None, ""))
+    if fallback_key:
+        keys.append(f"fallback:{fallback_key}")
+
+    return unique_list(keys) or [""]
+
+
+def _first_evidence_value(row: dict, key: str) -> Any:
+    for item in as_list(row.get("source_evidence")):
+        if isinstance(item, dict) and item.get(key) not in (None, ""):
+            return item.get(key)
+    return None
+
+
+def _signature_part(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
 
 
 def _evidence_label(item: dict) -> str:

@@ -71,6 +71,64 @@ class FinalProblemEventsTest(unittest.TestCase):
             {"event_001", "event_002"},
         )
 
+    def test_distinct_trades_with_different_prices_are_not_source_conflicts(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "普通账户",
+            "securities_account": "36914385",
+            "event_type": "ordinary_trade",
+            "event_date": "2025-09-24",
+            "security_code": "000951",
+            "security_name": "中国重汽",
+            "direction": "sell",
+            "quantity_raw": "100",
+            "balance_after_raw": "0",
+        }
+        resolved = resolve_case_events(
+            [
+                dict(
+                    base_row,
+                    event_id="trade_001",
+                    price_raw="18.75",
+                    amount_raw="1875.00",
+                    source_evidence=[
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "file_name": "statement.pdf",
+                            "source_row_id": "trade_001",
+                            "source_page": "3",
+                            "row_no": "12",
+                        }
+                    ],
+                ),
+                dict(
+                    base_row,
+                    event_id="trade_002",
+                    price_raw="18.92",
+                    amount_raw="1892.00",
+                    source_evidence=[
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "file_name": "statement.pdf",
+                            "source_row_id": "trade_002",
+                            "source_page": "3",
+                            "row_no": "13",
+                        }
+                    ],
+                ),
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 2)
+        self.assertEqual(resolved["review_issue_rows"], [])
+
     def test_unknown_event_creates_one_review_issue(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 

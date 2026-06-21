@@ -177,7 +177,7 @@ def build_review_data_from_final_result(case_id: str, final_result: dict) -> dic
     review_issue_rows = _sheet_rows(final_result, SHEET_REVIEW_ISSUES)
     holding_rows = _sheet_rows(final_result, SHEET_HOLDINGS)
     identity_rows = _sheet_rows(final_result, SHEET_IDENTITY)
-    checklist_rows = _sheet_rows(final_result, SHEET_CHECKLIST)
+    checklist_rows = _legal_checklist_rows(_sheet_rows(final_result, SHEET_CHECKLIST))
 
     return {
         SHEET_FINAL: [
@@ -359,6 +359,14 @@ def _sheet_rows(final_result: dict, sheet_name: str) -> list[dict]:
     sheet = sheets.get(sheet_name) or {}
     rows = sheet.get("rows", [])
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def _legal_checklist_rows(rows: list[dict]) -> list[dict]:
+    return [
+        row
+        for row in rows
+        if str(row.get("checklist条件") or "").strip() != "文件级问题归纳"
+    ]
 
 
 def _change_type(row: dict) -> str:

@@ -144,7 +144,7 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertIn("OCR", summary["summary"])
         self.assertIn("日期", summary["summary"])
 
-    def test_build_final_result_persists_file_issue_checklist_rows(self):
+    def test_build_final_result_keeps_file_issues_out_of_legal_checklist(self):
         from app.pipeline.final_result_builder import build_final_result
         from app.services import local_store
 
@@ -205,8 +205,8 @@ class FileIssueSummaryTest(unittest.TestCase):
         file_issue_rows = [
             row for row in checklist_rows if row["checklist条件"] == "文件级问题归纳"
         ]
-        self.assertEqual(len(file_issue_rows), 1)
-        self.assertEqual(file_issue_rows[0]["状态"], "需人工复核")
+        self.assertEqual(file_issue_rows, [])
+        self.assertEqual(checklist_rows[0]["checklist条件"], "上次持仓 + 交易 = 本次持仓")
 
     def test_reviewed_result_preserves_file_issue_trace(self):
         from app.pipeline.final_review import get_review_payload, save_review_payload
@@ -259,6 +259,7 @@ class FileIssueSummaryTest(unittest.TestCase):
                     review_payload["file_issue_summaries"],
                     [{"file_id": "file_001"}],
                 )
+                self.assertEqual(review_payload["data"]["checklist结果"], [])
 
                 save_review_payload(case_id, {"review_data": {}})
                 reviewed = local_store.read_json(
@@ -274,10 +275,7 @@ class FileIssueSummaryTest(unittest.TestCase):
             reviewed_payload["file_issue_summaries"],
             [{"file_id": "file_001"}],
         )
-        self.assertEqual(
-            reviewed["review_data"]["checklist结果"][0]["checklist条件"],
-            "文件级问题归纳",
-        )
+        self.assertEqual(reviewed["review_data"]["checklist结果"], [])
 
 
 if __name__ == "__main__":
