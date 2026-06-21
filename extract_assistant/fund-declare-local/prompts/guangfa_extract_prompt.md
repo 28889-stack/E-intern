@@ -19,8 +19,10 @@
 7. 一行证券买入 / 证券卖出 = 一笔交易明细，不要合并成汇总。
 8. 不计算金额、红利、利息、税费、盈亏。
 9. `amount` 只取原文“清算金额”，不要用数量乘价格反推。
-10. 不输出整行原文、大段解释、复杂置信度对象或大量 `null`。
-11. 只输出合法 JSON。
+10. 如果材料明确显示某一账户在某一查询日或时间段内“无持仓”“未持仓”“共0条”“没有相应查询信息”，不要当成抽取失败；应输出空结果事件。
+11. 空结果事件也必须尽量抽取账户号、查询日期或起止日期；如果账户号或时间缺失，仍输出事件，但在 `quality.warnings` 说明需要人工复核。
+12. 不输出整行原文、大段解释、复杂置信度对象或大量 `null`。
+13. 只输出合法 JSON。
 
 ## 二、输出 JSON 结构
 
@@ -31,7 +33,10 @@
     "file_name": "",
     "document_type": "gf_broker_statement",
     "period_start": "",
-    "period_end": ""
+    "period_end": "",
+    "fund_account": "",
+    "securities_account": "",
+    "account_type": ""
   },
   "position_group": {
     "columns": [
@@ -178,13 +183,15 @@
 
 ## 五、其他事件写入 other_events
 
-非普通买卖的场内交割流水写入 `other_events`。
+非普通买卖的场内交割流水、以及明确的空结果事件写入 `other_events`。
 
 常见类型：
 
 * `股息入账`、红利、分红、派息 → `cash_dividend`
 * 兑息、付息、债券兑付、债券利息 → `bond_interest`
 * 其他无法归类但在场内交割流水中的业务 → `other_settlement_event`
+* 某账户在某一时间段内历史成交 / 交易流水明确为 0 条 → `no_trade_record`
+* 某账户在某一查询日 / 时间段内明确无持仓 / 未持仓 → `no_holding_record`
 * OCR 错位或业务类型无法识别 → `unknown_event`
 
 建议结构：
@@ -193,9 +200,12 @@
 {
   "event_type": "",
   "event_date": "",
+  "period_start": "",
+  "period_end": "",
   "event_time": "",
   "serial_no": "",
   "fund_account": "",
+  "securities_account": "",
   "security_code": "",
   "security_name": "",
   "instrument_type": "",
@@ -212,6 +222,16 @@
 ```
 
 没有出现的字段可以省略，不要填大量 `null`。
+
+空结果事件字段规则：
+
+* `no_trade_record`：用于“历史成交”“交易流水”等查询结果明确为 0 条。
+* `no_holding_record`：用于“持仓信息”“我的持仓”等查询结果明确无持仓。
+* `event_date` 优先填查询日；如果只有时间段，填 `period_end`。
+* `period_start` / `period_end` 按原文起止日期填写。
+* `fund_account` / `securities_account` 尽量从页面账号、资金账号、股东代码、证券账号中抽取。
+* `security_code`、`security_name`、`quantity`、`price`、`amount` 填字符串 `"0"`。
+* `event_type_raw` 填“无历史成交记录”或“无持仓记录”。
 
 ## 六、市场识别
 
@@ -246,4 +266,3 @@ OCR / PDF 解析文本：
 OCR 置信度信息，如有：
 
 {{ocr_confidence}}
-

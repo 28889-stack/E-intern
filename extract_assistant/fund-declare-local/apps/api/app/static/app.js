@@ -48,6 +48,7 @@ const exportReviewedExcelButton = document.getElementById("export-reviewed-excel
 const reviewStatusSummary = document.getElementById("review-status-summary");
 const reviewTables = document.getElementById("review-tables");
 const reviewChecklist = document.getElementById("review-checklist");
+const reviewFileIssues = document.getElementById("review-file-issues");
 const reviewResult = document.getElementById("review-result");
 const debugFileForm = document.getElementById("debug-file-form");
 const debugFileInput = document.getElementById("debug-file");
@@ -60,7 +61,11 @@ const reviewTableConfigs = {
   },
   完整表: {
     title: "完整表",
-    columns: ["账户类型", "证券账号", "证券代码", "证券名称", "变动类型", "日期", "成交数量", "成交单价", "收付金额"],
+    columns: ["账户类型", "证券账号", "证券代码", "证券名称", "变动类型", "起始日期", "终止日期", "日期", "成交数量", "成交单价", "收付金额", "数据来源"],
+  },
+  待复核问题: {
+    title: "待复核问题",
+    columns: ["序号", "待复核原因", "问题描述", "对应材料"],
   },
   持仓: {
     title: "持仓",
@@ -70,12 +75,13 @@ const reviewTableConfigs = {
 const identityReviewColumns = ["姓名", "电话", "关系类型", "身份证姓名", "身份证号码", "地址", "有效期起", "有效期止"];
 const checklistReviewColumns = ["checklist条件", "状态", "说明"];
 let currentReviewData = null;
+let currentReviewPayload = null;
 let chatbotDragState = null;
 let chatbotIsSubmitting = false;
 let chatbotMessagesState = [
   {
     role: "assistant",
-    content: "你好，我是小易。可以问我材料准备、复核状态、问题清单或 Excel 导出的事项。",
+    content: "你好，我是小易。可以问我材料准备、复核状态、待复核问题或 Excel 导出的事项。",
   },
 ];
 
@@ -201,7 +207,7 @@ function normalizeChatbotMessages(messages) {
     : [
         {
           role: "assistant",
-          content: "你好，我是小易。可以问我材料准备、复核状态、问题清单或 Excel 导出的事项。",
+          content: "你好，我是小易。可以问我材料准备、复核状态、待复核问题或 Excel 导出的事项。",
         },
       ];
 }
@@ -248,8 +254,8 @@ function buildChatbotReply(question) {
   if (question.includes("excel") || question.includes("导出")) {
     return "当前流程是先生成 final_result，再加载并保存人工复核结果 reviewed_final_result，保存后才可以下载 Excel。";
   }
-  if (question.includes("复核") || question.includes("checklist") || question.includes("问题清单")) {
-    return "复核区可以编辑最终申报表、完整表、持仓和身份信息；checklist结果只读，保存时以后端原始 checklist 为准。";
+  if (question.includes("复核") || question.includes("checklist") || question.includes("待复核问题")) {
+    return "复核区可以编辑最终申报表、完整表、持仓和身份信息；待复核问题用于定位材料和问题原因，checklist结果只读。";
   }
   if (text.includes("hello") || text.includes("hi")) {
     return "你好，我在这里帮你快速确认申报流程。可以问我上传、复核或导出 Excel 的问题。";
@@ -581,6 +587,7 @@ async function finalizeCase(event) {
     renderFinalizeSummary(data);
     reviewCaseIdInput.value = caseId;
     currentReviewData = null;
+    currentReviewPayload = null;
     saveReviewButton.disabled = true;
     exportReviewedExcelButton.disabled = true;
     resetDownloadExcelLink();
@@ -684,6 +691,7 @@ function renderFinalizeSummary(data) {
 
   const summary = data.summary || {};
   addSummaryItem("complete_row_count", summary.complete_row_count, finalizeSummary);
+  addSummaryItem("file_issue_count", summary.file_issue_count, finalizeSummary);
   addSummaryItem(
     "final_declaration_row_count",
     summary.final_declaration_row_count,
@@ -761,6 +769,7 @@ async function loadReviewData() {
   reviewStatusSummary.replaceChildren();
   reviewTables.replaceChildren();
   reviewChecklist.replaceChildren();
+  reviewFileIssues.replaceChildren();
 
   try {
     const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}/review`, {
@@ -775,8 +784,9 @@ async function loadReviewData() {
     }
 
     currentReviewData = payload.data || {};
+    currentReviewPayload = payload;
     renderReviewStatus(payload.review_status || {});
-    renderReviewData(currentReviewData);
+    renderReviewData(currentReviewData, payload);
     saveReviewButton.disabled = false;
     exportReviewedExcelButton.disabled = payload.review_status?.excel_export_allowed !== true;
     setDownloadExcelLink(caseId, payload.review_status?.excel_export_allowed === true);
@@ -788,6 +798,7 @@ async function loadReviewData() {
       : message;
     saveReviewButton.disabled = true;
     exportReviewedExcelButton.disabled = true;
+    currentReviewPayload = null;
     resetDownloadExcelLink();
   }
 }
@@ -818,6 +829,9 @@ async function saveReviewData() {
     }
 
     currentReviewData = data.review_data;
+    if (currentReviewPayload?.review_status) {
+      currentReviewPayload.review_status = payload.review_status || {};
+    }
     renderReviewStatus(payload.review_status || {});
     exportReviewedExcelButton.disabled = false;
     setDownloadExcelLink(caseId, true);
@@ -868,13 +882,24 @@ function renderReviewStatus(status) {
   addSummaryItem("review_source", status.review_source, reviewStatusSummary);
 }
 
-function renderReviewData(data) {
+function renderReviewData(data, payload = currentReviewPayload) {
   reviewTables.replaceChildren();
   for (const [key, config] of Object.entries(reviewTableConfigs)) {
-    renderEditableReviewTable(key, config.title, config.columns, data[key] || []);
+    renderEditableReviewTable(key, config.title, config.columns, getReviewRows(data, key));
   }
   renderIdentityReviewTable(data["身份信息"] || data.identity_info || {});
   renderChecklistTable(data["checklist结果"] || data.checklist_rows || []);
+  renderFileIssueSummaries(payload || {});
+}
+
+function getReviewRows(data, key) {
+  if (!data) {
+    return [];
+  }
+  if (key === "待复核问题") {
+    return data["待复核问题"] || data.review_issue_rows || [];
+  }
+  return data[key] || [];
 }
 
 function renderEditableReviewTable(key, title, columns, rows) {
@@ -929,7 +954,7 @@ function renderChecklistTable(rows) {
   const section = document.createElement("section");
   section.className = "review-table-block";
   const heading = document.createElement("h3");
-  heading.textContent = "checklist结果";
+  heading.textContent = "法律 checklist 结果";
   section.appendChild(heading);
 
   const wrapper = document.createElement("div");
@@ -952,6 +977,164 @@ function renderChecklistTable(rows) {
   reviewChecklist.replaceChildren(section);
 }
 
+function renderFileIssueSummaries(payload) {
+  reviewFileIssues.replaceChildren();
+  const summaries = normalizeObjectArray(
+    payload.file_issue_summaries || payload.trace?.file_issue_summaries,
+  );
+  const issues = normalizeObjectArray(payload.file_issues || payload.trace?.file_issues);
+
+  if (!summaries.length && !issues.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "未发现文件级 OCR、解析、抽取或关键字段缺失问题。";
+    reviewFileIssues.appendChild(empty);
+    return;
+  }
+
+  const header = document.createElement("div");
+  header.className = "file-issue-overview";
+  header.append(
+    createFileIssueMetric("归纳文件", summaries.length || issues.length),
+    createFileIssueMetric("原始问题", issues.length),
+  );
+  reviewFileIssues.appendChild(header);
+
+  const issueByFileId = new Map();
+  for (const issue of issues) {
+    const fileId = issue.file_id || "";
+    if (fileId) {
+      issueByFileId.set(fileId, issue);
+    }
+  }
+
+  const cards = summaries.length
+    ? summaries
+    : issues.map((issue) => ({
+        file_id: issue.file_id || "",
+        file_no: issue.file_no || "",
+        file_name: issue.file_name || "",
+        status: issue.severity === "error" ? "异常" : "需人工复核",
+        summary: (issue.evidence || []).join("；") || "该文件存在待核对问题。",
+        issue_types: issue.issue_types || [],
+        suggested_action: issue.suggested_action || "请核对该文件的处理和抽取结果。",
+      }));
+
+  for (const summary of cards) {
+    reviewFileIssues.appendChild(renderFileIssueCard(summary, issueByFileId.get(summary.file_id)));
+  }
+}
+
+function createFileIssueMetric(label, value) {
+  const item = document.createElement("div");
+  item.className = "file-issue-metric";
+  const labelNode = document.createElement("span");
+  labelNode.textContent = label;
+  const valueNode = document.createElement("strong");
+  valueNode.textContent = value ?? 0;
+  item.append(labelNode, valueNode);
+  return item;
+}
+
+function renderFileIssueCard(summary, rawIssue) {
+  const card = document.createElement("article");
+  const status = normalizeFileIssueStatus(summary.status || rawIssue?.severity);
+  card.className = `file-issue-card file-issue-card--${status.className}`;
+
+  const header = document.createElement("div");
+  header.className = "file-issue-card-header";
+  const title = document.createElement("strong");
+  title.textContent = [summary.file_no ? `#${summary.file_no}` : "", summary.file_name || summary.file_id || "未知文件"]
+    .filter(Boolean)
+    .join(" ");
+  const badge = document.createElement("span");
+  badge.className = "file-issue-status";
+  badge.textContent = status.label;
+  header.append(title, badge);
+
+  const meta = document.createElement("div");
+  meta.className = "file-issue-meta";
+  const metaParts = [
+    summary.file_id ? `file_id：${summary.file_id}` : "",
+    rawIssue?.content_type ? `content_type：${rawIssue.content_type}` : "",
+    rawIssue?.route_type ? `route_type：${rawIssue.route_type}` : "",
+  ].filter(Boolean);
+  meta.textContent = metaParts.join("；");
+
+  const description = document.createElement("p");
+  description.textContent = summary.summary || "该文件存在待核对问题。";
+
+  const tags = document.createElement("div");
+  tags.className = "file-issue-tags";
+  for (const issueType of normalizeArray(summary.issue_types || rawIssue?.issue_types)) {
+    const tag = document.createElement("span");
+    tag.textContent = fileIssueTypeLabel(issueType);
+    tags.appendChild(tag);
+  }
+
+  const action = document.createElement("p");
+  action.className = "file-issue-action";
+  action.textContent = summary.suggested_action || rawIssue?.suggested_action || "请核对该文件的处理和抽取结果。";
+
+  card.append(header);
+  if (metaParts.length) {
+    card.appendChild(meta);
+  }
+  card.append(description);
+  if (tags.childElementCount) {
+    card.appendChild(tags);
+  }
+  card.appendChild(action);
+  return card;
+}
+
+function normalizeFileIssueStatus(status) {
+  const text = String(status || "").trim();
+  if (text === "error" || text === "异常") {
+    return { label: "异常", className: "error" };
+  }
+  if (text === "normal" || text === "通过") {
+    return { label: "通过", className: "ok" };
+  }
+  return { label: "需人工复核", className: "warning" };
+}
+
+function fileIssueTypeLabel(issueType) {
+  const labels = {
+    content_type_unknown: "文件类型未知",
+    ocr_failed: "OCR 失败",
+    ocr_low_confidence: "OCR 置信度低",
+    file_parse_failed: "文件无法解析",
+    extract_failed: "抽取失败",
+    extract_partial_failed: "部分抽取失败",
+    llm_request_failed: "LLM 请求失败",
+    json_parse_failed: "JSON 解析失败",
+    llm_output_truncated: "LLM 输出被截断",
+    schema_invalid: "schema 不合法",
+    missing_required_fields: "缺少必填字段",
+    missing_date: "缺少日期",
+    missing_securities_account: "缺少证券账号",
+    missing_account_type: "缺少账户类型",
+    missing_security_code: "缺少证券代码",
+    missing_security_name: "缺少证券名称",
+    many_pending_review_items: "待复核记录较多",
+    pending_review_event: "存在待复核事件",
+    pending_review_holding: "存在待复核持仓",
+    unknown_event_type: "事件类型无法判断",
+    conflict_between_sources: "来源字段冲突",
+    file_review_reason: "文件处理提示",
+  };
+  return labels[issueType] || issueType;
+}
+
+function normalizeObjectArray(value) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") : [];
+}
+
+function normalizeArray(value) {
+  return Array.isArray(value) ? value.filter((item) => item !== null && item !== undefined) : [];
+}
+
 function addEditableRow(key, columns, row) {
   const table = reviewTables.querySelector(`table[data-review-key="${key}"]`);
   if (!table) {
@@ -961,6 +1144,7 @@ function addEditableRow(key, columns, row) {
   const tbody = table.querySelector("tbody");
   const tr = document.createElement("tr");
   tr.dataset.meta = JSON.stringify(row._meta || {});
+  tr.dataset.originalRow = JSON.stringify(row || {});
 
   const selectCell = document.createElement("td");
   const checkbox = document.createElement("input");
@@ -1000,10 +1184,10 @@ function collectReviewData() {
     review_data: {
       最终申报表: collectReviewRows("最终申报表"),
       完整表: collectReviewRows("完整表"),
+      待复核问题: collectReviewRows("待复核问题"),
       持仓: collectReviewRows("持仓"),
       身份信息: collectIdentityInfo(),
       checklist结果: currentReviewData?.["checklist结果"] || currentReviewData?.checklist_rows || [],
-      问题清单: currentReviewData?.["问题清单"] || currentReviewData?.review_items || [],
     },
   };
 }
@@ -1017,7 +1201,7 @@ function collectReviewRows(key) {
   const columns = JSON.parse(table.dataset.columns || "[]");
   const rows = [];
   for (const tr of table.querySelectorAll("tbody tr")) {
-    const row = {};
+    const row = parseJsonObject(tr.dataset.originalRow);
     let hasValue = false;
     for (const column of columns) {
       const value = tr.querySelector(`input[data-column="${column}"]`)?.value.trim() || "";

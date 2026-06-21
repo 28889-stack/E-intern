@@ -5,14 +5,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.pipeline.case_event_resolver import REVIEW_ISSUE_COLUMNS, resolve_case_events
+from app.pipeline.file_issue_collector import collect_file_issues
+from app.pipeline.file_issue_summarizer import summarize_file_issues
 from app.pipeline.normalizers import normalize_chinaclear, normalize_guangfa
 from app.pipeline.normalizers.common import (
+    as_list as normalizer_as_list,
     empty_normalized_result,
     is_final_declaration_row as normalizer_is_final_declaration_row,
     movement_type as normalizer_movement_type,
     review_item as normalizer_review_item,
+    unique_list,
 )
 from app.services import local_store
+from app.services.llm_client import LLMClient
 
 
 PROMPT_SCHEMA_PATH = local_store.PROJECT_ROOT / "prompts" / "chinaclear_extract_prompt.md"
@@ -20,6 +26,7 @@ FINAL_RESULT_SCHEMA_VERSION = "final_result_v1"
 
 SHEET_FINAL = "最终申报表"
 SHEET_COMPLETE = "完整表"
+SHEET_REVIEW_ISSUES = "待复核问题"
 SHEET_HOLDINGS = "持仓"
 SHEET_IDENTITY = "身份信息"
 SHEET_CHECKLIST = "checklist结果"
@@ -40,8 +47,11 @@ EVENT_COLUMNS = [
     "file_id",
     "file_no",
     "original_file_name",
+    "account_type",
     "document_type",
     "document_title",
+    "period_start",
+    "period_end",
     "holder_name",
     "one_code_account",
     "securities_account",
@@ -64,6 +74,8 @@ EVENT_COLUMNS = [
     "review_reason",
 ]
 
+COMPLETE_EVENT_COLUMNS = EVENT_COLUMNS + ["data_source"]
+
 CHECKLIST_COLUMNS = [
     "checklist条件",
     "状态",
@@ -75,6 +87,8 @@ HOLDING_COLUMNS = [
     "file_id",
     "file_no",
     "original_file_name",
+    "account_type",
+    "securities_account",
     "market",
     "holding_date",
     "security_code",
@@ -147,7 +161,6 @@ def build_final_result(case_id: str) -> dict:
     extract_items = _collect_extract_results(case_id, file_records_by_id)
     review_items: list[dict] = []
     complete_rows: list[dict] = []
-    final_rows: list[dict] = []
     holding_rows: list[dict] = []
     source_extract_results = []
 
@@ -170,26 +183,32 @@ def build_final_result(case_id: str) -> dict:
 
         if extract_result.get("extract_status") not in {"success", "skipped"}:
             review_items.append(
-                _review_item(
-                    "warning",
-                    "extract_result",
-                    file_id,
-                    "",
-                    "extract_status",
-                    f"抽取状态为 {extract_result.get('extract_status') or 'unknown'}，需人工复核",
+                _with_file_metadata(
+                    _review_item(
+                        "warning",
+                        "extract_result",
+                        file_id,
+                        "",
+                        "extract_status",
+                        f"抽取状态为 {extract_result.get('extract_status') or 'unknown'}，需人工复核",
+                    ),
+                    file_record,
                 )
             )
 
         for reason in _as_list(extract_result.get("review_reasons")):
             if reason:
                 review_items.append(
-                    _review_item(
-                        "warning",
-                        "extract_result",
-                        file_id,
-                        "",
-                        "review_reasons",
-                        str(reason),
+                    _with_file_metadata(
+                        _review_item(
+                            "warning",
+                            "extract_result",
+                            file_id,
+                            "",
+                            "review_reasons",
+                            str(reason),
+                        ),
+                        file_record,
                     )
                 )
 
@@ -199,9 +218,11 @@ def build_final_result(case_id: str) -> dict:
             file_record,
         )
         complete_rows.extend(normalized["full_transaction_rows"])
-        final_rows.extend(normalized["final_declaration_rows"])
         holding_rows.extend(normalized["holding_rows"])
-        review_items.extend(normalized["review_items"])
+        review_items.extend(
+            _with_file_metadata(item, file_record)
+            for item in normalized["review_items"]
+        )
 
     if not extract_items:
         review_items.append(
@@ -215,11 +236,18 @@ def build_final_result(case_id: str) -> dict:
             )
         )
 
-    for row in complete_rows:
-        review_items.extend(_missing_field_reviews(row))
+    resolved = resolve_case_events(
+        complete_rows,
+        holding_rows=holding_rows,
+        review_items=review_items,
+    )
+    complete_rows = resolved["full_transaction_rows"]
+    final_rows = resolved["final_declaration_rows"]
+    holding_rows = resolved["holding_rows"]
+    for row in complete_rows + holding_rows:
+        row["data_source"] = _data_source(row)
 
     checklist_rows = _build_checklist_rows(complete_rows, holding_rows)
-    export_audit = _build_export_audit(complete_rows, final_rows)
     if any(row.get("状态") == "需人工复核" for row in checklist_rows):
         review_items.append(
             _review_item(
@@ -232,14 +260,41 @@ def build_final_result(case_id: str) -> dict:
             )
         )
 
+    review_issue_rows = resolved["review_issue_rows"]
+    review_issues = resolved["review_issues"]
+    file_issues = collect_file_issues(
+        case_id,
+        files_index,
+        review_issues=review_issues,
+        review_issue_rows=review_issue_rows,
+        pending_review_events=resolved.get("pending_review_events", []),
+        pending_review_holdings=resolved.get("pending_review_holdings", []),
+    )
+    file_issue_result = summarize_file_issues(
+        file_issues,
+        review_issue_rows,
+        files_index,
+        llm_client=_file_issue_llm_client(),
+    )
+    file_issue_summaries = file_issue_result.get("file_issue_summaries", [])
+    checklist_rows.extend(file_issue_result.get("checklist_rows", []))
+    export_audit = _build_export_audit(complete_rows, final_rows)
+
     sheets = {
         SHEET_FINAL: {
             "columns": EVENT_COLUMNS,
             "rows": [_select_columns(row, EVENT_COLUMNS) for row in final_rows],
         },
         SHEET_COMPLETE: {
-            "columns": EVENT_COLUMNS,
-            "rows": [_select_columns(row, EVENT_COLUMNS) for row in complete_rows],
+            "columns": COMPLETE_EVENT_COLUMNS,
+            "rows": [_select_columns(row, COMPLETE_EVENT_COLUMNS) for row in complete_rows],
+        },
+        SHEET_REVIEW_ISSUES: {
+            "columns": REVIEW_ISSUE_COLUMNS,
+            "rows": [
+                _select_columns(row, REVIEW_ISSUE_COLUMNS)
+                for row in review_issue_rows
+            ],
         },
         SHEET_HOLDINGS: {
             "columns": HOLDING_COLUMNS,
@@ -275,13 +330,19 @@ def build_final_result(case_id: str) -> dict:
             "final_declaration_row_count": len(final_rows),
             "holding_row_count": len(holding_rows),
             "identity_row_count": 1,
+            "review_issue_count": len(review_issue_rows),
             "review_item_count": len(review_items),
-            "manual_review_required": bool(review_items),
+            "file_issue_count": len(file_issues),
+            "manual_review_required": bool(review_items or review_issues or file_issues),
         },
         "export_audit": export_audit,
+        "merge_audit": resolved.get("merge_audit", []),
+        "file_issues": file_issues,
+        "file_issue_summaries": file_issue_summaries,
         "sheet_order": [
             SHEET_FINAL,
             SHEET_COMPLETE,
+            SHEET_REVIEW_ISSUES,
             SHEET_HOLDINGS,
             SHEET_IDENTITY,
             SHEET_CHECKLIST,
@@ -369,9 +430,17 @@ def _is_final_declaration_row(row: dict) -> bool:
 
 
 def _build_checklist_rows(rows: list[dict], holding_rows: list[dict]) -> list[dict]:
-    status = "需人工复核"
-    details = "材料不足，暂无法校验‘上次持仓 + 交易 = 本次持仓’。"
-    if rows and holding_rows:
+    if not rows and not holding_rows:
+        status = "无需校验"
+        details = "未发现交易和持仓数据，暂不执行‘上次持仓 + 交易 = 本次持仓’校验。"
+    elif not rows:
+        status = "无需校验"
+        details = "未发现交易记录，仅有持仓数据，暂不执行‘上次持仓 + 交易 = 本次持仓’校验。"
+    elif not holding_rows:
+        status = "无需校验"
+        details = "未发现持仓记录，仅有交易数据，暂不执行‘上次持仓 + 交易 = 本次持仓’校验。"
+    else:
+        status = "需人工复核"
         details = "当前已收集交易和持仓数据，但尚未实现跨材料自动勾稽，需人工复核。"
     return [
         {
@@ -418,6 +487,51 @@ def _movement_type(row: dict) -> str:
     return normalizer_movement_type(row)
 
 
+def _data_source(row: dict) -> str:
+    evidence_labels = []
+    for item in normalizer_as_list(row.get("source_evidence")):
+        if isinstance(item, dict):
+            label = _source_evidence_label(item)
+            if label:
+                evidence_labels.append(label)
+    if evidence_labels:
+        return "；".join(unique_list(evidence_labels))
+
+    file_label = " ".join(
+        part
+        for part in [row.get("file_no"), row.get("original_file_name")]
+        if part not in (None, "")
+    )
+    pages = _join_values(row.get("source_pages"))
+    row_nos = _join_values(row.get("row_nos"))
+    suffix = []
+    if pages:
+        suffix.append(f"第{pages}页")
+    if row_nos:
+        suffix.append(f"行{row_nos}")
+    return " ".join(part for part in [file_label, *suffix] if part)
+
+
+def _source_evidence_label(item: dict) -> str:
+    file_label = " ".join(
+        part
+        for part in [item.get("file_no"), item.get("file_name")]
+        if part not in (None, "")
+    )
+    pages = _join_values(item.get("source_pages") or item.get("source_page"))
+    row_nos = _join_values(item.get("row_nos") or item.get("row_no"))
+    suffix = []
+    if pages:
+        suffix.append(f"第{pages}页")
+    if row_nos:
+        suffix.append(f"行{row_nos}")
+    return " ".join(part for part in [file_label, *suffix] if part)
+
+
+def _join_values(value: Any) -> str:
+    return ",".join(unique_list(value))
+
+
 def _missing_field_reviews(row: dict) -> list[dict]:
     reviews = []
     for field in CRITICAL_EVENT_FIELDS:
@@ -452,11 +566,14 @@ def _load_prompt_schema() -> dict:
         "excel_sheets": [
             SHEET_FINAL,
             SHEET_COMPLETE,
+            SHEET_REVIEW_ISSUES,
             SHEET_HOLDINGS,
             SHEET_IDENTITY,
             SHEET_CHECKLIST,
         ],
         "normalized_event_columns": EVENT_COLUMNS,
+        "complete_event_columns": COMPLETE_EVENT_COLUMNS,
+        "review_issue_columns": REVIEW_ISSUE_COLUMNS,
     }
 
 
@@ -478,7 +595,10 @@ def _extract_trade_columns(prompt_text: str) -> list[str]:
 
 
 def _select_columns(row: dict, columns: list[str]) -> dict:
-    return {column: row.get(column, "") for column in columns}
+    selected = {column: row.get(column, "") for column in columns}
+    if isinstance(row.get("_meta"), dict):
+        selected["_meta"] = row["_meta"]
+    return selected
 
 
 def _review_item(
@@ -499,6 +619,15 @@ def _review_item(
     }
 
 
+def _with_file_metadata(item: dict, file_record: dict) -> dict:
+    enriched = dict(item)
+    if file_record:
+        enriched.setdefault("file_id", file_record.get("file_id", ""))
+        enriched.setdefault("file_no", file_record.get("file_no", ""))
+        enriched.setdefault("original_file_name", file_record.get("original_file_name", ""))
+    return enriched
+
+
 def _update_status(case_id: str, final_result: dict) -> None:
     status_path = local_store.get_case_dir(case_id) / "status.json"
     status = local_store.read_json(status_path, {"case_id": case_id})
@@ -508,15 +637,29 @@ def _update_status(case_id: str, final_result: dict) -> None:
             "final_status": "success",
             "checklist_status": "success",
             "manual_review_required": final_result["summary"]["manual_review_required"],
-            "review_reasons": [
-                item.get("message", "")
-                for item in final_result.get("review_items", [])
-                if item.get("message")
-            ],
+            "review_reasons": _review_reasons_from_final_result(final_result),
             "updated_at": _now(),
         }
     )
     local_store.save_json(status_path, status)
+
+
+def _review_reasons_from_final_result(final_result: dict) -> list[str]:
+    reasons = []
+    for item in final_result.get("review_items", []):
+        if isinstance(item, dict) and item.get("message"):
+            reasons.append(str(item.get("message")))
+
+    sheets = final_result.get("sheets") or {}
+    review_issue_sheet = sheets.get(SHEET_REVIEW_ISSUES) or {}
+    for row in review_issue_sheet.get("rows", []):
+        if not isinstance(row, dict):
+            continue
+        message = str(row.get("问题描述") or row.get("复核说明") or "").strip()
+        if message:
+            reasons.append(message)
+
+    return unique_list(reasons)
 
 
 def _as_list(value: Any) -> list:
@@ -528,8 +671,19 @@ def _as_list(value: Any) -> list:
 
 
 def _relative_to_project(path: Path | str) -> str:
-    return str(Path(path).resolve().relative_to(local_store.PROJECT_ROOT.resolve()))
+    resolved = Path(path).resolve()
+    try:
+        return str(resolved.relative_to(local_store.PROJECT_ROOT.resolve()))
+    except ValueError:
+        return str(resolved)
 
 
 def _now() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _file_issue_llm_client() -> LLMClient | None:
+    try:
+        return LLMClient()
+    except Exception:
+        return None

@@ -5,6 +5,7 @@ from app.pipeline.normalizers.common import (
     build_event_row,
     build_holding_row,
     build_normalized_result,
+    empty_record_event_from_semantics,
     review_item,
 )
 
@@ -72,8 +73,16 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
     ] + holding_rows
 
     if not full_rows and not holding_rows:
-        review_items.append(
-            review_item(
+        empty_record_event = empty_record_event_from_semantics(
+            case_id,
+            file_record,
+            document_info,
+            extract_result,
+        )
+        if empty_record_event:
+            full_rows.append(empty_record_event)
+        else:
+            item = review_item(
                 "warning",
                 "extract_result",
                 file_record.get("file_id") or extract_result.get("file_id") or "",
@@ -81,7 +90,9 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
                 "guangfa",
                 "广发抽取结果中未发现 trade_group、position_group、other_events、transactions、events、cash_flows 或 holdings",
             )
-        )
+            item["file_no"] = file_record.get("file_no", "")
+            item["original_file_name"] = file_record.get("original_file_name", "")
+            review_items.append(item)
 
     return build_normalized_result(full_rows, holding_rows, review_items)
 

@@ -10,6 +10,7 @@ from app.pipeline.final_result_builder import (
     SHEET_FINAL,
     SHEET_HOLDINGS,
     SHEET_IDENTITY,
+    SHEET_REVIEW_ISSUES,
 )
 from app.services import local_store
 
@@ -35,6 +36,8 @@ def get_review_payload(case_id: str) -> dict:
                 "review_status": review_status,
                 "data": review_data,
                 "trace": reviewed.get("trace", {}),
+                "file_issues": reviewed.get("file_issues", []),
+                "file_issue_summaries": reviewed.get("file_issue_summaries", []),
             }
 
     final_result = local_store.read_json(final_result_path, {})
@@ -43,6 +46,8 @@ def get_review_payload(case_id: str) -> dict:
         "review_status": review_status,
         "data": build_review_data_from_final_result(case_id, final_result),
         "trace": _trace_from_final_result(final_result, final_result_path, None),
+        "file_issues": final_result.get("file_issues", []),
+        "file_issue_summaries": final_result.get("file_issue_summaries", []),
     }
 
 
@@ -59,6 +64,9 @@ def save_review_payload(case_id: str, payload: dict) -> dict:
     review_data = {
         SHEET_FINAL: _sanitize_rows(_sheet_payload(input_data, SHEET_FINAL)),
         SHEET_COMPLETE: _sanitize_rows(_sheet_payload(input_data, SHEET_COMPLETE)),
+        SHEET_REVIEW_ISSUES: _sanitize_rows(
+            _sheet_payload(input_data, SHEET_REVIEW_ISSUES)
+        ),
         SHEET_HOLDINGS: _sanitize_rows(_sheet_payload(input_data, SHEET_HOLDINGS)),
         SHEET_IDENTITY: _sanitize_object(_sheet_payload(input_data, SHEET_IDENTITY)),
         SHEET_CHECKLIST: server_review_data.get(SHEET_CHECKLIST, []),
@@ -73,6 +81,8 @@ def save_review_payload(case_id: str, payload: dict) -> dict:
             final_result_path,
             review_saved_at,
         ),
+        "file_issues": final_result.get("file_issues", []),
+        "file_issue_summaries": final_result.get("file_issue_summaries", []),
     }
     reviewed_path = reviewed_final_result_path(case_id)
     local_store.save_json(reviewed_path, reviewed)
@@ -164,6 +174,7 @@ def build_review_data_from_final_result(case_id: str, final_result: dict) -> dic
     }
     final_rows = _sheet_rows(final_result, SHEET_FINAL)
     complete_rows = _sheet_rows(final_result, SHEET_COMPLETE)
+    review_issue_rows = _sheet_rows(final_result, SHEET_REVIEW_ISSUES)
     holding_rows = _sheet_rows(final_result, SHEET_HOLDINGS)
     identity_rows = _sheet_rows(final_result, SHEET_IDENTITY)
     checklist_rows = _sheet_rows(final_result, SHEET_CHECKLIST)
@@ -177,6 +188,10 @@ def build_review_data_from_final_result(case_id: str, final_result: dict) -> dic
             _event_review_row(row, source_by_file_id, index)
             for index, row in enumerate(complete_rows, start=1)
         ],
+        SHEET_REVIEW_ISSUES: [
+            _review_issue_review_row(row, source_by_file_id, index)
+            for index, row in enumerate(review_issue_rows, start=1)
+        ],
         SHEET_HOLDINGS: [
             _holding_review_row(row, source_by_file_id, index)
             for index, row in enumerate(holding_rows, start=1)
@@ -187,12 +202,14 @@ def build_review_data_from_final_result(case_id: str, final_result: dict) -> dic
 
 
 def _event_review_row(row: dict, source_by_file_id: dict[str, dict], index: int) -> dict:
-    return {
+    review_row = {
         "账户类型": row.get("account_type", ""),
         "证券账号": row.get("securities_account") or "",
         "证券代码": row.get("security_code", ""),
         "证券名称": row.get("security_name", ""),
         "变动类型": _change_type(row),
+        "起始日期": row.get("period_start", ""),
+        "终止日期": row.get("period_end", ""),
         "日期": row.get("event_date", ""),
         "成交数量": row.get("quantity_raw", ""),
         "成交单价": row.get("price_raw", ""),
@@ -201,6 +218,30 @@ def _event_review_row(row: dict, source_by_file_id: dict[str, dict], index: int)
             row,
             source_by_file_id,
             row.get("event_id") or f"event_{index}",
+        ),
+    }
+    if row.get("data_source"):
+        review_row["数据来源"] = row.get("data_source", "")
+    return review_row
+
+
+def _review_issue_review_row(
+    row: dict,
+    source_by_file_id: dict[str, dict],
+    index: int,
+) -> dict:
+    return {
+        "序号": row.get("序号", str(index)),
+        "待复核原因": row.get("待复核原因", ""),
+        "问题描述": row.get("问题描述", ""),
+        "对应材料": row.get("对应材料", ""),
+        "_meta": _row_meta(
+            row,
+            source_by_file_id,
+            row.get("关联记录ID")
+            or row.get("复核问题ID")
+            or row.get("序号")
+            or f"review_issue_{index}",
         ),
     }
 
@@ -254,13 +295,18 @@ def _checklist_review_row(row: dict) -> dict:
 
 
 def _row_meta(row: dict, source_by_file_id: dict[str, dict], source_row_id: str) -> dict:
-    file_id = row.get("file_id") or ""
+    existing_meta = row.get("_meta") if isinstance(row.get("_meta"), dict) else {}
+    file_id = existing_meta.get("file_id") or row.get("file_id") or ""
     source = source_by_file_id.get(file_id, {})
     return {
         "file_id": file_id,
-        "source_type": source.get("source_type") or source.get("content_type") or "",
-        "source_row_id": source_row_id,
-        "original_row": row,
+        "source_type": existing_meta.get("source_type")
+        or source.get("source_type")
+        or source.get("content_type")
+        or "",
+        "source_row_id": existing_meta.get("source_row_id") or source_row_id,
+        "original_row": existing_meta.get("original_row") or row,
+        "source_evidence": existing_meta.get("source_evidence") or row.get("source_evidence") or [],
     }
 
 
@@ -281,14 +327,15 @@ def _sheet_payload(review_data: dict, sheet_name: str) -> Any:
     if sheet_name in review_data:
         return review_data[sheet_name]
 
-    legacy_keys = {
+    api_keys = {
         SHEET_FINAL: "final_declaration_rows",
         SHEET_COMPLETE: "full_transaction_rows",
+        SHEET_REVIEW_ISSUES: "review_issue_rows",
         SHEET_HOLDINGS: "holding_rows",
         SHEET_IDENTITY: "identity_info",
         SHEET_CHECKLIST: "checklist_rows",
     }
-    return review_data.get(legacy_keys[sheet_name])
+    return review_data.get(api_keys[sheet_name])
 
 
 def _sanitize_rows(value: Any) -> list[dict]:
@@ -308,7 +355,8 @@ def _sanitize_object(value: Any) -> dict:
 
 
 def _sheet_rows(final_result: dict, sheet_name: str) -> list[dict]:
-    sheet = (final_result.get("sheets") or {}).get(sheet_name) or {}
+    sheets = final_result.get("sheets") or {}
+    sheet = sheets.get(sheet_name) or {}
     rows = sheet.get("rows", [])
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
@@ -333,6 +381,9 @@ def _change_type(row: dict) -> str:
         "new_bond_subscription": "打新债",
         "cash_flow": "资金流水",
         "bank_transfer": "银证转账",
+        "no_trade_record": "无交易记录",
+        "no_holding_record": "无持仓记录",
+        "no_account_record": "未开立账户",
     }
     return event_type_map.get(event_type, event_type)
 
@@ -349,6 +400,8 @@ def _trace_from_final_result(
         "source_extract_results": final_result.get("source_extract_results", []),
         "export_audit": final_result.get("export_audit", {}),
         "summary": final_result.get("summary", {}),
+        "file_issues": final_result.get("file_issues", []),
+        "file_issue_summaries": final_result.get("file_issue_summaries", []),
     }
 
 

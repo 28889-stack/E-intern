@@ -13,6 +13,7 @@ from app.pipeline.final_result_builder import (
     SHEET_FINAL,
     SHEET_HOLDINGS,
     SHEET_IDENTITY,
+    SHEET_REVIEW_ISSUES,
 )
 from app.services import local_store
 
@@ -20,6 +21,7 @@ from app.services import local_store
 DEFAULT_SHEET_ORDER = [
     SHEET_FINAL,
     SHEET_COMPLETE,
+    SHEET_REVIEW_ISSUES,
     SHEET_HOLDINGS,
     SHEET_IDENTITY,
     SHEET_CHECKLIST,
@@ -43,10 +45,19 @@ REVIEW_SHEET_COLUMNS = {
         "证券代码",
         "证券名称",
         "变动类型",
+        "起始日期",
+        "终止日期",
         "日期",
         "成交数量",
         "成交单价",
         "收付金额",
+        "数据来源",
+    ],
+    SHEET_REVIEW_ISSUES: [
+        "序号",
+        "待复核原因",
+        "问题描述",
+        "对应材料",
     ],
     SHEET_HOLDINGS: [
         "账户类型",
@@ -96,34 +107,20 @@ def _build_sheet_payloads(final_result: dict) -> list[dict]:
     if isinstance(final_result.get("review_data"), dict):
         return _build_review_sheet_payloads(final_result["review_data"])
 
-    result_sheets = final_result.get("sheets") or {}
-    sheet_order = final_result.get("sheet_order") or DEFAULT_SHEET_ORDER
-    payloads = []
+    from app.pipeline.final_review import build_review_data_from_final_result
 
-    for sheet_name in sheet_order:
-        sheet_data = result_sheets.get(sheet_name) or {}
-        columns = [str(column) for column in sheet_data.get("columns", [])]
-        rows = sheet_data.get("rows", [])
-        matrix = [columns]
-        for row in rows if isinstance(rows, list) else []:
-            if not isinstance(row, dict):
-                continue
-            matrix.append([_cell_value(row.get(column, "")) for column in columns])
-
-        payloads.append(
-            {
-                "name": _safe_sheet_name(sheet_name),
-                "matrix": matrix,
-            }
-        )
-
-    return payloads
+    review_data = build_review_data_from_final_result(
+        str(final_result.get("case_id") or ""),
+        final_result,
+    )
+    return _build_review_sheet_payloads(review_data)
 
 
 def _build_review_sheet_payloads(review_data: dict) -> list[dict]:
     return [
         _review_rows_payload(SHEET_FINAL, review_data.get(SHEET_FINAL)),
         _review_rows_payload(SHEET_COMPLETE, review_data.get(SHEET_COMPLETE)),
+        _review_rows_payload(SHEET_REVIEW_ISSUES, review_data.get(SHEET_REVIEW_ISSUES)),
         _review_rows_payload(SHEET_HOLDINGS, review_data.get(SHEET_HOLDINGS)),
         _review_identity_payload(review_data.get(SHEET_IDENTITY)),
         _review_rows_payload(SHEET_CHECKLIST, review_data.get(SHEET_CHECKLIST)),

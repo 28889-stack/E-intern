@@ -13,15 +13,17 @@
 
 1. 一份材料输出一个 JSON。
 2. 如果是“证券持有变更信息”，普通交易明细输出到 `trade_group.trades`，其他业务事件输出到 `other_events`。
-3. 如果是“证券持有信息”，只说明这是持仓快照，`trade_group.trades` 和 `other_events` 都输出空数组。
+3. 如果是“证券持有信息”，这是持仓快照；如果有持仓明细，后续可输出到 `holdings`，如果明确无持仓 / 未持仓，输出 `no_holding_record` 到 `other_events`。
 4. 普通买卖交易：一行就是一笔交易明细，逐笔写入 `trade_group.trades`，不要丢失，也不要合并成单笔汇总。
 5. `trade_group` 只是 JSON 表达层的分组，不代表业务上把多笔交易合并为一个交易。
 6. 红利、兑息、送股、转增等公司行为，如果多行只是同一业务的不同阶段，可以合并为 `other_events` 中的一个事件。
 7. 不计算红利、利息、交易金额、盈亏、税费。
 8. 如果材料中没有交易金额，不输出 `amount`，不要用“数量 × 价格”反推。
 9. 为避免 JSON 被截断，普通交易必须使用“列定义 + 行数组”格式，不要使用对象数组。
-10. 不要输出整行原文、置信度对象、大段解释或大量 `null` 字段。
-11. 输出只能是合法 JSON，不要输出解释文字。
+10. 如果材料明确显示某一账户在某一查询日或时间段内“无持仓”“未持仓”“共0条”“没有相应查询信息”，不要当成抽取失败；应输出空结果事件。
+11. 空结果事件也必须尽量抽取证券账户 / 一码通账户、查询日期或起止日期；如果账户号或时间缺失，仍输出事件，但在 `quality.warnings` 说明需要人工复核。
+12. 不要输出整行原文、置信度对象、大段解释或大量 `null` 字段。
+13. 输出只能是合法 JSON，不要输出解释文字。
 
 ## 二、输出 JSON 结构
 
@@ -62,9 +64,11 @@
   "other_events": [
     {
       "event_id": "",
-      "event_type": "security_registration | cash_dividend | bond_interest | bonus_share | unknown_event",
+      "event_type": "security_registration | cash_dividend | bond_interest | bonus_share | no_trade_record | no_holding_record | unknown_event",
       "market": "SH | SZ",
       "event_date": "",
+      "period_start": "",
+      "period_end": "",
       "security_code": "",
       "security_name": "",
       "direction": "registration_in | cash_income | rights_event | unknown",
@@ -87,7 +91,17 @@
 
 `trade_group.trades` 中每一行都必须严格对应 `trade_columns` 的顺序。没有值的位置用空字符串 `""`，不要改列名，不要为每笔交易重复输出字段名。
 
-`other_events` 只用于非普通交易业务：股份登记、现金红利、债券兑息、送股/转增、未知事件。普通买入、卖出、交易过户不得写入 `other_events`。
+`other_events` 只用于非普通交易业务、未知事件和空结果事件。普通买入、卖出、交易过户不得写入 `other_events`。
+
+空结果事件规则：
+
+* `no_trade_record`：某证券账户在某一查询日或时间段内持有变更 / 交易记录明确为 0 条。
+* `no_holding_record`：某证券账户在某一查询日或时间段内明确无持仓 / 未持仓。
+* `event_date` 优先填查询日；如果只有时间段，填 `period_end`。
+* `period_start` / `period_end` 按原文起止日期填写。
+* `securities_account` 必须尽量填证券账户；如材料只有一码通账户，填 `one_code_account`。
+* `security_code`、`security_name`、`quantity_raw`、`price_raw`、`balance_after_raw` 填字符串 `"0"`。
+* `transfer_type_raw` 填“无交易记录”或“无持仓记录”。
 
 ## 三、沪市事件识别规则
 

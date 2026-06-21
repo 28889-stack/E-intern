@@ -5,6 +5,7 @@ from app.pipeline.normalizers.common import (
     build_event_row,
     build_holding_row,
     build_normalized_result,
+    empty_record_event_from_semantics,
 )
 
 
@@ -63,4 +64,15 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
         for holding in as_list(extract_result.get("holdings"))
         if isinstance(holding, dict)
     ]
+
+    if not full_rows and not holding_rows:
+        empty_record_event = empty_record_event_from_semantics(
+            case_id,
+            file_record,
+            document_info,
+            extract_result,
+        )
+        if empty_record_event:
+            full_rows.append(empty_record_event)
+
     return build_normalized_result(full_rows, holding_rows)

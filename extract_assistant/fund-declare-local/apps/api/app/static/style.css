@@ -931,7 +931,8 @@ button:disabled {
 }
 
 .review-tables,
-.review-checklist {
+.review-checklist,
+.file-issue-list {
   display: grid;
   gap: 18px;
 }
@@ -947,6 +948,135 @@ button:disabled {
   background: var(--surface-soft);
   color: var(--muted);
   font-size: 13px;
+}
+
+.file-issue-block {
+  background: var(--surface-soft);
+}
+
+.file-issue-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.file-issue-metric {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.file-issue-metric span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.file-issue-metric strong {
+  color: var(--blue);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.file-issue-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--cyan);
+  background: #ffffff;
+}
+
+.file-issue-card--error {
+  border-left-color: var(--red);
+}
+
+.file-issue-card--warning {
+  border-left-color: #b66a00;
+}
+
+.file-issue-card--ok {
+  border-left-color: var(--cyan);
+}
+
+.file-issue-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.file-issue-card-header strong {
+  min-width: 0;
+  color: var(--blue);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.file-issue-status {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.file-issue-card--error .file-issue-status {
+  border-color: rgba(201, 21, 35, 0.35);
+  background: rgba(201, 21, 35, 0.08);
+  color: var(--red);
+}
+
+.file-issue-card--warning .file-issue-status {
+  border-color: rgba(182, 106, 0, 0.35);
+  background: rgba(182, 106, 0, 0.08);
+  color: #8a5100;
+}
+
+.file-issue-meta,
+.file-issue-action,
+.file-issue-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.file-issue-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.file-issue-card p {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.file-issue-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.file-issue-tags span {
+  padding: 3px 7px;
+  border: 1px solid rgba(0, 80, 143, 0.16);
+  background: var(--surface-soft);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.file-issue-action {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .review-table-block {
