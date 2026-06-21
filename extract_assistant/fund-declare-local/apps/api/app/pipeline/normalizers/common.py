@@ -65,6 +65,20 @@ EXCLUDED_TRANSFER_KEYWORDS = (
     "转出",
 )
 
+SECURITY_REGISTRATION_KEYWORDS = (
+    "股份登记",
+    "股份入账",
+    "证券登记",
+    "证券登记入账",
+    "登记入账",
+    "新股入账",
+    "债券入账",
+    "转债入账",
+    "可转债入账",
+    "中签入账",
+    "申购中签",
+)
+
 
 def empty_normalized_result(review_items: list[dict] | None = None) -> dict:
     return {
@@ -321,7 +335,7 @@ def normalize_event_type(event: dict) -> str:
     )
     if raw_type in {"买入", "卖出", "证券买入", "证券卖出", "交易过户"}:
         return "ordinary_trade"
-    if "股份登记" in raw_type or "申购中签" in raw_type or "新股入账" in raw_type:
+    if is_security_registration_text(raw_type):
         return "security_registration"
     if any(keyword in raw_type for keyword in ("送股", "转增", "红股")):
         return "bonus_share"
@@ -350,7 +364,7 @@ def normalize_direction(event: dict) -> str:
         return "buy"
     if "卖出" in raw_type:
         return "sell"
-    if "股份登记" in raw_type or "中签" in raw_type or "新股" in raw_type:
+    if is_security_registration_text(raw_type):
         return "registration_in"
     if any(keyword in raw_type for keyword in ("送股", "转增", "红股")):
         return "rights_event"
@@ -370,6 +384,11 @@ def normalize_direction_value(value: Any) -> str:
     if direction in {"卖", "卖出", "证券卖出", "赎回", "转出"}:
         return "sell"
     return direction
+
+
+def is_security_registration_text(value: Any) -> bool:
+    text = str(value or "")
+    return any(keyword in text for keyword in SECURITY_REGISTRATION_KEYWORDS)
 
 
 def is_final_declaration_row(row: dict) -> bool:

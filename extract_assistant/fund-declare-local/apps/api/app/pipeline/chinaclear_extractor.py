@@ -2,13 +2,18 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
+from app.pipeline.document_context import (
+    build_document_context,
+    format_document_context,
+    merge_document_info,
+)
 from app.pipeline.extraction_input_builder import build_extraction_input
 from app.services import local_store
 from app.services.llm_client import LLMClient
 from app.services.prompt_loader import PromptLoader
 
 
-CHINACLEAR_BATCH_ROW_LIMIT = 50
+CHINACLEAR_BATCH_ROW_LIMIT = 35
 CHINACLEAR_BATCH_OVERLAP_ROWS = 5
 CHINACLEAR_BATCH_MAX_WORKERS = 4
 TRADE_COLUMNS = [
@@ -41,6 +46,7 @@ class ChinaclearExtractor:
         extract_result_path = output_dir / "extract_result.json"
         extract_batches_path = output_dir / "extract_batches.json"
         input_payload = build_extraction_input(output_dir)
+        document_context = build_document_context(output_dir)
 
         if not input_payload["input_text"].strip():
             extract_result = self._base_result(
@@ -72,6 +78,7 @@ class ChinaclearExtractor:
                 prompt,
                 file_record,
                 batches,
+                document_context,
             )
             local_store.save_json(extract_batches_path, {"batches": batch_results})
         else:
@@ -79,10 +86,16 @@ class ChinaclearExtractor:
                 prompt,
                 file_record,
                 input_payload["input_text"],
+                document_context,
             )
             llm_result = self.llm_client.extract_json(final_prompt)
 
-        extract_result = self._normalize_result(case_id, file_record, llm_result)
+        extract_result = self._normalize_result(
+            case_id,
+            file_record,
+            llm_result,
+            document_context,
+        )
         extract_result["input_sources"] = input_payload["sources"]
         if batches:
             extract_result["batch_result_path"] = self._relative_to_project(
@@ -92,7 +105,13 @@ class ChinaclearExtractor:
         local_store.save_json(extract_result_path, extract_result)
         return extract_result
 
-    def _build_final_prompt(self, prompt: str, file_record: dict, input_text: str) -> str:
+    def _build_final_prompt(
+        self,
+        prompt: str,
+        file_record: dict,
+        input_text: str,
+        document_context: dict | None = None,
+    ) -> str:
         return "\n\n".join(
             [
                 prompt,
@@ -100,6 +119,9 @@ class ChinaclearExtractor:
                 f"original_file_name: {file_record.get('original_file_name', '')}",
                 f"route_type: {file_record.get('route_type', '')}",
                 f"content_type: {file_record.get('content_type', '')}",
+                "document_context:",
+                format_document_context(document_context or {}),
+                "材料级上下文使用规则：如果 document_context 中有持有人、证券子账户/证券账号、账户类型或查询期限，后续交易/持仓/负向证明默认继承这些同一份材料的全局要素；一码通账号不是证券账号。",
                 "input_text:",
                 input_text,
                 self._compact_output_contract(),
@@ -111,13 +133,14 @@ class ChinaclearExtractor:
             [
                 "最终输出约束：",
                 "1. 只输出一个合法 JSON 对象，不要输出解释文字、Markdown 或代码块。",
-                "2. 使用 schema_version=chinaclear_trade_group_event_v1。",
+                "2. 使用 schema_version=chinaclear_event_understanding_v2。",
                 "3. 普通交易只输出到 trade_group.trades，不要输出到 other_events。",
                 "4. trade_group.trade_columns 固定为：[\"trade_id\",\"market\",\"trade_date\",\"security_code\",\"security_name\",\"direction\",\"quantity_raw\",\"price_raw\",\"balance_after_raw\",\"transfer_type_raw\",\"source_page\",\"row_no\"]。",
                 "5. trade_group.trades 中每一行必须严格按 trade_columns 顺序输出；没有值的位置用空字符串。",
                 "6. other_events 只放非普通交易事件：security_registration、cash_dividend、bond_interest、bonus_share、no_account_info、no_trade_record、no_holding_record、unknown_event。",
                 "7. no_account_info 表示未曾开立/未查询到证券账户，不等于 no_holding_record 或 no_trade_record。",
-                "8. no_account_info、no_trade_record、no_holding_record 必须尽量保留简短 raw_text 原文证据；其他事件不要输出 confidence、llm_confidence、related_rows、business_interpretation、calculation_policy。",
+                "8. 持仓快照输出到 holding_records；无账户、无交易、无持仓输出到 negative_proofs；文件级或跨页疑问输出到 document_level_review_items。",
+                "9. no_account_info、no_trade_record、no_holding_record 必须尽量保留简短 raw_text 原文证据；其他事件不要输出 confidence、llm_confidence、related_rows、business_interpretation、calculation_policy。",
             ]
         )
 
@@ -215,6 +238,7 @@ class ChinaclearExtractor:
         prompt: str,
         file_record: dict,
         batches: list[dict],
+        document_context: dict | None = None,
     ) -> tuple[dict, list[dict]]:
         batch_results: list[dict] = []
         max_workers = min(CHINACLEAR_BATCH_MAX_WORKERS, len(batches))
@@ -226,6 +250,7 @@ class ChinaclearExtractor:
                     prompt,
                     file_record,
                     batch,
+                    document_context or {},
                 ): batch
                 for batch in batches
             }
@@ -245,16 +270,22 @@ class ChinaclearExtractor:
                 batch_results.append(batch_result)
 
         batch_results.sort(key=lambda item: item.get("batch_id", ""))
-        return self._merge_batch_results(batch_results), batch_results
+        return self._merge_batch_results(batch_results, document_context), batch_results
 
     def _extract_one_batch(
         self,
         prompt: str,
         file_record: dict,
         batch: dict,
+        document_context: dict | None = None,
     ) -> dict:
-        final_prompt = self._build_batch_prompt(prompt, file_record, batch)
-        result = LLMClient().extract_json(final_prompt)
+        final_prompt = self._build_batch_prompt(
+            prompt,
+            file_record,
+            batch,
+            document_context,
+        )
+        result = self.llm_client.extract_json(final_prompt)
         result["batch_id"] = batch["batch_id"]
         result["batch_row_range"] = {
             "row_start": batch["row_start"],
@@ -262,7 +293,13 @@ class ChinaclearExtractor:
         }
         return result
 
-    def _build_batch_prompt(self, prompt: str, file_record: dict, batch: dict) -> str:
+    def _build_batch_prompt(
+        self,
+        prompt: str,
+        file_record: dict,
+        batch: dict,
+        document_context: dict | None = None,
+    ) -> str:
         return "\n\n".join(
             [
                 prompt,
@@ -270,6 +307,9 @@ class ChinaclearExtractor:
                 f"original_file_name: {file_record.get('original_file_name', '')}",
                 f"route_type: {file_record.get('route_type', '')}",
                 f"content_type: {file_record.get('content_type', '')}",
+                "document_context:",
+                format_document_context(document_context or {}),
+                "材料级上下文使用规则：如果 document_context 中有持有人、证券子账户/证券账号、账户类型或查询期限，当前 batch 的交易/持仓/负向证明默认继承这些同一份材料的全局要素；一码通账号不是证券账号。",
                 f"batch_id: {batch['batch_id']}",
                 f"primary_row_range: {batch['row_start']} - {batch['row_end']}",
                 "注意：输入中包含前后 overlap 行。overlap 行可以抽取，后端会按 row_no 去重。",
@@ -279,16 +319,23 @@ class ChinaclearExtractor:
             ]
         )
 
-    def _merge_batch_results(self, batch_results: list[dict]) -> dict:
+    def _merge_batch_results(
+        self,
+        batch_results: list[dict],
+        document_context: dict | None = None,
+    ) -> dict:
         merged = {
-            "schema_version": "chinaclear_trade_group_event_v1",
-            "document_info": {},
+            "schema_version": "chinaclear_event_understanding_v2",
+            "document_info": merge_document_info(document_context, None),
             "trade_group": {
                 "event_type": "ordinary_trade_group",
                 "trade_columns": TRADE_COLUMNS,
                 "trades": [],
             },
             "other_events": [],
+            "holding_records": [],
+            "negative_proofs": [],
+            "document_level_review_items": [],
             "quality": {"warnings": []},
             "extract_status": "success",
             "manual_review_required": False,
@@ -306,6 +353,9 @@ class ChinaclearExtractor:
 
         trades_by_key: dict[str, list[Any]] = {}
         other_events_by_key: dict[str, dict] = {}
+        holdings_by_key: dict[str, dict] = {}
+        proofs_by_key: dict[str, dict] = {}
+        review_items_by_key: dict[str, dict] = {}
 
         for result in batch_results:
             batch_id = result.get("batch_id")
@@ -315,13 +365,29 @@ class ChinaclearExtractor:
                 merged["manual_review_required"] = True
                 merged["review_reasons"].extend(result.get("review_reasons", []))
 
-            if not merged["document_info"] and isinstance(
-                result.get("document_info"), dict
-            ):
-                merged["document_info"] = result["document_info"]
+            if isinstance(result.get("document_info"), dict):
+                merged["document_info"] = merge_document_info(
+                    merged.get("document_info"),
+                    result["document_info"],
+                )
 
             self._merge_trades(trades_by_key, result)
             self._merge_other_events(other_events_by_key, result)
+            self._merge_records(
+                holdings_by_key,
+                result.get("holding_records"),
+                self._holding_key,
+            )
+            self._merge_records(
+                proofs_by_key,
+                result.get("negative_proofs"),
+                self._negative_proof_key,
+            )
+            self._merge_records(
+                review_items_by_key,
+                result.get("document_level_review_items"),
+                self._review_item_key,
+            )
             self._merge_warnings(merged, result)
 
             metadata = result.get("llm_response_metadata")
@@ -343,8 +409,49 @@ class ChinaclearExtractor:
             other_events_by_key.values(),
             key=self._other_event_sort_key,
         )
+        merged["holding_records"] = list(holdings_by_key.values())
+        merged["negative_proofs"] = list(proofs_by_key.values())
+        merged["document_level_review_items"] = list(review_items_by_key.values())
+        self._apply_document_context(merged, document_context or {})
         merged["review_reasons"] = self._dedupe_list(merged["review_reasons"])
         return merged
+
+    def _apply_document_context(self, extract_result: dict, context: dict) -> None:
+        if not context:
+            return
+        extract_result["document_info"] = merge_document_info(
+            context,
+            extract_result.get("document_info"),
+        )
+        securities_account = str(context.get("securities_account") or "").strip()
+        account_type = str(context.get("account_type") or "").strip()
+        holder_name = str(context.get("holder_name") or "").strip()
+        period_end = str(context.get("period_end") or "").strip()
+        period_start = str(context.get("period_start") or "").strip()
+
+        for holding in self._as_list(extract_result.get("holding_records")):
+            if not isinstance(holding, dict):
+                continue
+            if securities_account and not self._first_text(holding.get("证券账号"), holding.get("securities_account")):
+                holding["证券账号"] = securities_account
+            if account_type and not self._first_text(holding.get("账户类型"), holding.get("account_type")):
+                holding["账户类型"] = account_type
+            if period_end and not self._first_text(holding.get("查询结果所属日期"), holding.get("holding_date"), holding.get("date")):
+                holding["查询结果所属日期"] = period_end
+
+        for proof in self._as_list(extract_result.get("negative_proofs")):
+            if not isinstance(proof, dict):
+                continue
+            if holder_name and not self._first_text(proof.get("person_name"), proof.get("holder_name")):
+                proof["person_name"] = holder_name
+            if period_end and not self._first_text(proof.get("as_of_date"), proof.get("query_date"), proof.get("event_date"), proof.get("period_end")):
+                proof["as_of_date"] = period_end
+            if period_start and not self._first_text(proof.get("period_start")):
+                proof["period_start"] = period_start
+            if securities_account and not self._first_text(proof.get("securities_account"), proof.get("证券账号")):
+                proof["securities_account"] = securities_account
+            if account_type and not self._first_text(proof.get("account_type"), proof.get("账户类型")):
+                proof["account_type"] = account_type
 
     def _merge_trades(self, trades_by_key: dict[str, list[Any]], result: dict) -> None:
         trade_group = result.get("trade_group")
@@ -439,8 +546,69 @@ class ChinaclearExtractor:
                 target[key] = self._dedupe_list(
                     [*self._as_list(target.get(key)), *self._as_list(value)]
                 )
+            elif key in {"review_reasons", "missing_fields"}:
+                target[key] = self._dedupe_list(
+                    [*self._as_list(target.get(key)), *self._as_list(value)]
+                )
+            elif key == "source_evidence" and isinstance(value, dict):
+                existing = target.get(key)
+                if not isinstance(existing, dict):
+                    target[key] = dict(value)
+                else:
+                    self._merge_event_into(existing, value)
             elif not target.get(key) and value:
                 target[key] = value
+
+    def _merge_records(
+        self,
+        records_by_key: dict[str, dict],
+        records: Any,
+        key_builder,
+    ) -> None:
+        for record in self._as_list(records):
+            if not isinstance(record, dict):
+                continue
+            key = key_builder(record)
+            existing = records_by_key.get(key)
+            if existing is None:
+                records_by_key[key] = dict(record)
+            else:
+                self._merge_event_into(existing, record)
+
+    def _holding_key(self, holding: dict) -> str:
+        return "|".join(
+            str(holding.get(field, ""))
+            for field in (
+                "holding_id",
+                "账户类型",
+                "证券账号",
+                "证券代码",
+                "证券名称",
+                "持有数量",
+                "查询结果所属日期",
+            )
+        )
+
+    def _negative_proof_key(self, proof: dict) -> str:
+        evidence = proof.get("source_evidence") or {}
+        if not isinstance(evidence, dict):
+            evidence = {}
+        return "|".join(
+            str(value or "")
+            for value in (
+                proof.get("proof_type"),
+                proof.get("person_name"),
+                proof.get("as_of_date"),
+                proof.get("query_date"),
+                proof.get("period_start"),
+                proof.get("period_end"),
+                proof.get("securities_account"),
+                evidence.get("raw_text"),
+            )
+        )
+
+    def _review_item_key(self, item: dict) -> str:
+        return "|".join(str(value or "") for value in item.values())
 
     def _trade_sort_key(self, trade: list) -> tuple[int, str]:
         source_page = str(
@@ -494,6 +662,7 @@ class ChinaclearExtractor:
         case_id: str,
         file_record: dict,
         llm_result: dict,
+        document_context: dict | None = None,
     ) -> dict:
         extract_result = dict(llm_result) if isinstance(llm_result, dict) else {}
         extract_result.setdefault("schema_version", "chinaclear_extract_v1")
@@ -508,11 +677,19 @@ class ChinaclearExtractor:
         extract_result.setdefault("extract_status", "success")
         extract_result.setdefault("accounts", [])
         extract_result.setdefault("holdings", [])
+        extract_result.setdefault("holding_records", [])
+        extract_result.setdefault("negative_proofs", [])
+        extract_result.setdefault("document_level_review_items", [])
         extract_result.setdefault("transactions", [])
         extract_result.setdefault("events", [])
         extract_result.setdefault("raw_llm_output", None)
         extract_result.setdefault("manual_review_required", False)
         extract_result.setdefault("review_reasons", [])
+        extract_result["document_info"] = merge_document_info(
+            document_context,
+            extract_result.get("document_info"),
+        )
+        self._apply_document_context(extract_result, document_context or {})
         return extract_result
 
     def _base_result(

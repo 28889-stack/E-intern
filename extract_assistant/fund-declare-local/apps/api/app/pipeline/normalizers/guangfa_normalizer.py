@@ -8,6 +8,7 @@ from app.pipeline.normalizers.common import (
     build_holding_row,
     build_normalized_result,
     empty_record_event_from_semantics,
+    is_security_registration_text,
     review_item,
 )
 
@@ -44,6 +45,13 @@ FINAL_EVENT_KEYWORDS = (
     "新股中签",
     "证券登记入账",
     "股份登记入账",
+    "股份入账",
+    "股份登记",
+    "登记入账",
+    "转债入账",
+    "可转债入账",
+    "债券入账",
+    "中签入账",
     "送股",
     "转增",
     "配股入账",
@@ -102,6 +110,17 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         if isinstance(proof, dict)
     ]
 
+    for index, trade in enumerate(
+        _rows_from_group(extract_result.get("trade_group"), "trades")
+    ):
+        event = _map_group_event(trade)
+        event.setdefault("event_id", _event_id(trade, f"guangfa_trade_{index + 1}"))
+        event.setdefault("event_type", "ordinary_trade")
+        if _should_ignore_non_holding_event(event):
+            ignored_non_holding_count += 1
+            continue
+        full_rows.append(build_event_row(case_id, file_record, document_info, event))
+
     if business_events or holding_records or negative_proofs:
         for index, event in enumerate(business_events):
             event_payload, event_review_items = _map_business_event(
@@ -143,14 +162,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         ]
 
         return build_normalized_result(full_rows, holding_rows, review_items)
-
-    for index, trade in enumerate(
-        _rows_from_group(extract_result.get("trade_group"), "trades")
-    ):
-        event = _map_group_event(trade)
-        event.setdefault("event_id", _event_id(trade, f"guangfa_trade_{index + 1}"))
-        event.setdefault("event_type", "ordinary_trade")
-        full_rows.append(build_event_row(case_id, file_record, document_info, event))
 
     for index, transaction in enumerate(as_list(extract_result.get("transactions"))):
         if not isinstance(transaction, dict):
@@ -563,7 +574,7 @@ def _classify_business_event(raw_movement: str) -> tuple[str, str]:
         return "ordinary_trade", "buy"
     if any(keyword in text for keyword in ("打新", "新股申购", "新股中签")):
         return "new_share_subscription", "subscribe"
-    if any(keyword in text for keyword in ("证券登记入账", "股份登记入账")):
+    if is_security_registration_text(text):
         return "security_registration", "registration_in"
     if any(keyword in text for keyword in ("送股", "转增", "配股入账")):
         return "bonus_share", "rights_event"
@@ -632,6 +643,17 @@ def _missing_final_payload_fields(payload: dict, full_only: bool) -> list[str]:
     required = list(FINAL_ONLY_REQUIRED_KEYS)
     if full_only:
         required = [field for field in required if field not in {"成交数量", "成交单价"}]
+    if payload.get("event_type") in {
+        "security_registration",
+        "bonus_share",
+        "new_share_subscription",
+        "new_bond_subscription",
+    }:
+        required = [
+            field
+            for field in required
+            if field not in {"成交单价", "收付金额"}
+        ]
     return [field for field in required if not _first_text(field_values.get(field))]
 
 
@@ -818,7 +840,7 @@ def _rows_from_group(group: dict | None, rows_key: str) -> list[dict]:
     if not isinstance(group, dict):
         return []
 
-    columns = group.get("columns") or []
+    columns = group.get("trade_columns") or group.get("columns") or []
     rows = []
     for values in as_list(group.get(rows_key)):
         if isinstance(values, dict):
@@ -837,11 +859,24 @@ def _rows_from_group(group: dict | None, rows_key: str) -> list[dict]:
 
 def _map_group_event(event: dict) -> dict:
     payload = dict(event)
-    payload.setdefault("transaction_id", payload.get("serial_no") or payload.get("order_no") or "")
-    payload.setdefault("transaction_date", payload.get("event_date") or "")
-    payload.setdefault("transaction_type_raw", payload.get("event_type_raw") or "")
+    payload.setdefault(
+        "transaction_id",
+        payload.get("trade_id")
+        or payload.get("serial_no")
+        or payload.get("order_no")
+        or "",
+    )
+    payload.setdefault("transaction_date", payload.get("event_date") or payload.get("trade_date") or "")
+    payload.setdefault("event_date", payload.get("trade_date") or payload.get("transaction_date") or "")
+    payload.setdefault("event_time", payload.get("trade_time") or "")
+    payload.setdefault(
+        "transaction_type_raw",
+        payload.get("transfer_type_raw") or payload.get("event_type_raw") or "",
+    )
+    payload.setdefault("event_type_raw", payload.get("transfer_type_raw") or payload.get("transaction_type_raw") or "")
     payload.setdefault("quantity_raw", payload.get("quantity") or "")
     payload.setdefault("price_raw", payload.get("price") or "")
+    payload.setdefault("amount_raw", payload.get("amount") or payload.get("settlement_amount") or "")
     payload.setdefault("security_category_raw", payload.get("instrument_type") or "")
     return payload
 

@@ -6,6 +6,7 @@ from app.pipeline.normalizers.common import (
     build_holding_row,
     build_normalized_result,
     empty_record_event_from_semantics,
+    review_item,
 )
 from app.services.local_store import read_json
 
@@ -14,6 +15,7 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
     document_info = extract_result.get("document_info") or {}
     source_text = _source_text_from_extract_result(extract_result)
     full_rows = []
+    review_items = []
 
     trade_group = extract_result.get("trade_group") or {}
     trade_columns = trade_group.get("trade_columns") or []
@@ -73,10 +75,24 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
                 full_rows.append(build_event_row(case_id, file_record, document_info, event))
 
     holding_rows = [
+        build_holding_row(
+            case_id,
+            file_record,
+            document_info,
+            _normalize_holding_record(holding, index),
+        )
+        for index, holding in enumerate(as_list(extract_result.get("holding_records")))
+        if isinstance(holding, dict)
+    ]
+    holding_rows = [
         build_holding_row(case_id, file_record, document_info, holding)
         for holding in as_list(extract_result.get("holdings"))
         if isinstance(holding, dict)
-    ]
+    ] + holding_rows
+
+    for item in as_list(extract_result.get("document_level_review_items")):
+        if isinstance(item, dict):
+            review_items.append(_document_review_item(item, file_record))
 
     if not full_rows and not holding_rows:
         empty_record_event = empty_record_event_from_semantics(
@@ -88,7 +104,45 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
         if empty_record_event:
             full_rows.append(empty_record_event)
 
-    return build_normalized_result(full_rows, holding_rows)
+    return build_normalized_result(full_rows, holding_rows, review_items)
+
+
+def _normalize_holding_record(holding: dict, index: int) -> dict:
+    source_evidence = holding.get("source_evidence") or {}
+    if not isinstance(source_evidence, dict):
+        source_evidence = {}
+    return {
+        "holding_id": holding.get("holding_id") or f"chinaclear_holding_{index + 1}",
+        "account_type": _first_text(holding.get("账户类型"), holding.get("account_type")),
+        "securities_account": _first_text(holding.get("证券账号"), holding.get("securities_account")),
+        "holding_date": _first_text(
+            holding.get("查询结果所属日期"),
+            holding.get("holding_date"),
+            holding.get("date"),
+        ),
+        "security_code": _first_text(holding.get("证券代码"), holding.get("security_code")),
+        "security_name": _first_text(holding.get("证券名称"), holding.get("security_name")),
+        "quantity_raw": _first_text(holding.get("持有数量"), holding.get("quantity_raw"), holding.get("quantity")),
+        "market_value": _first_text(holding.get("市值"), holding.get("market_value")),
+        "currency": _first_text(holding.get("币种"), holding.get("currency")),
+        "source_page": source_evidence.get("page") or holding.get("source_page") or "",
+        "row_no": source_evidence.get("row_no") or holding.get("row_no") or "",
+        "review_reason": _join_reasons(holding.get("review_reasons"), holding.get("review_reason")),
+    }
+
+
+def _document_review_item(item: dict, file_record: dict) -> dict:
+    normalized = review_item(
+        item.get("severity") or "warning",
+        item.get("item_type") or "extract_result",
+        file_record.get("file_id", ""),
+        item.get("event_id") or item.get("record_id") or "",
+        item.get("field") or "",
+        item.get("message") or "材料存在需要人工复核的问题",
+    )
+    normalized["file_no"] = file_record.get("file_no", "")
+    normalized["original_file_name"] = file_record.get("original_file_name", "")
+    return normalized
 
 
 def _normalize_other_event(event: dict, document_info: dict, source_text: str) -> dict:
@@ -241,7 +295,7 @@ def _negative_proof_event(proof: dict, index: int) -> dict | None:
         or proof.get("raw_business_type")
         or ""
     )
-    if not any(
+    if any(
         keyword in proof_type
         for keyword in (
             "无账户信息",
@@ -254,11 +308,55 @@ def _negative_proof_event(proof: dict, index: int) -> dict | None:
             "无股东账户",
         )
     ):
+        event_type = "no_account_info"
+        raw_type = "无账户信息"
+    elif any(keyword in proof_type for keyword in ("no_holding_record", "无持仓", "未持仓", "没有持仓")):
+        event_type = "no_holding_record"
+        raw_type = "无持仓记录"
+    elif any(keyword in proof_type for keyword in ("no_trade_record", "无交易", "未交易", "没有交易")):
+        event_type = "no_trade_record"
+        raw_type = "无交易记录"
+    else:
         return None
 
     source_evidence = proof.get("source_evidence") or {}
     if not isinstance(source_evidence, dict):
         source_evidence = {}
+    if event_type != "no_account_info":
+        return {
+            "event_id": proof.get("event_id") or f"chinaclear_negative_proof_{index + 1}",
+            "event_type": event_type,
+            "event_category": "negative_proof",
+            "event_date": (
+                proof.get("event_date")
+                or proof.get("query_date")
+                or proof.get("as_of_date")
+                or proof.get("period_end")
+                or ""
+            ),
+            "period_start": proof.get("period_start") or "",
+            "period_end": proof.get("period_end") or "",
+            "account_type": proof.get("account_type") or proof.get("账户类型") or "",
+            "securities_account": proof.get("securities_account") or proof.get("证券账号") or "",
+            "security_code": "0",
+            "security_name": "0",
+            "quantity_raw": "0",
+            "price_raw": "0",
+            "amount_raw": "0",
+            "balance_after_raw": "0",
+            "transfer_type_raw": raw_type,
+            "source_page": source_evidence.get("page") or proof.get("source_page") or "",
+            "row_no": source_evidence.get("row_no") or proof.get("row_no") or "",
+            "raw_text": source_evidence.get("raw_text")
+            or proof.get("description")
+            or proof.get("raw_summary")
+            or "",
+            "review_reason": _join_reasons(
+                proof.get("review_reasons"),
+                proof.get("review_reason"),
+            ),
+        }
+
     return {
         "event_id": proof.get("event_id") or f"chinaclear_no_account_info_{index + 1}",
         "event_type": "no_account_info",
@@ -285,4 +383,26 @@ def _negative_proof_event(proof: dict, index: int) -> dict | None:
         or proof.get("description")
         or proof.get("raw_summary")
         or "",
+        "review_reason": _join_reasons(
+            proof.get("review_reasons"),
+            proof.get("review_reason"),
+        ),
     }
+
+
+def _first_text(*values) -> str:
+    for value in values:
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def _join_reasons(*values) -> str:
+    reasons = []
+    for value in values:
+        for item in as_list(value):
+            if item not in (None, ""):
+                text = str(item).strip()
+                if text and text not in reasons:
+                    reasons.append(text)
+    return "；".join(reasons)

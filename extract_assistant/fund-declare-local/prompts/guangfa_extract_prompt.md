@@ -6,16 +6,28 @@
 
 ## 一、总原则
 
-1. 一份材料只输出一个合法 JSON 对象，不要输出 Markdown、解释文字或代码块。
-2. 尽量逐条保留原材料业务记录，不要把多笔交易合并为汇总。
+1. 每次输入只输出一个合法 JSON 对象，不要输出 Markdown、解释文字或代码块；如果输入包含 `batch_id`，只抽取当前批次中可见的记录。
+2. 尽量逐条保留原材料业务记录，不要把多笔交易合并为汇总；跨批次重复行由后端按交易全要素去重。
 3. 数字、账号、证券代码、流水号、委托编号均用字符串，保留原始小数位和正负号。
 4. 不要用成交数量乘成交单价反推收付金额。
-5. 无法判断的字段填空字符串，并写入 `manual_review_required=true` 和 `review_reasons`。
-6. OCR 错位、断行、遮挡或业务类型无法判断时，不要编造；应输出可识别部分并标记人工复核。
-7. 每条业务记录尽量保留 `source_evidence`，方便人工回到原材料核对。
+5. 无法判断的字段填空字符串；只有异常、缺字段、OCR 错位、断行、遮挡或业务类型无法判断时，才写入 `manual_review_required=true` 和 `review_reasons`。
+6. 普通买入/卖出交易必须使用 `trade_group.trades` 的列定义 + 行数组格式，不要为每笔普通交易输出大对象。
+7. 普通交易不要输出 `classification_reason`、`classification_confidence`、`raw_summary` 或大段 `raw_text`；只保留页码、行号、流水号、委托编号等定位信息。
 8. 普通买入、卖出、打新、证券登记入账、送股、转增、配股入账等证券事件，应优先从“场内交割流水明细”识别。
 9. “资金流水明细”中的证券买入/卖出描述可以作为辅助线索或完整表线索，但不能单独作为最终申报表普通交易的强依据；如果同一交易无法在“场内交割流水明细”中对应确认，应标记人工复核。
 10. 银行转证券、证券转银行、银证转账、资金转入、资金转出、利息归本、结息归本、银行利息等纯资金或银行利息流水不属于本项目关注事件，不要输出到 `business_events`、`holding_records` 或 `negative_proofs`。
+
+## 批次输入说明
+
+系统可能把长材料拆成多个 batch 并行抽取。batch 输入可能带有前后 overlap 行，用来避免跨页或跨段断行。
+
+请遵守：
+
+1. 不要根据当前 batch 推测其他 batch 中的内容；
+2. 只抽取当前输入中看得见的业务记录、持仓记录或负向证明；
+3. 如果同一条记录在 overlap 中重复出现，可以正常输出，后端会去重；
+4. 如果当前 batch 只有纯资金流水、银行转证券、证券转银行、利息归本等非持仓关注内容，可以输出空数组；
+5. 普通交易不要输出 `source_evidence.raw_text`；特殊事件或待复核问题才保留一句简短原文，不要整段复制整页内容。
 
 ## 二、输出 JSON 根结构
 
@@ -32,6 +44,29 @@
     "summary": ""
   },
   "account_candidates": [],
+  "trade_group": {
+    "event_type": "ordinary_trade_group",
+    "trade_columns": [
+      "trade_id",
+      "account_type",
+      "securities_account",
+      "trade_date",
+      "trade_time",
+      "serial_no",
+      "capital_account",
+      "security_code",
+      "security_name",
+      "direction",
+      "quantity_raw",
+      "price_raw",
+      "amount_raw",
+      "transfer_type_raw",
+      "source_page",
+      "row_no",
+      "order_no"
+    ],
+    "trades": []
+  },
   "holding_records": [],
   "business_events": [],
   "negative_proofs": [],
@@ -54,20 +89,78 @@
 * 无账户信息 / 无交易 / 无持仓 / 查询无结果 / 未开立证券账户；
 * 无法判断的特殊业务。
 
-对每条业务记录判断：
+普通场内交割流水中的买入/卖出交易不要逐条写解释，直接写入 `trade_group.trades`。只有特殊业务、无法判断业务、负向证明、持仓快照、文件级问题才需要对象结构和复核原因。
 
-1. 原材料中写的业务类型是什么；
-2. 业务上应理解为什么事件；
-3. 是否普通买卖交易；
-4. 是否影响证券持仓数量；
-5. 是否进入完整表；
-6. 是否进入最终申报表；
-7. 判断依据是什么；
-8. 是否需要人工复核。
+## 四、普通交易 trade_group 结构
 
-## 四、business_events 结构
+普通场内交割流水明细中的买入、卖出等普通证券交易写入 `trade_group.trades`。每行严格按 `trade_columns` 顺序输出。
 
-每条交易、事件、或特殊业务写入 `business_events`：
+固定列：
+
+```json
+[
+  "trade_id",
+  "account_type",
+  "securities_account",
+  "trade_date",
+  "trade_time",
+  "serial_no",
+  "capital_account",
+  "security_code",
+  "security_name",
+  "direction",
+  "quantity_raw",
+  "price_raw",
+  "amount_raw",
+  "transfer_type_raw",
+  "source_page",
+  "row_no",
+  "order_no"
+]
+```
+
+示例：
+
+```json
+{
+  "trade_group": {
+    "event_type": "ordinary_trade_group",
+    "trade_columns": [
+      "trade_id",
+      "account_type",
+      "securities_account",
+      "trade_date",
+      "trade_time",
+      "serial_no",
+      "capital_account",
+      "security_code",
+      "security_name",
+      "direction",
+      "quantity_raw",
+      "price_raw",
+      "amount_raw",
+      "transfer_type_raw",
+      "source_page",
+      "row_no",
+      "order_no"
+    ],
+    "trades": [
+      ["gf_001", "深A", "0268832573", "2025-06-09", "102558", "88000046", "36914385", "300129", "泰胜风能", "sell", "-7700.0000", "10.3860", "79907.0946", "证券卖出", "2", "46", "23046"]
+    ]
+  }
+}
+```
+
+字段规则：
+
+* `direction`：买入填 `buy`，卖出填 `sell`；
+* `capital_account` 可以填资金账号，但资金账号不能填入 `securities_account`；
+* 如果 `document_context` 已给出证券账号和账户类型，当前材料交易默认继承这些全局字段；
+* 不要输出普通交易的解释、置信度、完整原文。
+
+## 五、business_events 结构
+
+特殊事件、无法判断业务、或者只在资金流水中出现但无法由场内交割流水确认的疑似证券事件，才写入 `business_events`：
 
 ```json
 {
@@ -119,6 +212,11 @@
 * 新股中签；
 * 证券登记入账；
 * 股份登记入账；
+* 股份入账；
+* 股份登记；
+* 转债入账；
+* 可转债入账；
+* 中签入账；
 * 送股；
 * 转增；
 * 配股入账。

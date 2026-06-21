@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
 
@@ -33,6 +34,13 @@ EVENT_CONFLICT_FIELDS = [
     "amount_raw",
     "balance_after_raw",
 ]
+CROSS_FILE_MERGE_EVENT_TYPES = {
+    "ordinary_trade",
+    "security_registration",
+    "bonus_share",
+    "new_share_subscription",
+    "new_bond_subscription",
+}
 WEAK_RECORD_IDS = {
     "资金流水明细",
     "场内交割流水明细",
@@ -70,6 +78,9 @@ ISSUE_TYPE_LABELS = {
     "schema_invalid": "抽取结构不符合要求",
     "extract_failed": "抽取失败",
     "manual_review_required": "需要人工复核",
+    "extraction_field_incomplete": "抽取结果字段不完整",
+    "final_declaration_classification_uncertain": "最终申报归类待确认",
+    "holding_effect_classification_uncertain": "是否影响持仓待确认",
 }
 
 SEVERITY_LABELS = {
@@ -97,6 +108,11 @@ FIELD_LABELS = {
     "chinaclear": "中国结算材料",
     "identity": "身份材料",
     "extract_result": "抽取结果",
+    "final_declaration_fields": "最终申报字段",
+    "final_field_candidates": "最终申报字段",
+    "include_in_final_declaration": "最终申报归类",
+    "affects_holding": "是否影响持仓",
+    "review_reasons": "复核原因",
 }
 
 
@@ -110,6 +126,7 @@ def resolve_case_events(
 
     merge_audit: list[dict] = []
     events = _merge_exact_event_duplicates(transaction_rows, merge_audit)
+    events = _merge_cross_file_complementary_trades(events, merge_audit)
     _mark_event_conflicts(events, merge_audit)
 
     verified_events: list[dict] = []
@@ -201,6 +218,59 @@ def _merge_exact_event_duplicates(rows: list[dict], merge_audit: list[dict]) -> 
         merged.append(candidate)
 
     return merged
+
+
+def _merge_cross_file_complementary_trades(
+    rows: list[dict],
+    merge_audit: list[dict],
+) -> list[dict]:
+    groups: dict[tuple, list[int]] = {}
+    for index, row in enumerate(rows):
+        key = _cross_file_trade_key(row)
+        if key:
+            groups.setdefault(key, []).append(index)
+
+    replacements: dict[int, dict] = {}
+    skipped: set[int] = set()
+
+    for key, indices in groups.items():
+        if len(indices) != 2:
+            continue
+
+        first = rows[indices[0]]
+        second = rows[indices[1]]
+        if not _has_distinct_files(first, second):
+            continue
+        if not _can_merge_complementary_trade(first, second):
+            continue
+
+        replace_index = min(indices)
+        skip_index = max(indices)
+        merged = _merge_complementary_trade_rows(first, second)
+        replacements[replace_index] = merged
+        skipped.add(skip_index)
+        merge_audit.append(
+            {
+                "action": "merged_cross_file_complementary_trade",
+                "event_key": "|".join(str(part) for part in key),
+                "kept_record_id": merged.get("event_id", ""),
+                "merged_record_ids": unique_list(
+                    [
+                        first.get("event_id") or _first_evidence_value(first, "source_row_id"),
+                        second.get("event_id") or _first_evidence_value(second, "source_row_id"),
+                    ]
+                ),
+                "file_ids": unique_list([first.get("file_id"), second.get("file_id")]),
+                "reason": "跨文件匹配到同一笔交易，已合并来源证据并互补成交价、金额、余额等字段",
+            }
+        )
+
+    merged_rows = []
+    for index, row in enumerate(rows):
+        if index in skipped:
+            continue
+        merged_rows.append(replacements.get(index, row))
+    return merged_rows
 
 
 def _mark_event_conflicts(rows: list[dict], merge_audit: list[dict]) -> None:
@@ -383,7 +453,7 @@ def _review_issues_from_review_items(
             "related_file_nos": unique_list([item.get("file_no")]),
             "related_file_names": unique_list([item.get("original_file_name")]),
             "related_record_id": str(item.get("event_id") or ""),
-            "missing_fields": unique_list([field]) if field else [],
+            "missing_fields": _review_item_missing_fields(field),
             "conflict_fields": [],
             "message": message or "存在需要人工复核的问题",
             "suggestion": "请回到原始材料或抽取结果确认该问题。",
@@ -480,6 +550,12 @@ def _review_issue_suggestion(row: dict, record_category: str) -> str:
 
 def _review_item_issue_type(item_type: str, field: str, message: str) -> str:
     lowered = f"{item_type} {field} {message}".lower()
+    if field == "final_field_candidates":
+        return "extraction_field_incomplete"
+    if field == "include_in_final_declaration":
+        return "final_declaration_classification_uncertain"
+    if field == "affects_holding":
+        return "holding_effect_classification_uncertain"
     if "ocr_failed" in lowered or "ocr failed" in lowered:
         return "ocr_failed"
     if "schema" in lowered:
@@ -487,6 +563,14 @@ def _review_item_issue_type(item_type: str, field: str, message: str) -> str:
     if "extract" in lowered or "抽取" in message:
         return "extract_failed"
     return "manual_review_required"
+
+
+def _review_item_missing_fields(field: str) -> list[str]:
+    if field == "final_field_candidates":
+        return ["final_declaration_fields"]
+    if field in {"include_in_final_declaration", "affects_holding"}:
+        return []
+    return unique_list([field]) if field else []
 
 
 def _review_issue_id_label(value: Any) -> str:
@@ -648,6 +732,13 @@ def _message_label(value: Any) -> str:
         "event_type": "变动类型",
         "securities_account": "证券账号",
         "account_type": "账户类型",
+        "final_field_candidates": "最终申报字段",
+        "include_in_final_declaration": "最终申报归类",
+        "affects_holding": "是否影响持仓",
+        "LLM": "智能抽取",
+        "llm": "智能抽取",
+        "智能抽取 判断": "智能抽取判断",
+        "是否影响持仓 与": "是否影响持仓与",
         "guangfa": "广发材料",
         "chinaclear": "中国结算材料",
     }
@@ -684,6 +775,169 @@ def _merge_evidence(*sources: Any) -> list[dict]:
             seen.add(key)
             evidence.append(item)
     return evidence
+
+
+def _cross_file_trade_key(row: dict) -> tuple:
+    if row.get("manual_review_required"):
+        return ()
+    event_type = str(row.get("event_type") or "").strip()
+    if event_type not in CROSS_FILE_MERGE_EVENT_TYPES:
+        return ()
+    direction = str(row.get("direction") or "").strip()
+    if event_type == "ordinary_trade" and direction not in {"buy", "sell"}:
+        return ()
+    direction_key = direction or event_type
+    quantity = _normalized_decimal_text(row.get("quantity_raw"))
+    parts = [
+        row.get("securities_account"),
+        row.get("account_type"),
+        event_type,
+        row.get("event_date"),
+        row.get("security_code"),
+        row.get("security_name"),
+        direction_key,
+        quantity,
+    ]
+    if any(part in (None, "") for part in parts):
+        return ()
+    return tuple(str(part).strip() for part in parts)
+
+
+def _has_distinct_files(first: dict, second: dict) -> bool:
+    first_file = str(first.get("file_id") or first.get("file_no") or "").strip()
+    second_file = str(second.get("file_id") or second.get("file_no") or "").strip()
+    return bool(first_file and second_file and first_file != second_file)
+
+
+def _can_merge_complementary_trade(first: dict, second: dict) -> bool:
+    for field in (
+        "price_raw",
+        "amount_raw",
+        "event_time",
+        "serial_no",
+        "order_no",
+        "balance_after_raw",
+    ):
+        first_value = first.get(field)
+        second_value = second.get(field)
+        if first_value in (None, "") or second_value in (None, ""):
+            continue
+        if field in {"price_raw", "amount_raw", "balance_after_raw"}:
+            if _normalized_decimal_text(first_value) != _normalized_decimal_text(second_value):
+                return False
+        elif str(first_value).strip() != str(second_value).strip():
+            return False
+    return True
+
+
+def _merge_complementary_trade_rows(first: dict, second: dict) -> dict:
+    target, other = (
+        (first, second)
+        if _trade_detail_score(first) >= _trade_detail_score(second)
+        else (second, first)
+    )
+    merged = dict(target)
+    for field in (
+        "case_id",
+        "account_type",
+        "document_type",
+        "document_title",
+        "period_start",
+        "period_end",
+        "holder_name",
+        "one_code_account",
+        "securities_account",
+        "event_id",
+        "event_type",
+        "market",
+        "event_date",
+        "event_time",
+        "security_code",
+        "security_name",
+        "direction",
+        "quantity_raw",
+        "price_raw",
+        "amount_raw",
+        "balance_after_raw",
+        "transfer_type_raw",
+        "rights_category_raw",
+        "security_category_raw",
+        "serial_no",
+        "order_no",
+        "review_reason",
+    ):
+        if merged.get(field) in (None, "") and other.get(field) not in (None, ""):
+            merged[field] = other.get(field)
+
+    merged["source_pages"] = _merge_joined_values(
+        first.get("source_pages"),
+        second.get("source_pages"),
+    )
+    merged["row_nos"] = _merge_joined_values(first.get("row_nos"), second.get("row_nos"))
+    merged["source_evidence"] = _merge_evidence(
+        _row_evidence(first),
+        _row_evidence(second),
+    )
+    merged["merged_file_ids"] = unique_list([first.get("file_id"), second.get("file_id")])
+    merged["merged_file_nos"] = unique_list([first.get("file_no"), second.get("file_no")])
+    return merged
+
+
+def _trade_detail_score(row: dict) -> int:
+    score = 0
+    for field in ("price_raw", "amount_raw", "event_time", "serial_no", "order_no"):
+        if row.get(field) not in (None, ""):
+            score += 2
+    if row.get("balance_after_raw") not in (None, ""):
+        score += 1
+    return score
+
+
+def _row_evidence(row: dict) -> list[dict]:
+    evidence = _merge_evidence(row.get("source_evidence"))
+    if evidence:
+        return evidence
+    if not (row.get("file_id") or row.get("file_no") or row.get("original_file_name")):
+        return []
+    return [
+        {
+            "file_id": row.get("file_id", ""),
+            "file_no": row.get("file_no", ""),
+            "file_name": row.get("original_file_name", ""),
+            "source_row_id": row.get("event_id", ""),
+            "source_page": row.get("source_pages", ""),
+            "row_no": row.get("row_nos", ""),
+            "raw_text": row.get("raw_text", ""),
+        }
+    ]
+
+
+def _merge_joined_values(*values: Any) -> str:
+    items = []
+    for value in values:
+        if value in (None, ""):
+            continue
+        if isinstance(value, (list, tuple, set)):
+            items.extend(str(item).strip() for item in value if item not in (None, ""))
+        else:
+            items.extend(part.strip() for part in str(value).split(",") if part.strip())
+    return ",".join(unique_list(items))
+
+
+def _normalized_decimal_text(value: Any) -> str:
+    text = str(value or "").strip().replace(",", "")
+    if not text:
+        return ""
+    try:
+        number = Decimal(text)
+    except (InvalidOperation, ValueError):
+        return text
+    if number == 0:
+        return "0"
+    normalized = format(number.normalize(), "f")
+    if "." in normalized:
+        normalized = normalized.rstrip("0").rstrip(".")
+    return normalized
 
 
 def _exact_event_key(row: dict) -> tuple:
