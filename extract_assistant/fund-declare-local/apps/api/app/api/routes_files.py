@@ -71,6 +71,64 @@ def _upload_case_file(case_id: str, module: str, file: UploadFile) -> dict:
     }
     local_store.append_file_index(case_id, file_record)
 
+    return {
+        "case_id": case_id,
+        "case": case,
+        "file": file_record,
+        "process_result": None,
+        "content_classification": None,
+        "extract_result": None,
+        "message": "材料已上传，等待系统分析",
+    }
+
+
+@router.post("/{case_id}/files/analyze")
+def analyze_case_files(case_id: str) -> dict:
+    _read_case_or_404(case_id)
+    files = _read_files_with_modules(case_id)
+    results = []
+
+    for file_record in files:
+        if _is_file_already_analyzed(file_record):
+            results.append(
+                {
+                    "file_id": file_record.get("file_id"),
+                    "file_no": file_record.get("file_no"),
+                    "status": "skipped",
+                    "file": file_record,
+                }
+            )
+            continue
+        results.append(_analyze_case_file(case_id, file_record))
+
+    return {
+        "case_id": case_id,
+        "results": results,
+        "files": _read_files_with_modules(case_id),
+        "summary": _build_analyze_summary(results),
+    }
+
+
+def _is_file_already_analyzed(file_record: dict) -> bool:
+    return (
+        file_record.get("process_status") not in {None, "uploaded"}
+        and file_record.get("content_classify_status") == "success"
+        and file_record.get("extract_status") is not None
+    )
+
+
+def _analyze_case_file(case_id: str, file_record: dict) -> dict:
+    file_id = file_record.get("file_id")
+    storage_path = file_record.get("storage_path")
+    output_dir_path = file_record.get("output_dir")
+    if not file_id or not storage_path or not output_dir_path:
+        raise HTTPException(status_code=400, detail="invalid file record")
+
+    stored_path = local_store.PROJECT_ROOT / storage_path
+    output_dir = local_store.ensure_dir(local_store.PROJECT_ROOT / output_dir_path)
+    original_file_name = file_record.get("original_file_name") or stored_path.name
+    module = _normalize_module(file_record.get("module"), file_record.get("content_type"))
+
     try:
         process_result = process_document(stored_path, output_dir)
         classification = content_classifier.classify_content(
@@ -109,8 +167,9 @@ def _upload_case_file(case_id: str, module: str, file: UploadFile) -> dict:
         updated_record = _get_file_record_or_404(case_id, file_id)
 
         return {
-            "case_id": case_id,
-            "case": case,
+            "file_id": file_id,
+            "file_no": file_record.get("file_no"),
+            "status": "success",
             "file": updated_record,
             "process_result": _relativize_process_result(process_result),
             "content_classification": classification,
@@ -132,8 +191,9 @@ def _upload_case_file(case_id: str, module: str, file: UploadFile) -> dict:
             },
         )
         return {
-            "case_id": case_id,
-            "case": case,
+            "file_id": file_id,
+            "file_no": file_record.get("file_no"),
+            "status": "failed",
             "file": updated_record,
             "process_result": {
                 "process_status": "failed",
@@ -293,6 +353,15 @@ def _build_module_summary(files: list[dict]) -> dict:
             for file_record in files
             if file_record.get("module") == MODULE_ACCOUNT_INFO
         ),
+    }
+
+
+def _build_analyze_summary(results: list[dict]) -> dict:
+    return {
+        "total_file_count": len(results),
+        "analyzed_file_count": sum(1 for item in results if item.get("status") == "success"),
+        "skipped_file_count": sum(1 for item in results if item.get("status") == "skipped"),
+        "failed_file_count": sum(1 for item in results if item.get("status") == "failed"),
     }
 
 

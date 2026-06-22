@@ -177,7 +177,7 @@ def build_review_data_from_final_result(case_id: str, final_result: dict) -> dic
     review_issue_rows = _sheet_rows(final_result, SHEET_REVIEW_ISSUES)
     holding_rows = _sheet_rows(final_result, SHEET_HOLDINGS)
     identity_rows = _sheet_rows(final_result, SHEET_IDENTITY)
-    checklist_rows = _sheet_rows(final_result, SHEET_CHECKLIST)
+    checklist_rows = _legal_checklist_rows(_sheet_rows(final_result, SHEET_CHECKLIST))
 
     return {
         SHEET_FINAL: [
@@ -361,6 +361,14 @@ def _sheet_rows(final_result: dict, sheet_name: str) -> list[dict]:
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
 
+def _legal_checklist_rows(rows: list[dict]) -> list[dict]:
+    return [
+        row
+        for row in rows
+        if str(row.get("checklist条件") or "").strip() != "文件级问题归纳"
+    ]
+
+
 def _change_type(row: dict) -> str:
     raw = str(row.get("transfer_type_raw") or "").strip()
     if raw:
@@ -384,6 +392,7 @@ def _change_type(row: dict) -> str:
         "no_trade_record": "无交易记录",
         "no_holding_record": "无持仓记录",
         "no_account_record": "未开立账户",
+        "no_account_info": "无账户信息",
     }
     return event_type_map.get(event_type, event_type)
 

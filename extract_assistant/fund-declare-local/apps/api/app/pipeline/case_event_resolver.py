@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
 
@@ -25,6 +26,7 @@ HOLDING_REQUIRED_FIELDS = [
     "security_code",
     "security_name",
     "quantity_raw",
+    "market_value",
 ]
 EVENT_CONFLICT_FIELDS = [
     "direction",
@@ -33,6 +35,22 @@ EVENT_CONFLICT_FIELDS = [
     "amount_raw",
     "balance_after_raw",
 ]
+CROSS_FILE_MERGE_EVENT_TYPES = {
+    "ordinary_trade",
+    "security_registration",
+    "bonus_share",
+    "new_share_subscription",
+    "new_bond_subscription",
+}
+WEAK_RECORD_IDS = {
+    "资金流水明细",
+    "场内交割流水明细",
+    "持仓信息",
+    "资金流水",
+    "场内交割流水",
+    "历史成交",
+    "交易流水",
+}
 
 REVIEW_ISSUE_COLUMNS = [
     "序号",
@@ -51,6 +69,8 @@ ISSUE_TYPE_LABELS = {
     "missing_required_fields": "缺少必填字段",
     "securities_account_missing": "缺少证券账号",
     "account_type_missing": "缺少账户类型",
+    "person_name_missing": "缺少姓名",
+    "source_evidence_missing": "缺少原文证据",
     "unknown_event_type": "无法判断事件类型",
     "conflict_between_sources": "来源字段冲突",
     "empty_record_account_missing": "空记录缺少账户",
@@ -59,6 +79,9 @@ ISSUE_TYPE_LABELS = {
     "schema_invalid": "抽取结构不符合要求",
     "extract_failed": "抽取失败",
     "manual_review_required": "需要人工复核",
+    "extraction_field_incomplete": "抽取结果字段不完整",
+    "final_declaration_classification_uncertain": "最终申报归类待确认",
+    "holding_effect_classification_uncertain": "是否影响持仓待确认",
 }
 
 SEVERITY_LABELS = {
@@ -76,14 +99,22 @@ FIELD_LABELS = {
     "security_code": "证券代码",
     "security_name": "证券名称",
     "quantity_raw": "数量",
+    "market_value": "市值",
     "direction": "方向",
     "price_raw": "价格",
     "amount_raw": "收付金额",
     "balance_after_raw": "变动后余额",
+    "person_name": "姓名",
+    "raw_text": "原文证据",
     "guangfa": "广发材料",
     "chinaclear": "中国结算材料",
     "identity": "身份材料",
     "extract_result": "抽取结果",
+    "final_declaration_fields": "最终申报字段",
+    "final_field_candidates": "最终申报字段",
+    "include_in_final_declaration": "最终申报归类",
+    "affects_holding": "是否影响持仓",
+    "review_reasons": "复核原因",
 }
 
 
@@ -96,7 +127,14 @@ def resolve_case_events(
     """Split normalized rows and collect non-legal issues for manual review."""
 
     merge_audit: list[dict] = []
-    events = _merge_exact_event_duplicates(transaction_rows, merge_audit)
+    raw_events = [dict(item) for item in transaction_rows]
+    raw_holdings = [dict(item) for item in holding_rows or []]
+    _apply_intra_file_security_references(raw_events, raw_holdings)
+
+    events = _merge_exact_event_duplicates(raw_events, merge_audit)
+    events = _merge_same_file_partial_trade_duplicates(events, merge_audit)
+    events = _merge_cross_file_complementary_trades(events, merge_audit)
+    events = _drop_zero_quantity_ordinary_trade_artifacts(events, merge_audit)
     _mark_event_conflicts(events, merge_audit)
 
     verified_events: list[dict] = []
@@ -107,14 +145,17 @@ def resolve_case_events(
         event_row = dict(row)
         _validate_event_row(event_row)
         if event_row.get("manual_review_required"):
-            pending_review_events.append(event_row)
             review_issues.append(_review_issue_from_row(event_row, "transaction"))
+            if event_row.get("allow_full_table_with_review"):
+                verified_events.append(event_row)
+            else:
+                pending_review_events.append(event_row)
         else:
             verified_events.append(event_row)
 
     verified_holdings: list[dict] = []
     pending_review_holdings: list[dict] = []
-    for row in [dict(item) for item in holding_rows or []]:
+    for row in raw_holdings:
         _validate_holding_row(row)
         if row.get("manual_review_required"):
             pending_review_holdings.append(row)
@@ -142,6 +183,161 @@ def resolve_case_events(
         "review_issue_rows": review_issue_rows(review_issues),
         "merge_audit": merge_audit,
     }
+
+
+def _apply_intra_file_security_references(*row_groups: list[dict]) -> None:
+    references: dict[tuple[str, str], dict[str, str]] = {}
+    ambiguous_keys: set[tuple[str, str]] = set()
+    rows = [row for group in row_groups for row in group]
+    holding_rows = row_groups[1] if len(row_groups) > 1 else []
+
+    holding_references, holding_ambiguous_keys = _collect_security_references(holding_rows)
+    _apply_security_references(rows, holding_references, holding_ambiguous_keys)
+    holding_market_references, holding_market_ambiguous_keys = _collect_market_references(holding_rows)
+    _apply_market_references(rows, holding_market_references, holding_market_ambiguous_keys)
+
+    for row in rows:
+        security_name = _clean_text(row.get("security_name"))
+        security_code = _clean_text(row.get("security_code"))
+        if not security_name or not security_code:
+            continue
+        key = (_file_reference_key(row), security_name)
+        candidate = {
+            "security_code": security_code,
+            "account_type": _clean_text(row.get("account_type")),
+            "securities_account": _clean_text(row.get("securities_account")),
+        }
+        existing = references.setdefault(key, {})
+        for field, value in candidate.items():
+            if not value:
+                continue
+            if existing.get(field) and existing[field] != value:
+                ambiguous_keys.add(key)
+            else:
+                existing[field] = value
+
+    for row in rows:
+        security_name = _clean_text(row.get("security_name"))
+        if not security_name:
+            continue
+        key = (_file_reference_key(row), security_name)
+        if key in ambiguous_keys:
+            continue
+        reference = references.get(key) or {}
+        for field in ("security_code", "account_type", "securities_account"):
+            if not _clean_text(row.get(field)) and reference.get(field):
+                row[field] = reference[field]
+
+
+def _collect_security_references(rows: list[dict]) -> tuple[dict[tuple[str, str], dict[str, str]], set[tuple[str, str]]]:
+    references: dict[tuple[str, str], dict[str, str]] = {}
+    ambiguous_keys: set[tuple[str, str]] = set()
+    for row in rows:
+        security_name = _clean_text(row.get("security_name"))
+        security_code = _clean_text(row.get("security_code"))
+        if not security_name or not security_code:
+            continue
+        key = (_file_reference_key(row), security_name)
+        candidate = {
+            "security_code": security_code,
+            "account_type": _clean_text(row.get("account_type")),
+            "securities_account": _clean_text(row.get("securities_account")),
+        }
+        existing = references.setdefault(key, {})
+        for field, value in candidate.items():
+            if not value:
+                continue
+            if existing.get(field) and existing[field] != value:
+                ambiguous_keys.add(key)
+            else:
+                existing[field] = value
+    return references, ambiguous_keys
+
+
+def _apply_security_references(
+    rows: list[dict],
+    references: dict[tuple[str, str], dict[str, str]],
+    ambiguous_keys: set[tuple[str, str]],
+) -> None:
+    for row in rows:
+        security_name = _clean_text(row.get("security_name"))
+        if not security_name:
+            continue
+        key = (_file_reference_key(row), security_name)
+        if key in ambiguous_keys:
+            continue
+        reference = references.get(key) or {}
+        for field in ("security_code", "account_type", "securities_account"):
+            if not _clean_text(row.get(field)) and reference.get(field):
+                row[field] = reference[field]
+
+
+def _collect_market_references(rows: list[dict]) -> tuple[dict[tuple[str, str], dict[str, str]], set[tuple[str, str]]]:
+    references: dict[tuple[str, str], dict[str, str]] = {}
+    ambiguous_keys: set[tuple[str, str]] = set()
+    for row in rows:
+        market = _row_market(row)
+        account = _clean_text(row.get("securities_account"))
+        if not market or not account:
+            continue
+        key = (_file_reference_key(row), market)
+        candidate = {
+            "account_type": _clean_text(row.get("account_type")),
+            "securities_account": account,
+        }
+        existing = references.setdefault(key, {})
+        for field, value in candidate.items():
+            if not value:
+                continue
+            if existing.get(field) and existing[field] != value:
+                ambiguous_keys.add(key)
+            else:
+                existing[field] = value
+    return references, ambiguous_keys
+
+
+def _apply_market_references(
+    rows: list[dict],
+    references: dict[tuple[str, str], dict[str, str]],
+    ambiguous_keys: set[tuple[str, str]],
+) -> None:
+    for row in rows:
+        market = _row_market(row)
+        if not market:
+            continue
+        key = (_file_reference_key(row), market)
+        if key in ambiguous_keys:
+            continue
+        reference = references.get(key) or {}
+        for field in ("account_type", "securities_account"):
+            if not _clean_text(row.get(field)) and reference.get(field):
+                row[field] = reference[field]
+
+
+def _row_market(row: dict) -> str:
+    account_type = _clean_text(row.get("account_type"))
+    if account_type.startswith("深"):
+        return "SZ"
+    if account_type.startswith("沪"):
+        return "SH"
+    if account_type == "北交所":
+        return "BJ"
+    code = _clean_text(row.get("security_code"))
+    if code.startswith(("0", "3")):
+        return "SZ"
+    if code.startswith("6"):
+        return "SH"
+    if code.startswith(("83", "87", "88", "920")):
+        return "BJ"
+    return ""
+
+
+def _file_reference_key(row: dict) -> str:
+    return _clean_text(row.get("file_id")) or _clean_text(row.get("file_no"))
+
+
+def _clean_text(value: Any) -> str:
+    return str(value or "").strip()
 
 
 def review_issue_rows(review_issues: list[dict]) -> list[dict]:
@@ -187,6 +383,113 @@ def _merge_exact_event_duplicates(rows: list[dict], merge_audit: list[dict]) -> 
     return merged
 
 
+def _merge_cross_file_complementary_trades(
+    rows: list[dict],
+    merge_audit: list[dict],
+) -> list[dict]:
+    groups: dict[tuple, list[int]] = {}
+    for index, row in enumerate(rows):
+        key = _cross_file_trade_key(row)
+        if key:
+            groups.setdefault(key, []).append(index)
+
+    replacements: dict[int, dict] = {}
+    skipped: set[int] = set()
+
+    for key, indices in groups.items():
+        if len(indices) != 2:
+            continue
+
+        first = rows[indices[0]]
+        second = rows[indices[1]]
+        if not _has_distinct_files(first, second):
+            continue
+        if not _can_merge_complementary_trade(first, second):
+            continue
+
+        replace_index = min(indices)
+        skip_index = max(indices)
+        merged = _merge_complementary_trade_rows(first, second)
+        replacements[replace_index] = merged
+        skipped.add(skip_index)
+        merge_audit.append(
+            {
+                "action": "merged_cross_file_complementary_trade",
+                "event_key": "|".join(str(part) for part in key),
+                "kept_record_id": merged.get("event_id", ""),
+                "merged_record_ids": unique_list(
+                    [
+                        first.get("event_id") or _first_evidence_value(first, "source_row_id"),
+                        second.get("event_id") or _first_evidence_value(second, "source_row_id"),
+                    ]
+                ),
+                "file_ids": unique_list([first.get("file_id"), second.get("file_id")]),
+                "reason": "跨文件匹配到同一笔交易，已合并来源证据并互补成交价、金额、余额等字段",
+            }
+        )
+
+    merged_rows = []
+    for index, row in enumerate(rows):
+        if index in skipped:
+            continue
+        merged_rows.append(replacements.get(index, row))
+    return merged_rows
+
+
+def _merge_same_file_partial_trade_duplicates(
+    rows: list[dict],
+    merge_audit: list[dict],
+) -> list[dict]:
+    groups: dict[tuple, list[int]] = {}
+    for index, row in enumerate(rows):
+        key = _partial_duplicate_trade_key(row)
+        if key:
+            groups.setdefault(key, []).append(index)
+
+    replacements: dict[int, dict] = {}
+    skipped: set[int] = set()
+
+    for key, indices in groups.items():
+        if len(indices) <= 1:
+            continue
+
+        group = [rows[index] for index in indices]
+        if not _can_merge_same_file_partial_trade_group(group):
+            continue
+
+        target_index = max(indices, key=lambda index: _trade_detail_score(rows[index]))
+        merged = dict(rows[target_index])
+        for index in indices:
+            if index == target_index:
+                continue
+            merged = _merge_complementary_trade_rows(merged, rows[index])
+            skipped.add(index)
+        replacements[target_index] = merged
+        merge_audit.append(
+            {
+                "action": "merged_same_file_partial_trade_duplicate",
+                "event_key": "|".join(str(part) for part in key),
+                "kept_record_id": merged.get("event_id", ""),
+                "merged_record_ids": unique_list(
+                    [
+                        rows[index].get("event_id")
+                        or _first_evidence_value(rows[index], "source_row_id")
+                        or ""
+                        for index in indices
+                    ]
+                ),
+                "reason": "同一文件内同一流水号和交易关键字段一致，已保留字段更完整的场内交割候选",
+            }
+        )
+
+    merged_rows = []
+    for index, row in enumerate(rows):
+        if index in skipped:
+            continue
+        merged_rows.append(replacements.get(index, row))
+    return merged_rows
+
+
 def _mark_event_conflicts(rows: list[dict], merge_audit: list[dict]) -> None:
     groups: dict[tuple, list[dict]] = {}
     for row in rows:
@@ -228,7 +531,51 @@ def _mark_event_conflicts(rows: list[dict], merge_audit: list[dict]) -> None:
         )
 
 
+def _drop_zero_quantity_ordinary_trade_artifacts(
+    rows: list[dict],
+    merge_audit: list[dict],
+) -> list[dict]:
+    kept_rows = []
+    for row in rows:
+        if not _is_zero_quantity_ordinary_trade(row):
+            kept_rows.append(row)
+            continue
+        merge_audit.append(
+            {
+                "action": "dropped_zero_quantity_ordinary_trade",
+                "event_key": "|".join(
+                    str(part or "")
+                    for part in [
+                        row.get("file_id"),
+                        row.get("securities_account"),
+                        row.get("event_date"),
+                        row.get("security_code"),
+                        row.get("security_name"),
+                        row.get("event_id")
+                        or _first_evidence_value(row, "source_row_id"),
+                    ]
+                ),
+                "record_id": row.get("event_id")
+                or _first_evidence_value(row, "source_row_id")
+                or "",
+                "reason": "普通买卖记录成交数量为0，不构成有效持仓变动，按抽取伪交易忽略",
+            }
+        )
+    return kept_rows
+
+
+def _is_zero_quantity_ordinary_trade(row: dict) -> bool:
+    if str(row.get("event_type") or "").strip() != "ordinary_trade":
+        return False
+    if str(row.get("direction") or "").strip() not in {"buy", "sell"}:
+        return False
+    return _normalized_decimal_text(row.get("quantity_raw")) == "0"
+
+
 def _validate_event_row(row: dict) -> None:
+    if row.get("event_type") == "no_account_info":
+        _validate_no_account_info_row(row)
+        return
     if row.get("event_type") in {"no_trade_record", "no_holding_record", "no_account_record"}:
         _validate_empty_record_row(row)
         return
@@ -238,10 +585,9 @@ def _validate_event_row(row: dict) -> None:
     if missing_fields:
         issue_types.append("missing_required_fields")
     if not row.get("securities_account"):
-        issue_types.extend(["securities_account_missing", "account_type_missing"])
+        issue_types.append("securities_account_missing")
         _append_missing(missing_fields, "securities_account")
-        _append_missing(missing_fields, "account_type")
-    elif not row.get("account_type"):
+    if not row.get("account_type"):
         issue_types.append("account_type_missing")
         _append_missing(missing_fields, "account_type")
     if row.get("event_type") in (None, "", "unknown_event"):
@@ -269,16 +615,44 @@ def _validate_empty_record_row(row: dict) -> None:
         _mark_review_issue(row, issue_types, missing_fields=missing_fields)
 
 
+def _validate_no_account_info_row(row: dict) -> None:
+    missing_fields = []
+    issue_types = []
+    if not row.get("person_name"):
+        issue_types.append("person_name_missing")
+        _append_missing(missing_fields, "person_name")
+    if not (
+        row.get("event_date")
+        or row.get("period_start")
+        or row.get("period_end")
+    ):
+        issue_types.append("empty_record_period_missing")
+        _append_missing(missing_fields, "event_date")
+    if not _row_has_raw_text_evidence(row):
+        issue_types.append("source_evidence_missing")
+        _append_missing(missing_fields, "raw_text")
+    if issue_types:
+        _mark_review_issue(row, issue_types, missing_fields=missing_fields)
+
+
+def _row_has_raw_text_evidence(row: dict) -> bool:
+    if str(row.get("raw_text") or "").strip():
+        return True
+    for item in as_list(row.get("source_evidence")):
+        if isinstance(item, dict) and str(item.get("raw_text") or "").strip():
+            return True
+    return False
+
+
 def _validate_holding_row(row: dict) -> None:
     missing_fields = _missing_fields(row, HOLDING_REQUIRED_FIELDS)
     issue_types = []
     if missing_fields:
         issue_types.append("missing_required_fields")
     if not row.get("securities_account"):
-        issue_types.extend(["securities_account_missing", "account_type_missing"])
+        issue_types.append("securities_account_missing")
         _append_missing(missing_fields, "securities_account")
-        _append_missing(missing_fields, "account_type")
-    elif not row.get("account_type"):
+    if not row.get("account_type"):
         issue_types.append("account_type_missing")
         _append_missing(missing_fields, "account_type")
 
@@ -337,7 +711,7 @@ def _review_issues_from_review_items(
             "related_file_nos": unique_list([item.get("file_no")]),
             "related_file_names": unique_list([item.get("original_file_name")]),
             "related_record_id": str(item.get("event_id") or ""),
-            "missing_fields": unique_list([field]) if field else [],
+            "missing_fields": _review_item_missing_fields(field),
             "conflict_fields": [],
             "message": message or "存在需要人工复核的问题",
             "suggestion": "请回到原始材料或抽取结果确认该问题。",
@@ -398,20 +772,33 @@ def _review_issue_message(row: dict, record_category: str) -> str:
     issue_types = set(unique_list(row.get("review_issue_types")))
     if "conflict_between_sources" in issue_types:
         return "疑似同一记录在多个来源中的字段不一致，需人工复核。"
+    if row.get("event_type") == "no_account_info":
+        return "材料显示无账户信息，但缺少姓名、截止日期或原文证据，请人工核对。"
     if issue_types & {"empty_record_account_missing", "empty_record_period_missing"}:
         return "空交易/空持仓记录缺少账户或查询时间，无法确认归属。"
+    if {"securities_account_missing", "account_type_missing"} <= issue_types:
+        return "缺少证券账号和账户类型，无法确认账户和最终申报归属。"
     if "securities_account_missing" in issue_types:
-        return "缺少证券账号，无法确认账户类型和最终申报归属。"
+        return "缺少证券账号，无法确认账户和最终申报归属。"
+    if "account_type_missing" in issue_types:
+        return "缺少账户类型，无法确认账户和最终申报归属。"
     if "unknown_event_type" in issue_types:
         return "无法判断该交易/事件类型是否影响持仓。"
     if "missing_required_fields" in issue_types:
         return "缺少关键字段，无法通过自动核验。"
+    review_reason = str(row.get("review_reason") or "").strip()
+    if review_reason:
+        return review_reason
     if record_category == "holding":
         return "持仓记录需要人工复核。"
     return "交易/事件记录需要人工复核。"
 
 
 def _review_issue_suggestion(row: dict, record_category: str) -> str:
+    if row.get("event_type") == "no_account_info":
+        return "请核对材料中的姓名、截止日期和无账户信息原文。"
+    if not row.get("securities_account") and not row.get("account_type"):
+        return "请补充证券账号和账户类型；如只有资金账号，请在人工复核后确认其对应证券账号。"
     if not row.get("securities_account"):
         return "请补充证券账号；如只有资金账号，请在人工复核后确认其对应证券账号。"
     if record_category == "holding":
@@ -421,6 +808,12 @@ def _review_issue_suggestion(row: dict, record_category: str) -> str:
 
 def _review_item_issue_type(item_type: str, field: str, message: str) -> str:
     lowered = f"{item_type} {field} {message}".lower()
+    if field == "final_field_candidates":
+        return "extraction_field_incomplete"
+    if field == "include_in_final_declaration":
+        return "final_declaration_classification_uncertain"
+    if field == "affects_holding":
+        return "holding_effect_classification_uncertain"
     if "ocr_failed" in lowered or "ocr failed" in lowered:
         return "ocr_failed"
     if "schema" in lowered:
@@ -428,6 +821,14 @@ def _review_item_issue_type(item_type: str, field: str, message: str) -> str:
     if "extract" in lowered or "抽取" in message:
         return "extract_failed"
     return "manual_review_required"
+
+
+def _review_item_missing_fields(field: str) -> list[str]:
+    if field == "final_field_candidates":
+        return ["final_declaration_fields"]
+    if field in {"include_in_final_declaration", "affects_holding"}:
+        return []
+    return unique_list([field]) if field else []
 
 
 def _review_issue_id_label(value: Any) -> str:
@@ -485,6 +886,12 @@ def _record_snapshot_summary(row: dict, category: str) -> str:
             _field_phrase("证券", _security_label(row)),
             _field_phrase("持有数量", row.get("quantity_raw")),
         ]
+    elif row.get("event_type") == "no_account_info":
+        parts = [
+            _field_phrase("姓名", row.get("person_name")),
+            _field_phrase("截止日期", row.get("event_date") or row.get("period_end") or row.get("period_start")),
+            _field_phrase("变动类型", _movement_label(row)),
+        ]
     else:
         parts = [
             _field_phrase("日期", row.get("event_date") or row.get("period_end") or row.get("period_start")),
@@ -533,6 +940,7 @@ def _movement_label(row: dict) -> str:
         "no_trade_record": "无交易记录",
         "no_holding_record": "无持仓记录",
         "no_account_record": "未开立账户",
+        "no_account_info": "无账户信息",
         "unknown_event": "未知事件",
     }
     return event_type_labels.get(event_type, event_type)
@@ -582,6 +990,13 @@ def _message_label(value: Any) -> str:
         "event_type": "变动类型",
         "securities_account": "证券账号",
         "account_type": "账户类型",
+        "final_field_candidates": "最终申报字段",
+        "include_in_final_declaration": "最终申报归类",
+        "affects_holding": "是否影响持仓",
+        "LLM": "智能抽取",
+        "llm": "智能抽取",
+        "智能抽取 判断": "智能抽取判断",
+        "是否影响持仓 与": "是否影响持仓与",
         "guangfa": "广发材料",
         "chinaclear": "中国结算材料",
     }
@@ -620,12 +1035,224 @@ def _merge_evidence(*sources: Any) -> list[dict]:
     return evidence
 
 
+def _cross_file_trade_key(row: dict) -> tuple:
+    if row.get("manual_review_required"):
+        return ()
+    event_type = str(row.get("event_type") or "").strip()
+    if event_type not in CROSS_FILE_MERGE_EVENT_TYPES:
+        return ()
+    direction = str(row.get("direction") or "").strip()
+    if event_type == "ordinary_trade" and direction not in {"buy", "sell"}:
+        return ()
+    direction_key = direction or event_type
+    quantity = _normalized_decimal_text(row.get("quantity_raw"))
+    parts = [
+        row.get("securities_account"),
+        row.get("account_type"),
+        event_type,
+        row.get("event_date"),
+        row.get("security_code"),
+        row.get("security_name"),
+        direction_key,
+        quantity,
+    ]
+    if any(part in (None, "") for part in parts):
+        return ()
+    return tuple(str(part).strip() for part in parts)
+
+
+def _partial_duplicate_trade_key(row: dict) -> tuple:
+    if str(row.get("event_type") or "").strip() != "ordinary_trade":
+        return ()
+    if str(row.get("direction") or "").strip() not in {"buy", "sell"}:
+        return ()
+    serial_no = str(row.get("serial_no") or "").strip()
+    if not serial_no:
+        return ()
+
+    parts = [
+        row.get("file_id"),
+        row.get("securities_account"),
+        row.get("account_type"),
+        row.get("event_type"),
+        row.get("event_date"),
+        serial_no,
+        row.get("security_code"),
+        row.get("security_name"),
+        row.get("direction"),
+        _normalized_decimal_text(row.get("quantity_raw")),
+        _normalized_decimal_text(row.get("price_raw")),
+        _normalized_decimal_text(row.get("amount_raw")),
+    ]
+    if any(part in (None, "") for part in parts):
+        return ()
+    return tuple(str(part).strip() for part in parts)
+
+
+def _can_merge_same_file_partial_trade_group(group: list[dict]) -> bool:
+    order_nos = {
+        str(row.get("order_no") or "").strip()
+        for row in group
+        if str(row.get("order_no") or "").strip()
+    }
+    if len(order_nos) > 1:
+        return False
+
+    event_times = {
+        str(row.get("event_time") or "").strip()
+        for row in group
+        if str(row.get("event_time") or "").strip()
+    }
+    if len(event_times) > 1:
+        return False
+
+    return True
+
+
+def _has_distinct_files(first: dict, second: dict) -> bool:
+    first_file = str(first.get("file_id") or first.get("file_no") or "").strip()
+    second_file = str(second.get("file_id") or second.get("file_no") or "").strip()
+    return bool(first_file and second_file and first_file != second_file)
+
+
+def _can_merge_complementary_trade(first: dict, second: dict) -> bool:
+    for field in (
+        "price_raw",
+        "amount_raw",
+        "event_time",
+        "serial_no",
+        "order_no",
+        "balance_after_raw",
+    ):
+        first_value = first.get(field)
+        second_value = second.get(field)
+        if first_value in (None, "") or second_value in (None, ""):
+            continue
+        if field in {"price_raw", "amount_raw", "balance_after_raw"}:
+            if _normalized_decimal_text(first_value) != _normalized_decimal_text(second_value):
+                return False
+        elif str(first_value).strip() != str(second_value).strip():
+            return False
+    return True
+
+
+def _merge_complementary_trade_rows(first: dict, second: dict) -> dict:
+    target, other = (
+        (first, second)
+        if _trade_detail_score(first) >= _trade_detail_score(second)
+        else (second, first)
+    )
+    merged = dict(target)
+    for field in (
+        "case_id",
+        "account_type",
+        "document_type",
+        "document_title",
+        "period_start",
+        "period_end",
+        "holder_name",
+        "one_code_account",
+        "securities_account",
+        "event_id",
+        "event_type",
+        "market",
+        "event_date",
+        "event_time",
+        "security_code",
+        "security_name",
+        "direction",
+        "quantity_raw",
+        "price_raw",
+        "amount_raw",
+        "balance_after_raw",
+        "transfer_type_raw",
+        "rights_category_raw",
+        "security_category_raw",
+        "serial_no",
+        "order_no",
+        "review_reason",
+    ):
+        if merged.get(field) in (None, "") and other.get(field) not in (None, ""):
+            merged[field] = other.get(field)
+
+    merged["source_pages"] = _merge_joined_values(
+        first.get("source_pages"),
+        second.get("source_pages"),
+    )
+    merged["row_nos"] = _merge_joined_values(first.get("row_nos"), second.get("row_nos"))
+    merged["source_evidence"] = _merge_evidence(
+        _row_evidence(first),
+        _row_evidence(second),
+    )
+    merged["merged_file_ids"] = unique_list([first.get("file_id"), second.get("file_id")])
+    merged["merged_file_nos"] = unique_list([first.get("file_no"), second.get("file_no")])
+    return merged
+
+
+def _trade_detail_score(row: dict) -> int:
+    score = 0
+    for field in ("price_raw", "amount_raw", "event_time", "serial_no", "order_no"):
+        if row.get(field) not in (None, ""):
+            score += 2
+    if row.get("balance_after_raw") not in (None, ""):
+        score += 1
+    return score
+
+
+def _row_evidence(row: dict) -> list[dict]:
+    evidence = _merge_evidence(row.get("source_evidence"))
+    if evidence:
+        return evidence
+    if not (row.get("file_id") or row.get("file_no") or row.get("original_file_name")):
+        return []
+    return [
+        {
+            "file_id": row.get("file_id", ""),
+            "file_no": row.get("file_no", ""),
+            "file_name": row.get("original_file_name", ""),
+            "source_row_id": row.get("event_id", ""),
+            "source_page": row.get("source_pages", ""),
+            "row_no": row.get("row_nos", ""),
+            "raw_text": row.get("raw_text", ""),
+        }
+    ]
+
+
+def _merge_joined_values(*values: Any) -> str:
+    items = []
+    for value in values:
+        if value in (None, ""):
+            continue
+        if isinstance(value, (list, tuple, set)):
+            items.extend(str(item).strip() for item in value if item not in (None, ""))
+        else:
+            items.extend(part.strip() for part in str(value).split(",") if part.strip())
+    return ",".join(unique_list(items))
+
+
+def _normalized_decimal_text(value: Any) -> str:
+    text = str(value or "").strip().replace(",", "")
+    if not text:
+        return ""
+    try:
+        number = Decimal(text)
+    except (InvalidOperation, ValueError):
+        return text
+    if number == 0:
+        return "0"
+    normalized = format(number.normalize(), "f")
+    if "." in normalized:
+        normalized = normalized.rstrip("0").rstrip(".")
+    return normalized
+
+
 def _exact_event_key(row: dict) -> tuple:
     parts = [
         row.get("securities_account"),
         row.get("account_type"),
         row.get("event_type"),
         row.get("event_date"),
+        row.get("event_time"),
         row.get("security_code"),
         row.get("security_name"),
         row.get("direction"),
@@ -633,6 +1260,8 @@ def _exact_event_key(row: dict) -> tuple:
         row.get("price_raw"),
         row.get("amount_raw"),
         row.get("balance_after_raw"),
+        row.get("serial_no"),
+        row.get("order_no"),
     ]
     if not any(part not in (None, "") for part in parts):
         return ()
@@ -640,16 +1269,36 @@ def _exact_event_key(row: dict) -> tuple:
 
 
 def _conflict_event_key(row: dict) -> tuple:
+    record_id = str(row.get("event_id") or _first_evidence_value(row, "source_row_id") or "").strip()
+    if not record_id or _is_weak_record_id(record_id):
+        return ()
     parts = [
+        row.get("file_id"),
         row.get("securities_account"),
         row.get("event_type"),
         row.get("event_date"),
+        row.get("event_time"),
         row.get("security_code"),
         row.get("security_name"),
+        row.get("direction"),
+        _normalized_decimal_text(row.get("quantity_raw")),
+        _normalized_decimal_text(row.get("price_raw")),
+        _normalized_decimal_text(row.get("amount_raw")),
+        _normalized_decimal_text(row.get("balance_after_raw")),
+        record_id,
     ]
     if any(part in (None, "") for part in parts):
         return ()
     return tuple(str(part).strip() for part in parts)
+
+
+def _is_weak_record_id(record_id: str) -> bool:
+    text = str(record_id or "").strip()
+    if not text:
+        return True
+    if text in WEAK_RECORD_IDS:
+        return True
+    return text.endswith("明细") and not any(char.isdigit() for char in text)
 
 
 def _review_issue_data_source(issue: dict) -> str:
@@ -679,7 +1328,7 @@ def _review_issue_meta(issue: dict) -> dict:
 
 def _review_issue_signatures(issue: dict) -> set[tuple[str, str, str]]:
     record_category = str(issue.get("record_category") or "")
-    record_id = str(issue.get("related_record_id") or "")
+    record_keys = _review_issue_record_keys(issue)
     fields = (
         unique_list(issue.get("missing_fields"))
         or unique_list(issue.get("conflict_fields"))
@@ -687,10 +1336,83 @@ def _review_issue_signatures(issue: dict) -> set[tuple[str, str, str]]:
         or [str(issue.get("message") or "")]
     )
     return {
-        (record_category, record_id, field)
+        (record_category, record_key, field)
+        for record_key in record_keys
         for field in fields
-        if record_category or record_id or field
+        if record_category or record_key or field
     }
+
+
+def _review_issue_record_keys(issue: dict) -> list[str]:
+    keys = []
+    related_record_id = str(issue.get("related_record_id") or "").strip()
+    if related_record_id:
+        keys.append(f"id:{_signature_part(related_record_id)}")
+
+    snapshot = issue.get("record_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        date_value = (
+            snapshot.get("event_date")
+            or snapshot.get("holding_date")
+            or snapshot.get("period_start")
+            or snapshot.get("period_end")
+        )
+        record_parts = [
+            issue.get("related_record_id"),
+            snapshot.get("file_id"),
+            snapshot.get("file_no"),
+            snapshot.get("event_id") or snapshot.get("holding_id"),
+            snapshot.get("securities_account"),
+            snapshot.get("account_type"),
+            snapshot.get("event_type"),
+            date_value,
+            snapshot.get("security_code"),
+            snapshot.get("security_name"),
+            snapshot.get("direction"),
+            snapshot.get("quantity_raw"),
+            snapshot.get("price_raw"),
+            snapshot.get("amount_raw"),
+            snapshot.get("balance_after_raw"),
+            snapshot.get("transfer_type_raw"),
+        ]
+        for item in as_list(issue.get("source_evidence")):
+            if not isinstance(item, dict):
+                continue
+            record_parts.extend(
+                [
+                    item.get("file_id"),
+                    item.get("source_row_id"),
+                    item.get("source_page"),
+                    item.get("row_no"),
+                ]
+            )
+        key = "|".join(_signature_part(part) for part in record_parts if part not in (None, ""))
+        if key:
+            keys.append(f"row:{key}")
+
+    fallback_parts = [
+        issue.get("related_record_id"),
+        _join(issue.get("related_file_ids")),
+        _join(issue.get("related_file_nos")),
+        _join(issue.get("related_file_names")),
+        issue.get("message"),
+    ]
+    fallback_key = "|".join(_signature_part(part) for part in fallback_parts if part not in (None, ""))
+    if fallback_key:
+        keys.append(f"fallback:{fallback_key}")
+
+    return unique_list(keys) or [""]
+
+
+def _first_evidence_value(row: dict, key: str) -> Any:
+    for item in as_list(row.get("source_evidence")):
+        if isinstance(item, dict) and item.get(key) not in (None, ""):
+            return item.get(key)
+    return None
+
+
+def _signature_part(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
 
 
 def _evidence_label(item: dict) -> str:

@@ -82,20 +82,72 @@ def _update_file_index(
     extract_result: dict,
     extract_result_path: Path,
 ) -> None:
+    output_dir = extract_result_path.parent
+    process_result = local_store.read_json(output_dir / "process_result.json", {})
+    classification = local_store.read_json(
+        output_dir / "content_classification.json",
+        {},
+    )
     extract_review_reasons = extract_result.get("review_reasons", [])
+    process_reasons = (
+        process_result.get("review_reasons") if isinstance(process_result, dict) else []
+    )
+    classification_reasons = (
+        classification.get("review_reasons") if isinstance(classification, dict) else []
+    )
+    review_reasons = [
+        *_as_list(process_reasons),
+        *_as_list(classification_reasons),
+        *_as_list(extract_review_reasons),
+    ]
+
+    patch = {
+        "extract_status": extract_result.get("extract_status", "failed"),
+        "extract_result_path": _relative_to_project(extract_result_path),
+        "manual_review_required": (
+            bool(process_result.get("manual_review_required"))
+            if isinstance(process_result, dict)
+            else False
+        )
+        or (
+            bool(classification.get("manual_review_required"))
+            if isinstance(classification, dict)
+            else False
+        )
+        or extract_result.get("manual_review_required", False),
+        "review_reasons": _dedupe_reasons(review_reasons),
+        "updated_at": _now(),
+    }
+
+    if isinstance(process_result, dict) and process_result:
+        patch.update(
+            {
+                "route_type": process_result.get(
+                    "route_type",
+                    file_record.get("route_type"),
+                ),
+                "process_status": process_result.get(
+                    "process_status",
+                    file_record.get("process_status"),
+                ),
+                "ocr_status": process_result.get(
+                    "ocr_status",
+                    file_record.get("ocr_status"),
+                ),
+            }
+        )
+        if process_result.get("table_extract_status") is not None:
+            patch["table_extract_status"] = process_result.get("table_extract_status")
+
+    if isinstance(classification, dict) and classification:
+        if classification.get("content_type"):
+            patch["content_type"] = classification.get("content_type")
+        patch["content_classify_status"] = "success"
 
     local_store.update_file_index(
         case_id,
         file_record["file_id"],
-        {
-            "extract_status": extract_result.get("extract_status", "failed"),
-            "extract_result_path": _relative_to_project(extract_result_path),
-            "manual_review_required": extract_result.get(
-                "manual_review_required", False
-            ),
-            "review_reasons": _dedupe_reasons(extract_review_reasons),
-            "updated_at": _now(),
-        },
+        patch,
     )
 
 
@@ -105,6 +157,14 @@ def _dedupe_reasons(review_reasons: list) -> list[str]:
         if reason and reason not in deduped:
             deduped.append(str(reason))
     return deduped
+
+
+def _as_list(value: object) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
 
 
 def _relative_to_project(path: Path | str) -> str:

@@ -13,23 +13,28 @@
 
 1. 一份材料输出一个 JSON。
 2. 如果是“证券持有变更信息”，普通交易明细输出到 `trade_group.trades`，其他业务事件输出到 `other_events`。
-3. 如果是“证券持有信息”，这是持仓快照；如果有持仓明细，后续可输出到 `holdings`，如果明确无持仓 / 未持仓，输出 `no_holding_record` 到 `other_events`。
+3. 如果是“证券持有信息”，这是持仓快照；如果有持仓明细，输出到 `holding_records`，如果明确无持仓 / 未持仓，输出 `no_holding_record` 到 `negative_proofs`。
 4. 普通买卖交易：一行就是一笔交易明细，逐笔写入 `trade_group.trades`，不要丢失，也不要合并成单笔汇总。
 5. `trade_group` 只是 JSON 表达层的分组，不代表业务上把多笔交易合并为一个交易。
 6. 红利、兑息、送股、转增等公司行为，如果多行只是同一业务的不同阶段，可以合并为 `other_events` 中的一个事件。
 7. 不计算红利、利息、交易金额、盈亏、税费。
 8. 如果材料中没有交易金额，不输出 `amount`，不要用“数量 × 价格”反推。
 9. 为避免 JSON 被截断，普通交易必须使用“列定义 + 行数组”格式，不要使用对象数组。
-10. 如果材料明确显示某一账户在某一查询日或时间段内“无持仓”“未持仓”“共0条”“没有相应查询信息”，不要当成抽取失败；应输出空结果事件。
-11. 空结果事件也必须尽量抽取证券账户 / 一码通账户、查询日期或起止日期；如果账户号或时间缺失，仍输出事件，但在 `quality.warnings` 说明需要人工复核。
-12. 不要输出整行原文、置信度对象、大段解释或大量 `null` 字段。
-13. 输出只能是合法 JSON，不要输出解释文字。
+10. 如果材料明确显示某人截至某日无账户信息 / 未查询到证券账户 / 未曾开立证券账户 / 未开立证券账户 / 未开户证明 / 无证券账户 / 无股东账户，不要当成抽取失败；应输出到 `negative_proofs`。
+11. 如果材料明确显示某一账户在某一查询日或时间段内“无持仓”“未持仓”“无交易”“共0条”“没有相应查询信息”，不要当成抽取失败；应输出到 `negative_proofs`。
+12. 空结果事件也必须尽量抽取证券账户 / 一码通账户、查询日期或起止日期；如果账户号或时间缺失，仍输出事件，但在 `quality.warnings` 说明需要人工复核。
+13. “无账户信息”不是“无持仓”，也不是“无交易”：无账户信息表示没有证券账户；无持仓表示有账户但无持仓；无交易表示有账户但某期间无交易。
+14. 不要输出整行原文、置信度对象、大段解释或大量 `null` 字段。
+15. 输出只能是合法 JSON，不要输出解释文字。
+16. 持仓记录中的“市值”只能来自原表明确的“市值 / 资产市值 / 参考市值”等字段；不要把“收盘价 / 成交价格 / 买入均价 / 基金净值”填入“市值”。如果原表没有市值字段，`市值` 留空，并将该持仓 `manual_review_required=true`，`missing_fields` 包含“市值”，`review_reasons` 写“持仓记录缺少市值”。
+17. 持仓记录中的“币种”如果原文缺失，默认填“人民币”，不要仅因为币种缺失进入人工复核。
 
 ## 二、输出 JSON 结构
 
 ```json
 {
-  "schema_version": "chinaclear_trade_group_event_v1",
+  "schema_version": "chinaclear_event_understanding_v2",
+  "source_type": "chinaclear",
   "document_info": {
     "file_name": "",
     "document_type": "holding_change | holding_snapshot | unknown",
@@ -64,7 +69,7 @@
   "other_events": [
     {
       "event_id": "",
-      "event_type": "security_registration | cash_dividend | bond_interest | bonus_share | no_trade_record | no_holding_record | unknown_event",
+      "event_type": "security_registration | cash_dividend | bond_interest | bonus_share | no_trade_record | no_holding_record | no_account_info | unknown_event",
       "market": "SH | SZ",
       "event_date": "",
       "period_start": "",
@@ -83,6 +88,54 @@
       "review_reason": ""
     }
   ],
+  "holding_records": [
+    {
+      "holding_id": "",
+      "账户类型": "",
+      "证券账号": "",
+      "证券代码": "",
+      "证券名称": "",
+      "持有数量": "",
+      "市值": "",
+      "查询结果所属日期": "",
+      "币种": "",
+      "source_evidence": {
+        "page": "",
+        "row_no": "",
+        "raw_text": ""
+      },
+      "manual_review_required": false,
+      "review_reasons": []
+    }
+  ],
+  "negative_proofs": [
+    {
+      "proof_type": "无账户信息 | no_trade_record | no_holding_record",
+      "person_name": "",
+      "as_of_date": "",
+      "account_type": "",
+      "securities_account": "",
+      "period_start": "",
+      "period_end": "",
+      "source_evidence": {
+        "page": "",
+        "row_no": "",
+        "raw_text": ""
+      },
+      "manual_review_required": false,
+      "missing_fields": [],
+      "review_reasons": []
+    }
+  ],
+  "document_level_review_items": [
+    {
+      "severity": "warning",
+      "item_type": "event | holding | extract_result",
+      "event_id": "",
+      "field": "",
+      "message": ""
+    }
+  ],
   "quality": {
     "warnings": []
   }
@@ -91,17 +144,36 @@
 
 `trade_group.trades` 中每一行都必须严格对应 `trade_columns` 的顺序。没有值的位置用空字符串 `""`，不要改列名，不要为每笔交易重复输出字段名。
 
-`other_events` 只用于非普通交易业务、未知事件和空结果事件。普通买入、卖出、交易过户不得写入 `other_events`。
+`other_events` 只用于非普通交易业务和未知事件。普通买入、卖出、交易过户不得写入 `other_events`。无账户、无交易、无持仓这类负向证明写入 `negative_proofs`。
 
 空结果事件规则：
 
+* `无账户信息`：某人截至某日没有证券账户信息 / 未查询到证券账户 / 未曾开立证券账户 / 未开立证券账户 / 未开户证明 / 无证券账户 / 无股东账户。
+  * `transfer_type_raw` 填“无账户信息”。
+  * `event_date` 填截止日期或查询日期。
+  * `holder_name` 或事件中的 `person_name` 尽量填姓名。
+  * `security_code`、`security_name`、`quantity_raw`、`price_raw`、`balance_after_raw` 留空，不要填 0。
+  * 必须保留相关原文证据；如缺少姓名或截止日期，在 `review_reason` 或 `quality.warnings` 说明需要人工复核。
 * `no_trade_record`：某证券账户在某一查询日或时间段内持有变更 / 交易记录明确为 0 条。
 * `no_holding_record`：某证券账户在某一查询日或时间段内明确无持仓 / 未持仓。
 * `event_date` 优先填查询日；如果只有时间段，填 `period_end`。
 * `period_start` / `period_end` 按原文起止日期填写。
 * `securities_account` 必须尽量填证券账户；如材料只有一码通账户，填 `one_code_account`。
 * `security_code`、`security_name`、`quantity_raw`、`price_raw`、`balance_after_raw` 填字符串 `"0"`。
-* `transfer_type_raw` 填“无交易记录”或“无持仓记录”。
+* `proof_type` 分别填 `no_trade_record` 或 `no_holding_record`。
+
+持仓快照规则：
+
+* 有具体持仓明细时，逐条输出到 `holding_records`。
+* 不要把持仓快照输出到 `trade_group.trades` 或 `other_events`。
+* `市值` 必须是持仓市值，不是收盘价、成交价、买入均价或基金净值；没有市值时留空并标记人工复核。
+* `币种` 缺失时默认“人民币”。
+* 如果持仓行缺少证券账号、查询日期、证券代码、证券名称、持有数量或市值，仍输出可识别字段，并在 `review_reasons` 写清缺失项。
+
+文件级/批次级复核问题：
+
+* 当前批次疑似只看到红利、兑息、送股、转增等多阶段事件的一部分时，输出到 `document_level_review_items`，不要编造完整事件。
+* OCR 断行、跨页事件无法确认、schema 必填字段缺失，也可以写入 `document_level_review_items`。
 
 ## 三、沪市事件识别规则
 
@@ -224,10 +296,11 @@
 材料表现：
 
 * `过户类型 = 股份登记`
+* 或业务描述包含：股份入账、证券登记入账、转债入账、可转债入账、中签入账
 
 处理规则：
 
-* 一行股份登记 = 一个证券登记入账事件
+* 一行股份登记 / 股份入账 / 证券登记入账 = 一个证券登记入账事件
 * 这是打新、新股、新债、可转债或其他证券登记入账
 * 不局限于可转债
 * 不是普通买入

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
 
@@ -19,6 +20,7 @@ NO_RECORD_EVENT_TYPES = {
     "no_trade_record",
     "no_holding_record",
     "no_account_record",
+    "no_account_info",
 }
 
 FINAL_DECLARATION_EVENT_TYPES = {
@@ -30,6 +32,7 @@ FINAL_DECLARATION_EVENT_TYPES = {
     "no_trade_record",
     "no_holding_record",
     "no_account_record",
+    "no_account_info",
 }
 FINAL_DECLARATION_DIRECTIONS = {
     "buy",
@@ -61,6 +64,53 @@ EXCLUDED_TRANSFER_KEYWORDS = (
     "银行转账",
     "转入",
     "转出",
+)
+PURE_CASH_FLOW_TRANSFER_KEYWORDS = (
+    "银证转账",
+    "银行转取",
+    "银行转存",
+    "银行转证券",
+    "证券转银行",
+    "资金转入",
+    "资金转出",
+    "资金存入",
+    "资金取出",
+    "资金存取",
+    "转账冻结取消",
+    "转账冻结",
+)
+PURE_CASH_FLOW_INTEREST_KEYWORDS = (
+    "账户利息",
+    "资金利息",
+    "银行利息",
+    "利息归本",
+    "利息入账",
+    "结息归本",
+    "结息",
+)
+SECURITY_INCOME_KEYWORDS = (
+    "兑息",
+    "派息",
+    "股息",
+    "红利",
+    "分红",
+    "债券",
+    "转债",
+    "固收",
+)
+
+SECURITY_REGISTRATION_KEYWORDS = (
+    "股份登记",
+    "股份入账",
+    "证券登记",
+    "证券登记入账",
+    "登记入账",
+    "新股入账",
+    "债券入账",
+    "转债入账",
+    "可转债入账",
+    "中签入账",
+    "申购中签",
 )
 
 
@@ -110,6 +160,26 @@ def build_event_row(
     document_info: dict,
     event: dict,
 ) -> dict:
+    account_type = (
+        event.get("account_type")
+        or document_info.get("account_type")
+        or file_record.get("account_type")
+        or _account_type_from_security_code(event.get("security_code"))
+        or ""
+    )
+    securities_account = (
+        event.get("securities_account")
+        or event.get("fund_account")
+        or _document_securities_account(document_info, event, account_type)
+        or document_info.get("securities_account")
+        or document_info.get("fund_account")
+        or file_record.get("securities_account")
+        or file_record.get("fund_account")
+        or ""
+    )
+    if not account_type:
+        account_type = _account_type_from_securities_account(securities_account)
+
     row = {
         "case_id": case_id,
         "file_id": file_record.get("file_id") or event.get("file_id") or "",
@@ -123,28 +193,29 @@ def build_event_row(
 
     row.update(
         {
-            "account_type": event.get("account_type")
-            or document_info.get("account_type")
-            or file_record.get("account_type")
-            or "",
-            "securities_account": event.get("securities_account")
-            or event.get("fund_account")
-            or document_info.get("securities_account")
-            or document_info.get("fund_account")
-            or file_record.get("securities_account")
-            or file_record.get("fund_account")
-            or "",
+            "account_type": account_type,
+            "securities_account": securities_account,
             "event_id": event.get("event_id")
             or event.get("trade_id")
             or event.get("transaction_id")
             or event.get("cash_flow_id")
             or "",
+            "person_name": event.get("person_name")
+            or event.get("holder_name")
+            or document_info.get("holder_name")
+            or "",
+            "proof_type": event.get("proof_type", ""),
+            "event_category": event.get("event_category", ""),
             "event_type": normalize_event_type(event),
             "market": event.get("market") or document_info.get("market") or "",
             "event_date": event.get("event_date")
             or event.get("trade_date")
             or event.get("transaction_date")
             or event.get("business_date")
+            or "",
+            "event_time": event.get("event_time")
+            or event.get("trade_time")
+            or event.get("transaction_time")
             or "",
             "security_code": event.get("security_code", ""),
             "security_name": event.get("security_name", ""),
@@ -180,6 +251,11 @@ def build_event_row(
             "security_category_raw": event.get("security_category_raw")
             or event.get("instrument_type")
             or "",
+            "serial_no": event.get("serial_no")
+            or event.get("transaction_id")
+            or event.get("trade_id")
+            or "",
+            "order_no": event.get("order_no") or "",
             "source_pages": join_values(
                 event.get("source_pages")
                 if "source_pages" in event
@@ -205,10 +281,21 @@ def build_event_row(
                     "row_no": event.get("row_no", ""),
                     "source_pages": event.get("source_pages", ""),
                     "row_nos": event.get("row_nos", ""),
+                    "raw_text": event.get("raw_text", ""),
                 }
             ],
         }
     )
+    for control_field in (
+        "include_in_final_declaration",
+        "allow_full_table_with_review",
+        "manual_review_required",
+        "review_issue_types",
+        "missing_fields",
+        "conflict_fields",
+    ):
+        if control_field in event:
+            row[control_field] = event[control_field]
     return row
 
 
@@ -218,24 +305,35 @@ def build_holding_row(
     document_info: dict,
     holding: dict,
 ) -> dict:
-    return {
+    account_type = (
+        holding.get("account_type")
+        or document_info.get("account_type")
+        or file_record.get("account_type")
+        or _account_type_from_security_code(holding.get("security_code"))
+        or ""
+    )
+    securities_account = (
+        holding.get("securities_account")
+        or holding.get("fund_account")
+        or _document_securities_account(document_info, holding, account_type)
+        or document_info.get("securities_account")
+        or document_info.get("fund_account")
+        or file_record.get("securities_account")
+        or file_record.get("fund_account")
+        or ""
+    )
+    if not account_type:
+        account_type = _account_type_from_securities_account(securities_account)
+
+    row = {
         "case_id": case_id,
         "file_id": file_record.get("file_id") or holding.get("file_id") or "",
         "file_no": file_record.get("file_no", ""),
         "original_file_name": file_record.get("original_file_name")
         or document_info.get("file_name")
         or "",
-        "account_type": holding.get("account_type")
-        or document_info.get("account_type")
-        or file_record.get("account_type")
-        or "",
-        "securities_account": holding.get("securities_account")
-        or holding.get("fund_account")
-        or document_info.get("securities_account")
-        or document_info.get("fund_account")
-        or file_record.get("securities_account")
-        or file_record.get("fund_account")
-        or "",
+        "account_type": account_type,
+        "securities_account": securities_account,
         "holding_id": holding.get("holding_id") or "",
         "market": holding.get("market") or document_info.get("market") or "",
         "holding_date": holding.get("holding_date")
@@ -250,6 +348,10 @@ def build_holding_row(
         or holding.get("stock_balance_raw")
         or holding.get("balance_raw")
         or "",
+        "market_value": holding.get("market_value")
+        or holding.get("market_value_raw")
+        or "",
+        "currency": holding.get("currency") or document_info.get("currency") or "人民币",
         "security_category_raw": holding.get("security_category_raw")
         or holding.get("instrument_type")
         or "",
@@ -274,9 +376,92 @@ def build_holding_row(
                 "row_no": holding.get("row_no", ""),
                 "source_pages": holding.get("source_pages", ""),
                 "row_nos": holding.get("row_nos", ""),
+                "raw_text": holding.get("raw_text", ""),
             }
         ],
     }
+    for control_field in (
+        "manual_review_required",
+        "review_issue_types",
+        "missing_fields",
+        "conflict_fields",
+    ):
+        if control_field in holding:
+            row[control_field] = holding[control_field]
+    return row
+
+
+def _document_securities_account(
+    document_info: dict,
+    row: dict,
+    account_type: str,
+) -> str:
+    accounts = document_info.get("securities_accounts")
+    if not isinstance(accounts, dict):
+        accounts = {}
+
+    normalized_type = _normalize_account_type(account_type)
+    if normalized_type and accounts.get(normalized_type):
+        return str(accounts[normalized_type]).strip()
+
+    code_type = _account_type_from_security_code(row.get("security_code"))
+    if code_type and accounts.get(code_type):
+        return str(accounts[code_type]).strip()
+
+    if len(accounts) == 1:
+        return str(next(iter(accounts.values()))).strip()
+    return ""
+
+
+def _normalize_account_type(value: Any) -> str:
+    text = str(value or "").strip()
+    aliases = {
+        "深圳A股": "深A",
+        "深市A股": "深A",
+        "深圳": "深A",
+        "深A": "深A",
+        "深圳B股": "深B",
+        "深市B股": "深B",
+        "深B": "深B",
+        "上海A股": "沪A",
+        "沪市A股": "沪A",
+        "上海": "沪A",
+        "沪A": "沪A",
+        "上海B股": "沪B",
+        "沪市B股": "沪B",
+        "沪B": "沪B",
+        "深圳信用账户": "深圳信用账户",
+        "上海信用账户": "上海信用账户",
+    }
+    return aliases.get(text, text)
+
+
+def _account_type_from_security_code(value: Any) -> str:
+    code = str(value or "").strip()
+    if code.startswith("200"):
+        return "深B"
+    if code.startswith("900"):
+        return "沪B"
+    if code.startswith(("0", "3")):
+        return "深A"
+    if code.startswith("6"):
+        return "沪A"
+    if code.startswith(("83", "87", "88", "920")):
+        return "北交所"
+    return ""
+
+
+def _account_type_from_securities_account(value: Any) -> str:
+    account = str(value or "").strip()
+    if account.startswith("A"):
+        return "沪A"
+    if account.startswith("C"):
+        return "沪B"
+    if account.startswith(("00", "02", "03", "08")):
+        return "深A"
+    if account.startswith("20"):
+        return "深B"
+    return ""
 
 
 def normalize_event_type(event: dict) -> str:
@@ -291,9 +476,11 @@ def normalize_event_type(event: dict) -> str:
         or event.get("event_type_raw")
         or ""
     )
+    if is_pure_cash_flow_event(event):
+        return "cash_flow"
     if raw_type in {"买入", "卖出", "证券买入", "证券卖出", "交易过户"}:
         return "ordinary_trade"
-    if "股份登记" in raw_type or "申购中签" in raw_type or "新股入账" in raw_type:
+    if is_security_registration_text(raw_type):
         return "security_registration"
     if any(keyword in raw_type for keyword in ("送股", "转增", "红股")):
         return "bonus_share"
@@ -304,6 +491,32 @@ def normalize_event_type(event: dict) -> str:
     if any(keyword in raw_type for keyword in ("银证", "资金", "银行")):
         return "cash_flow"
     return "unknown_event"
+
+
+def is_pure_cash_flow_event(event: dict) -> bool:
+    text = " ".join(
+        str(value).strip()
+        for value in (
+            event.get("transfer_type_raw"),
+            event.get("transaction_type_raw"),
+            event.get("business_type_raw"),
+            event.get("event_type_raw"),
+            event.get("raw_business_type"),
+            event.get("raw_summary"),
+            event.get("review_reason"),
+        )
+        if value not in (None, "")
+    )
+    if not text:
+        return False
+    if any(keyword in text for keyword in PURE_CASH_FLOW_TRANSFER_KEYWORDS):
+        return True
+    if any(keyword in text for keyword in PURE_CASH_FLOW_INTEREST_KEYWORDS):
+        return not any(keyword in text for keyword in SECURITY_INCOME_KEYWORDS)
+    event_type = str(event.get("event_type") or "").strip()
+    return event_type in {"cash_flow", "bank_transfer", "fund_transfer", "interest"} and not any(
+        keyword in text for keyword in SECURITY_INCOME_KEYWORDS
+    )
 
 
 def normalize_direction(event: dict) -> str:
@@ -322,7 +535,7 @@ def normalize_direction(event: dict) -> str:
         return "buy"
     if "卖出" in raw_type:
         return "sell"
-    if "股份登记" in raw_type or "中签" in raw_type or "新股" in raw_type:
+    if is_security_registration_text(raw_type):
         return "registration_in"
     if any(keyword in raw_type for keyword in ("送股", "转增", "红股")):
         return "rights_event"
@@ -344,7 +557,15 @@ def normalize_direction_value(value: Any) -> str:
     return direction
 
 
+def is_security_registration_text(value: Any) -> bool:
+    text = str(value or "")
+    return any(keyword in text for keyword in SECURITY_REGISTRATION_KEYWORDS)
+
+
 def is_final_declaration_row(row: dict) -> bool:
+    if row.get("include_in_final_declaration") is False:
+        return False
+
     event_type = str(row.get("event_type") or "")
     direction = str(row.get("direction") or "")
     transfer_type = str(row.get("transfer_type_raw") or "")
@@ -353,6 +574,10 @@ def is_final_declaration_row(row: dict) -> bool:
         return False
     if any(keyword in transfer_type for keyword in EXCLUDED_TRANSFER_KEYWORDS):
         return False
+    if event_type == "ordinary_trade" and _is_zero_number(row.get("quantity_raw")):
+        return False
+    if row.get("include_in_final_declaration") is True:
+        return True
     if event_type in FINAL_DECLARATION_EVENT_TYPES:
         return True
     return direction in FINAL_DECLARATION_DIRECTIONS
@@ -366,6 +591,16 @@ def needs_uncertain_type_review(row: dict) -> bool:
     if any(keyword in transfer_type for keyword in EXCLUDED_TRANSFER_KEYWORDS):
         return False
     return event_type in {"", "unknown_event"}
+
+
+def _is_zero_number(value: Any) -> bool:
+    text = str(value or "").replace(",", "").strip()
+    if not text:
+        return False
+    try:
+        return Decimal(text) == 0
+    except (InvalidOperation, ValueError):
+        return False
 
 
 def empty_record_event_from_semantics(
@@ -400,6 +635,27 @@ def empty_record_event_from_semantics(
         semantic_document_info["period_start"] = period_start
     if period_end:
         semantic_document_info["period_end"] = period_end
+
+    if event_type == "no_account_info":
+        event = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "event_category": "negative_proof",
+            "proof_type": "无账户信息",
+            "event_date": event_date,
+            "person_name": _semantic_person_name(document_info, extract_result, source_text),
+            "security_code": "",
+            "security_name": "",
+            "quantity_raw": "",
+            "price_raw": "",
+            "amount_raw": "",
+            "balance_after_raw": "",
+            "transfer_type_raw": raw_type,
+            "source_page": 1,
+            "raw_text": _first_line(source_text),
+            "review_reason": "",
+        }
+        return build_event_row(case_id, file_record, semantic_document_info, event)
 
     event = {
         "event_id": event_id,
@@ -537,7 +793,7 @@ def _has_empty_record_signal(text: str) -> bool:
 
 def _empty_record_type(text: str) -> tuple[str, str, str]:
     if _looks_like_no_account_query(text):
-        return "no_account_record", "未开立账户", "no_account_record_1"
+        return "no_account_info", "无账户信息", "no_account_info_1"
     if _looks_like_empty_trade_query(text):
         return "no_trade_record", "无交易记录", "no_trade_record_1"
     if _looks_like_empty_holding_query(text):
@@ -559,6 +815,31 @@ def _looks_like_no_account_query(text: str) -> bool:
             "无账户",
         )
     )
+
+
+def _semantic_person_name(document_info: dict, extract_result: dict, text: str) -> str:
+    for source in (document_info, extract_result):
+        for key in ("person_name", "holder_name", "name", "姓名"):
+            value = str(source.get(key) or "").strip()
+            if value:
+                return value
+
+    for pattern in (
+        r"(?:姓名|客户姓名|投资者姓名)[:：\s]*([\u4e00-\u9fff]{2,8})",
+        r"(?:截至|截止).*?([\u4e00-\u9fff]{2,8})无账户信息",
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _first_line(text: str) -> str:
+    for line in str(text or "").splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return ""
 
 
 def _looks_like_empty_trade_query(text: str) -> bool:

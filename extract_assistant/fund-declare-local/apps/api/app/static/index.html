@@ -3,259 +3,282 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>投资申报复核工作台</title>
+    <title>投资申报复核系统</title>
     <link rel="stylesheet" href="/static/style.css" onerror="this.onerror=null;this.href='style.css';" />
   </head>
   <body>
-    <header class="app-header">
+    <header class="topbar">
       <div class="brand">
         <span class="brand-mark">易方达</span>
         <div>
-          <h1>投资申报复核工作台</h1>
-          <p>上传材料、生成底稿、人工复核后导出 Excel</p>
+          <h1>投资申报复核系统</h1>
+          <p>材料上传、系统分析、人工复核、导出 Excel</p>
         </div>
       </div>
-      <div class="header-visual" aria-hidden="true"></div>
-      <div class="header-actions">
-        <div class="status" aria-live="polite">
-          <span id="status-dot" class="status-dot status-dot--checking"></span>
-          <span id="status-text">正在检查后端服务</span>
-        </div>
-        <button id="llm-health-button" class="ghost-button" type="button">模型状态</button>
+      <div class="service-state" aria-live="polite">
+        <span id="status-indicator" class="service-indicator is-checking"></span>
+        <span id="status-text">正在连接服务</span>
       </div>
     </header>
 
-    <section class="cute-chatbot" aria-label="申报问答助手">
+    <section class="assistant-widget" aria-label="问小易助手">
       <button
-        id="chatbot-toggle"
-        class="chatbot-toggle"
+        id="assistant-toggle"
+        class="assistant-toggle"
         type="button"
         aria-expanded="false"
-        aria-controls="chatbot-panel"
+        aria-controls="assistant-panel"
       >
-        <span class="chatbot-face" aria-hidden="true">
-          <span class="chatbot-eye chatbot-eye-left"></span>
-          <span class="chatbot-eye chatbot-eye-right"></span>
-          <span class="chatbot-smile"></span>
-        </span>
-        <span class="chatbot-toggle-text">小易问答</span>
+        问小易
       </button>
-
-      <div id="chatbot-panel" class="chatbot-panel" aria-hidden="true">
-        <div class="chatbot-header">
-          <div class="chatbot-title">
-            <span class="chatbot-mini-face" aria-hidden="true"></span>
-            <div>
-              <strong>小易申报助手</strong>
-              <span>流程提示</span>
-            </div>
+      <div id="assistant-panel" class="assistant-panel" aria-hidden="true">
+        <div class="assistant-header">
+          <div>
+            <strong>问小易</strong>
+            <span>申报流程助手</span>
           </div>
-          <div class="chatbot-header-actions">
-            <button id="chatbot-reset" class="chatbot-reset" type="button">新会话</button>
-            <button id="chatbot-close" class="chatbot-close" type="button" aria-label="关闭问答助手">
-              ×
+          <div class="assistant-header-actions">
+            <button id="assistant-reset" class="text-button" type="button">新会话</button>
+            <button id="assistant-close" class="text-button" type="button" aria-label="关闭问小易">
+              关闭
             </button>
           </div>
         </div>
-        <div id="chatbot-messages" class="chatbot-messages" aria-live="polite"></div>
-        <div class="chatbot-prompts" aria-label="快捷问题">
-          <button type="button" data-chatbot-prompt="申报需要准备哪些材料？">材料清单</button>
-          <button type="button" data-chatbot-prompt="没有证券账号怎么办？">缺少证券账号</button>
-          <button type="button" data-chatbot-prompt="什么时候可以导出 Excel？">导出 Excel</button>
+        <div id="assistant-messages" class="assistant-messages" aria-live="polite"></div>
+        <div class="assistant-prompts" aria-label="快捷问题">
+          <button type="button" data-assistant-prompt="申报需要准备哪些材料？">材料清单</button>
+          <button type="button" data-assistant-prompt="没有证券账号怎么办？">缺少证券账号</button>
+          <button type="button" data-assistant-prompt="什么时候可以导出 Excel？">导出 Excel</button>
         </div>
-        <form id="chatbot-form" class="chatbot-form">
-          <input
-            id="chatbot-input"
-            type="text"
-            autocomplete="off"
-            placeholder="输入申报问题"
-          />
-          <button type="submit">发送</button>
+        <form id="assistant-form" class="assistant-form">
+          <label class="sr-only" for="assistant-input">输入申报问题</label>
+          <input id="assistant-input" type="text" autocomplete="off" placeholder="输入申报问题" />
+          <button class="primary-button" type="submit">发送</button>
         </form>
       </div>
     </section>
 
-    <main class="workspace">
-      <section class="workflow-strip" aria-label="业务流程">
-        <div class="workflow-title">申报处理流程</div>
-        <ol class="workflow-steps">
-          <li>创建任务</li>
-          <li>上传材料</li>
-          <li>内容抽取</li>
-          <li>人工复核</li>
-          <li>导出 Excel</li>
-        </ol>
-      </section>
-
-      <aside class="panel column-panel left-rail" aria-label="任务与上传">
-        <div class="panel-title">
-          <h2>任务上传</h2>
-        </div>
-
-        <section class="section-block task-entry-block">
-          <button
-            id="create-case-entry-button"
-            class="task-entry-button"
-            type="button"
-            aria-expanded="false"
-            aria-controls="create-case-form"
-          >
-            <span class="task-entry-icon" aria-hidden="true"></span>
-            <span>
-              <strong>创建任务</strong>
-              <span>填写基础信息并生成 case_id</span>
-            </span>
-          </button>
-        </section>
-
-        <form id="create-case-form" class="work-form section-block is-hidden">
-          <h3>创建任务</h3>
-          <div class="field-grid">
-            <label>
-              姓名
-              <input id="case-name" name="name" type="text" placeholder="例如：张三" />
-            </label>
-            <label>
-              手机号
-              <input id="case-phone" name="phone" type="text" placeholder="用于建立 case_id" />
-            </label>
-          </div>
-          <label>
-            与员工关系
-            <input id="case-relation-label" name="relation_type_label" type="text" value="员工本人" />
-          </label>
-          <button type="submit" class="primary-button">创建任务</button>
-          <pre id="create-case-result" class="case-result compact" aria-live="polite"></pre>
-        </form>
-
-        <form id="identity-upload-form" class="work-form section-block">
-          <h3>身份材料上传</h3>
-          <label>
-            case_id
-            <input id="identity-upload-case-id" name="case_id" type="text" placeholder="创建任务后自动填入" />
-          </label>
-          <label>
-            选择文件
-            <input id="identity-file" name="file" type="file" multiple />
-          </label>
-          <button type="submit" class="secondary-button">上传并处理</button>
-          <div id="identity-file-summary" class="result-summary" aria-live="polite"></div>
-          <pre id="identity-file-result" class="case-result compact" aria-live="polite"></pre>
-        </form>
-
-        <form id="account-upload-form" class="work-form section-block">
-          <h3>账户交易材料上传</h3>
-          <label>
-            case_id
-            <input id="account-upload-case-id" name="case_id" type="text" placeholder="创建任务后自动填入" />
-          </label>
-          <label>
-            选择文件
-            <input id="account-file" name="file" type="file" multiple />
-          </label>
-          <button type="submit" class="primary-button">上传并抽取</button>
-          <div id="account-file-summary" class="result-summary" aria-live="polite"></div>
-          <label>
-            file_id
-            <input id="extract-file-id" name="file_id" type="text" placeholder="上传后自动填入" />
-          </label>
-          <div class="button-row">
-            <button id="view-extract-input-button" type="button" class="ghost-button" disabled>查看抽取输入</button>
-            <button id="rerun-extract-button" type="button" class="ghost-button" disabled>重跑抽取</button>
-          </div>
-          <pre id="account-file-result" class="case-result compact" aria-live="polite"></pre>
-        </form>
+    <main class="app-shell">
+      <aside class="process-rail" aria-label="办理阶段">
+        <button class="process-step is-active" type="button" data-step="create">
+          <span class="step-number">01</span>
+          <span>创建任务</span>
+        </button>
+        <button class="process-step" type="button" data-step="upload" disabled>
+          <span class="step-number">02</span>
+          <span>填写信息与上传材料</span>
+        </button>
+        <button class="process-step" type="button" data-step="analysis" disabled>
+          <span class="step-number">03</span>
+          <span>系统分析中</span>
+        </button>
+        <button class="process-step" type="button" data-step="review" disabled>
+          <span class="step-number">04</span>
+          <span>人工复核与导出</span>
+        </button>
       </aside>
 
-      <section class="panel column-panel center-stage" aria-label="人工复核">
-        <div class="panel-title">
-          <h2>人工复核与修改</h2>
-        </div>
+      <section class="page-stack">
+        <section id="page-create" class="page-panel is-active" aria-labelledby="create-title">
+          <div class="create-grid">
+            <div class="hero-panel">
+              <div class="hero-copy">
+                <h2 id="create-title" class="hero-title">
+                  <span>投资申报复核</span>
+                  <strong>一站式材料处理工作台</strong>
+                </h2>
+                <p class="hero-description">
+                  通过统一的材料上传、智能分析和人工复核流程，提升投资申报效率和准确性。
+              </div>
+              <div class="hero-visual" aria-hidden="true">
+                <div class="official-sky"></div>
+                <div class="official-sun"></div>
+                <div class="official-water"></div>
+                <div class="official-haze haze-a"></div>
+                <div class="official-haze haze-b"></div>
+                <div class="official-bridge bridge-a"></div>
+                <div class="official-bridge bridge-b"></div>
+              </div>
+              <div class="hero-note">
+                <strong>办理顺序</strong>
+                <span>创建任务 → 上传材料 → 系统分析 → 人工复核 → 导出 Excel</span>
+              </div>
+            </div>
 
-        <section id="review-section" class="section-block">
-          <label>
-            case_id
-            <input id="review-case-id" name="case_id" type="text" />
-          </label>
-          <div class="button-row">
-            <button id="load-review-button" class="secondary-button" type="button">加载复核数据</button>
-            <button id="save-review-button" class="primary-button" type="button" disabled>保存复核结果</button>
-            <button id="export-reviewed-excel-button" class="ghost-button" type="button" disabled>导出 Excel</button>
+            <form id="create-case-form" class="form-grid">
+              <div class="form-title">
+                <h3>申报对象信息</h3>
+                <p>用于后续身份信息和申报表生成。</p>
+              </div>
+              <label>
+                姓名
+                <input id="case-name" name="name" type="text" autocomplete="name" />
+              </label>
+              <label>
+                电话
+                <input id="case-phone" name="phone" type="tel" autocomplete="tel" />
+              </label>
+              <label>
+                与员工关系
+                <input id="case-relation-label" name="relation_type_label" type="text" value="员工本人" />
+              </label>
+              <div class="form-actions">
+                <button class="primary-button" type="submit">创建任务</button>
+              </div>
+            </form>
           </div>
-          <div id="review-status-summary" class="result-summary" aria-live="polite"></div>
-          <div id="review-tables" class="review-tables"></div>
-          <pre id="review-result" class="case-result" aria-live="polite"></pre>
+
+          <div id="create-message" class="notice-panel" aria-live="polite"></div>
         </section>
+
+        <section id="page-upload" class="page-panel" aria-labelledby="upload-title">
+          <div class="section-heading">
+            <h2 id="upload-title">填写身份信息与上传材料</h2>
+            <p>身份材料和账户交易材料可以分别添加多份。材料会先进入下方列表，上传完成后再开始系统分析。</p>
+          </div>
+
+          <div class="upload-grid">
+            <form id="identity-upload-form" class="upload-card">
+              <h3>身份材料</h3>
+              <p>身份证等用于确认申报对象身份的材料。</p>
+              <label>
+                选择文件
+                <input id="identity-file" name="file" type="file" multiple />
+              </label>
+              <button class="secondary-button" type="submit">上传身份材料</button>
+              <div id="identity-upload-message" class="inline-message" aria-live="polite"></div>
+            </form>
+
+            <form id="account-upload-form" class="upload-card">
+              <h3>账户交易材料</h3>
+              <p>中国结算、广发证券、对账单、持仓截图、交易流水等材料。</p>
+              <label>
+                选择文件
+                <input id="account-file" name="file" type="file" multiple />
+              </label>
+              <button class="secondary-button" type="submit">上传账户交易材料</button>
+              <div id="account-upload-message" class="inline-message" aria-live="polite"></div>
+            </form>
+          </div>
+
+          <section class="content-card">
+            <div class="table-title-row">
+              <div>
+                <h3>材料缓存区</h3>
+                <p>材料先进入缓存区；点击右下角按钮后，系统再统一读取、识别和抽取。</p>
+              </div>
+              <button id="refresh-files-button" class="text-button" type="button">刷新材料列表</button>
+            </div>
+            <div id="materials-table" class="materials-table">
+              <div class="empty-state">缓存区还没有材料。</div>
+            </div>
+          </section>
+
+          <div class="sticky-actions">
+            <span id="upload-ready-message">上传材料后可以开始系统分析。</span>
+            <button id="start-analysis-button" class="primary-button" type="button" disabled>
+              开始抽取及分析
+            </button>
+          </div>
+        </section>
+
+        <section id="page-analysis" class="page-panel" aria-labelledby="analysis-title">
+          <div class="analysis-layout">
+            <div class="analysis-panel">
+              <h2 id="analysis-title">系统分析中</h2>
+              <p>系统正在统一读取材料、识别内容、完成抽取并生成可复核结果。</p>
+              <div class="analysis-progress" aria-live="polite">
+                <div class="analysis-progress-head">
+                  <strong id="analysis-current-step">准备分析材料</strong>
+                  <span id="analysis-progress-text">0%</span>
+                </div>
+                <div class="analysis-progress-track">
+                  <div id="analysis-progress-bar" class="analysis-progress-bar"></div>
+                </div>
+              </div>
+              <ol id="analysis-steps" class="analysis-steps" aria-live="polite"></ol>
+            </div>
+            <aside class="analysis-side">
+              <div class="analysis-visual" aria-hidden="true">
+                <div class="analysis-visual-card">
+                  <strong>系统分析</strong>
+                  <span>读取材料、识别内容、生成复核结果</span>
+                </div>
+              </div>
+              <div id="analysis-message" class="notice-panel"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="page-review" class="page-panel" aria-labelledby="review-title">
+          <div class="review-header">
+            <div>
+              <h2 id="review-title">人工复核与导出</h2>
+              <p>请核对可编辑表格；法律 checklist 和文件级问题在右侧复核辅助栏中查看，待复核清单在下方统一定位。</p>
+            </div>
+            <div class="export-actions">
+              <span id="export-message">请先保存人工复核结果</span>
+              <button id="save-review-button" class="secondary-button" type="button" disabled>
+                保存复核结果
+              </button>
+              <button id="export-excel-button" class="primary-button" type="button" disabled>
+                导出 Excel
+              </button>
+            </div>
+          </div>
+
+          <div class="review-workspace">
+            <div class="review-main">
+              <div id="review-summary" class="review-summary" aria-live="polite"></div>
+              <div id="review-tables" class="review-tables"></div>
+            </div>
+
+            <aside id="review-side-panel" class="review-side" aria-label="只读复核提示">
+              <div class="side-panel-head">
+                <div>
+                  <strong>复核辅助</strong>
+                  <span>固定右侧</span>
+                </div>
+              </div>
+              <div class="review-side-scroll">
+                <section class="content-card">
+                  <h3>法律 checklist</h3>
+                  <div id="checklist-results" class="readonly-list">
+                    <div class="empty-state">暂无法律 checklist 结果。</div>
+                  </div>
+                </section>
+                <section class="content-card">
+                  <h3>文件级问题</h3>
+                  <div id="file-issue-list" class="readonly-list">
+                    <div class="empty-state">未发现文件级问题。</div>
+                  </div>
+                </section>
+              </div>
+            </aside>
+          </div>
+
+          <section class="content-card review-problems-block">
+            <div class="table-title-row">
+              <div>
+                <h3>待复核清单</h3>
+                <p>用于定位需要人工确认的事项，展示样式与交易、持仓表保持一致。</p>
+              </div>
+            </div>
+            <div id="problem-list" class="table-wrap">
+              <div class="empty-state">暂无待复核问题。</div>
+            </div>
+          </section>
+        </section>
+
+        <details class="debug-panel">
+          <summary>开发调试区</summary>
+          <div class="debug-actions">
+            <button id="llm-health-button" class="text-button" type="button">检查模型状态</button>
+            <button id="show-state-button" class="text-button" type="button">查看内部状态</button>
+          </div>
+          <pre id="debug-output"></pre>
+        </details>
       </section>
-
-      <aside class="panel column-panel right-rail" aria-label="Checklist 核查结果">
-        <div class="panel-title">
-          <h2>Checklist 核查结果</h2>
-        </div>
-
-        <section class="section-block checklist-block">
-          <h3>核查结果</h3>
-          <div id="review-checklist" class="review-checklist">
-            <div class="empty-state">加载复核数据后显示 checklist 结果。</div>
-          </div>
-        </section>
-
-        <section class="section-block file-issue-block">
-          <h3>文件级问题归纳</h3>
-          <div id="review-file-issues" class="file-issue-list">
-            <div class="empty-state">加载复核数据后显示文件级问题。</div>
-          </div>
-        </section>
-
-        <form id="case-files-list-form" class="work-form section-block">
-          <h3>测试入口：文件列表</h3>
-          <label>
-            case_id
-            <input id="files-list-case-id" name="case_id" type="text" />
-          </label>
-          <label>
-            module 过滤
-            <select id="files-list-module" name="module">
-              <option value="">全部</option>
-              <option value="identity_info">identity_info</option>
-              <option value="account_info">account_info</option>
-            </select>
-          </label>
-          <button type="submit" class="secondary-button">查询文件列表</button>
-          <div id="case-files-list-summary" class="result-summary" aria-live="polite"></div>
-          <pre id="case-files-list-result" class="case-result" aria-live="polite"></pre>
-        </form>
-
-        <form id="finalize-form" class="work-form section-block">
-          <h3>测试入口：最终产物</h3>
-          <label>
-            case_id
-            <input id="finalize-case-id" name="case_id" type="text" />
-          </label>
-          <button type="submit" class="primary-button">生成 final_result</button>
-          <div id="finalize-summary" class="result-summary" aria-live="polite"></div>
-          <a id="download-excel-link" class="download-link is-disabled" href="#" aria-disabled="true">
-            下载 Excel（请先保存人工复核结果）
-          </a>
-          <pre id="finalize-result" class="case-result" aria-live="polite"></pre>
-        </form>
-
-        <section class="section-block">
-          <h3>测试入口：工具</h3>
-          <div class="button-row">
-            <button id="llm-health-proxy-button" class="ghost-button" type="button">模型状态</button>
-          </div>
-          <pre id="llm-health-result" class="case-result compact" aria-live="polite"></pre>
-          <form id="debug-file-form" class="work-form">
-            <label>
-              调试文件
-              <input id="debug-file" name="file" type="file" />
-            </label>
-            <button type="submit" class="ghost-button">测试文件分流和内容提取</button>
-            <pre id="debug-file-result" class="case-result" aria-live="polite"></pre>
-          </form>
-        </section>
-      </aside>
     </main>
 
     <script>
