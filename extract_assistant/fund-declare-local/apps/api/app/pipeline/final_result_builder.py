@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from app.pipeline.case_event_resolver import REVIEW_ISSUE_COLUMNS, resolve_case_events
+from app.pipeline.document_context import build_document_context, merge_document_info
 from app.pipeline.file_issue_collector import collect_file_issues
 from app.pipeline.file_issue_summarizer import summarize_file_issues
 from app.pipeline.normalizers import normalize_chinaclear, normalize_guangfa
@@ -94,6 +95,8 @@ HOLDING_COLUMNS = [
     "security_code",
     "security_name",
     "quantity_raw",
+    "market_value",
+    "currency",
     "security_category_raw",
     "source_pages",
     "row_nos",
@@ -377,6 +380,13 @@ def _collect_extract_results(case_id: str, file_records_by_id: dict[str, dict]) 
         extract_result = local_store.read_json(extract_path, {})
         if not isinstance(extract_result, dict):
             continue
+        document_context = build_document_context(extract_path.parent)
+        if document_context:
+            extract_result = dict(extract_result)
+            extract_result["document_info"] = merge_document_info(
+                document_context,
+                extract_result.get("document_info"),
+            )
 
         file_id = extract_result.get("file_id") or extract_path.parent.name
         file_record = file_records_by_id.get(file_id, {})

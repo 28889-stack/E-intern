@@ -146,7 +146,7 @@ class GuangfaExtractor:
                 "6. 普通买入/卖出不要输出 classification_reason、confidence、raw_summary 或大段 raw_text；缺值用空字符串。",
                 "7. 如果输入是 batch，只抽取当前 batch 中可见的记录；输入可能包含 overlap 行，允许抽取，后端会按交易全要素去重。",
                 "8. 特殊事件、无法判断事件、无账户/无交易/无持仓才输出到 business_events、negative_proofs 或 document_level_review_items。",
-                "9. 银行转证券、证券转银行、银证转账、资金转入、资金转出、利息归本、结息归本、银行利息等纯资金或银行利息流水不要输出。",
+                "9. 广发普通交易和证券事件只从场内交割流水明细抽取；资金流水明细中的证券买入、证券卖出、股息、利息、转账等内容不要输出。",
             ]
         )
 
@@ -200,32 +200,80 @@ class GuangfaExtractor:
             if len(rows) < 2:
                 continue
 
-            header = rows[0] if isinstance(rows[0], list) else []
+            first_row = rows[0] if isinstance(rows[0], list) else []
+            header = first_row if self._looks_like_table_header(first_row) else []
+            data_rows = rows[1:] if header else rows
             table_title = self._infer_table_title(header)
-            for row_index, row in enumerate(rows[1:], start=1):
+            current_section = table_title
+            current_header = header
+            for row_index, row in enumerate(data_rows, start=1):
                 if not isinstance(row, list) or not any(str(cell).strip() for cell in row):
+                    continue
+                section_title = self._section_title_from_row(row)
+                if section_title:
+                    current_section = section_title
+                    current_header = []
+                    continue
+                if self._looks_like_table_header(row):
+                    current_header = row
+                    current_section = self._infer_table_title(row) or current_section
+                    continue
+                if current_section == "资金流水明细":
                     continue
                 flattened_rows.append(
                     {
                         "page": table.get("page"),
                         "table_index": table.get("table_index"),
-                        "table_title": table_title,
+                        "table_title": current_section,
                         "row_index": row_index,
                         "row_no": str(row[0]).strip() if row else "",
-                        "header": header,
+                        "header": current_header,
                         "cells": row,
                     }
                 )
         return flattened_rows
 
+    def _section_title_from_row(self, row: list) -> str:
+        values = [str(cell).strip() for cell in row if str(cell or "").strip()]
+        if len(values) != 1:
+            return ""
+        text = values[0]
+        if "场内交割流水明细" in text:
+            return "场内交割流水明细"
+        if "资金流水明细" in text:
+            return "资金流水明细"
+        if "持仓信息" in text:
+            return "持仓信息"
+        if "基本信息" in text:
+            return "基本信息"
+        return ""
+
+    def _looks_like_table_header(self, row: list) -> bool:
+        header_text = " ".join(str(cell) for cell in row if cell is not None)
+        return any(
+            keyword in header_text
+            for keyword in (
+                "业务日期",
+                "成交时间",
+                "业务标志",
+                "委托编号",
+                "证券代码",
+                "证券名称",
+                "持有数量",
+                "资金发生额",
+                "后资金额",
+                "资金余额",
+            )
+        )
+
     def _infer_table_title(self, header: list) -> str:
         header_text = " ".join(str(cell) for cell in header if cell is not None)
-        if any(keyword in header_text for keyword in ("业务日期", "成交时间", "业务标志", "委托编号")):
-            return "场内交割流水明细"
-        if any(keyword in header_text for keyword in ("持有数量", "市值", "基金净值", "证券余额")):
+        if any(keyword in header_text for keyword in ("持有数量", "当前数量", "市值", "基金净值", "证券余额")):
             return "持仓信息"
-        if any(keyword in header_text for keyword in ("资金发生额", "后资金额", "资金余额")):
+        if any(keyword in header_text for keyword in ("资金发生额", "发生金额", "后资金额", "资金余额")):
             return "资金流水明细"
+        if any(keyword in header_text for keyword in ("成交时间", "成交数量", "成交价格", "成交金额", "业务标志", "委托编号")):
+            return "场内交割流水明细"
         return ""
 
     def _batch_rows_to_text(self, rows: list[dict]) -> str:
@@ -533,8 +581,6 @@ class GuangfaExtractor:
                 trade.get("source_page"),
                 trade.get("row_no"),
                 trade.get("serial_no"),
-                trade.get("order_no"),
-                trade.get("securities_account"),
                 trade.get("trade_date"),
                 trade.get("trade_time"),
                 trade.get("security_code"),

@@ -6,6 +6,7 @@ from app.pipeline.normalizers.common import (
     build_holding_row,
     build_normalized_result,
     empty_record_event_from_semantics,
+    is_pure_cash_flow_event,
     review_item,
 )
 from app.services.local_store import read_json
@@ -27,43 +28,49 @@ def normalize_chinaclear(case_id: str, extract_result: dict, file_record: dict) 
             str(column): trade_values[index] if index < len(trade_values) else ""
             for index, column in enumerate(trade_columns)
         }
+        event = {
+            "event_id": trade.get("trade_id") or f"trade_{trade_index + 1}",
+            "event_type": "ordinary_trade",
+            "market": trade.get("market", ""),
+            "event_date": trade.get("trade_date", ""),
+            "security_code": trade.get("security_code", ""),
+            "security_name": trade.get("security_name", ""),
+            "direction": trade.get("direction", ""),
+            "quantity_raw": trade.get("quantity_raw", ""),
+            "price_raw": trade.get("price_raw", ""),
+            "balance_after_raw": trade.get("balance_after_raw", ""),
+            "transfer_type_raw": trade.get("transfer_type_raw", ""),
+            "source_pages": [trade.get("source_page", "")],
+            "row_nos": [trade.get("row_no", "")],
+            "review_reason": "",
+        }
+        if is_pure_cash_flow_event(event):
+            continue
         full_rows.append(
             build_event_row(
                 case_id,
                 file_record,
                 document_info,
-                {
-                    "event_id": trade.get("trade_id") or f"trade_{trade_index + 1}",
-                    "event_type": "ordinary_trade",
-                    "market": trade.get("market", ""),
-                    "event_date": trade.get("trade_date", ""),
-                    "security_code": trade.get("security_code", ""),
-                    "security_name": trade.get("security_name", ""),
-                    "direction": trade.get("direction", ""),
-                    "quantity_raw": trade.get("quantity_raw", ""),
-                    "price_raw": trade.get("price_raw", ""),
-                    "balance_after_raw": trade.get("balance_after_raw", ""),
-                    "transfer_type_raw": trade.get("transfer_type_raw", ""),
-                    "source_pages": [trade.get("source_page", "")],
-                    "row_nos": [trade.get("row_no", "")],
-                    "review_reason": "",
-                },
+                event,
             )
         )
 
     for other_event in as_list(extract_result.get("other_events")):
         if isinstance(other_event, dict):
+            normalized_event = _normalize_other_event(other_event, document_info, source_text)
+            if is_pure_cash_flow_event(normalized_event):
+                continue
             full_rows.append(
                 build_event_row(
                     case_id,
                     file_record,
                     document_info,
-                    _normalize_other_event(other_event, document_info, source_text),
+                    normalized_event,
                 )
             )
 
     for legacy_event in as_list(extract_result.get("events")):
-        if isinstance(legacy_event, dict):
+        if isinstance(legacy_event, dict) and not is_pure_cash_flow_event(legacy_event):
             full_rows.append(
                 build_event_row(case_id, file_record, document_info, legacy_event)
             )
@@ -111,20 +118,32 @@ def _normalize_holding_record(holding: dict, index: int) -> dict:
     source_evidence = holding.get("source_evidence") or {}
     if not isinstance(source_evidence, dict):
         source_evidence = {}
+    candidates = holding.get("final_field_candidates") or {}
+    if not isinstance(candidates, dict):
+        candidates = {}
+
+    def field(chinese_key: str, *holding_keys: str) -> str:
+        return _first_text(
+            candidates.get(chinese_key),
+            holding.get(chinese_key),
+            *(holding.get(key) for key in holding_keys),
+        )
+
     return {
         "holding_id": holding.get("holding_id") or f"chinaclear_holding_{index + 1}",
-        "account_type": _first_text(holding.get("账户类型"), holding.get("account_type")),
-        "securities_account": _first_text(holding.get("证券账号"), holding.get("securities_account")),
+        "account_type": field("账户类型", "account_type"),
+        "securities_account": field("证券账号", "securities_account", "fund_account"),
         "holding_date": _first_text(
+            candidates.get("查询结果所属日期"),
             holding.get("查询结果所属日期"),
             holding.get("holding_date"),
             holding.get("date"),
         ),
-        "security_code": _first_text(holding.get("证券代码"), holding.get("security_code")),
-        "security_name": _first_text(holding.get("证券名称"), holding.get("security_name")),
-        "quantity_raw": _first_text(holding.get("持有数量"), holding.get("quantity_raw"), holding.get("quantity")),
-        "market_value": _first_text(holding.get("市值"), holding.get("market_value")),
-        "currency": _first_text(holding.get("币种"), holding.get("currency")),
+        "security_code": field("证券代码", "security_code"),
+        "security_name": field("证券名称", "security_name"),
+        "quantity_raw": field("持有数量", "quantity_raw", "quantity"),
+        "market_value": field("市值", "market_value"),
+        "currency": field("币种", "currency"),
         "source_page": source_evidence.get("page") or holding.get("source_page") or "",
         "row_no": source_evidence.get("row_no") or holding.get("row_no") or "",
         "review_reason": _join_reasons(holding.get("review_reasons"), holding.get("review_reason")),

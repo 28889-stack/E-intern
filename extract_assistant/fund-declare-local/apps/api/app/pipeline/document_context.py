@@ -15,13 +15,19 @@ def build_document_context(output_dir: Path) -> dict:
     text = _read_source_text(output_dir)
     lines = _non_empty_lines(text)
 
-    securities_account, account_type = _extract_securities_account(text, lines)
+    securities_accounts = _extract_securities_accounts(text, lines)
+    securities_account, account_type = _extract_securities_account(
+        text,
+        lines,
+        securities_accounts,
+    )
     period_start, period_end = _extract_period(text)
     context = {
         "document_title": _extract_document_title(lines),
         "holder_name": _extract_holder_name(text, lines),
         "one_code_account": _extract_one_code_account(text, lines),
         "securities_account": securities_account,
+        "securities_accounts": securities_accounts,
         "account_type": account_type,
         "capital_account": _extract_labeled_value(lines, ("资金账号", "资金帐号")),
         "period_start": period_start,
@@ -102,6 +108,10 @@ def _extract_holder_name(text: str, lines: list[str]) -> str:
     if _looks_like_person_name(labeled):
         return labeled
 
+    split_layout_name = _extract_split_layout_holder_name(lines)
+    if split_layout_name:
+        return split_layout_name
+
     for pattern in (
         r"(?:客户姓名|账户姓名|持有人名称|投资者姓名|姓名)[:： \t]*([\u4e00-\u9fff]{1,8})",
         r"(?:截至|截止).*?([\u4e00-\u9fff]{1,8}).*?(?:无账户信息|未开立|未开户)",
@@ -116,6 +126,23 @@ def _extract_holder_name(text: str, lines: list[str]) -> str:
     return ""
 
 
+def _extract_split_layout_holder_name(lines: list[str]) -> str:
+    for index, line in enumerate(lines):
+        if "持有人名称" not in line and "投资者姓名" not in line and "客户姓名" not in line:
+            continue
+
+        for offset in range(1, 7):
+            for candidate_index in (index + offset, index - offset):
+                if candidate_index < 0 or candidate_index >= len(lines):
+                    continue
+                candidate = lines[candidate_index]
+                if _looks_like_label(candidate):
+                    continue
+                if _looks_like_person_name(candidate):
+                    return candidate
+    return ""
+
+
 def _extract_one_code_account(text: str, lines: list[str]) -> str:
     value = _extract_labeled_value(lines, ("一码通账户号码", "一码通账号", "一码通账户"))
     if _looks_like_account(value):
@@ -124,17 +151,35 @@ def _extract_one_code_account(text: str, lines: list[str]) -> str:
     return match.group(1).strip() if match else ""
 
 
-def _extract_securities_account(text: str, lines: list[str]) -> tuple[str, str]:
+def _extract_securities_accounts(text: str, lines: list[str]) -> dict[str, str]:
     market_labels = (
-        ("深圳A股东卡号", "深A"),
-        ("深圳B股东卡号", "深B"),
         ("上海A股东卡号", "沪A"),
         ("上海B股东卡号", "沪B"),
+        ("深圳A股东卡号", "深A"),
+        ("深圳B股东卡号", "深B"),
     )
+    accounts = {}
     for label, account_type in market_labels:
         value = _extract_labeled_value(lines, (label,))
         if _looks_like_account(value):
-            return _clean_account(value), account_type
+            accounts[account_type] = _clean_account(value)
+
+    table_accounts = _extract_basic_info_account_table(lines)
+    for account_type, account in table_accounts.items():
+        accounts.setdefault(account_type, account)
+
+    return accounts
+
+
+def _extract_securities_account(
+    text: str,
+    lines: list[str],
+    securities_accounts: dict[str, str] | None = None,
+) -> tuple[str, str]:
+    accounts = securities_accounts or {}
+    if len(accounts) == 1:
+        account_type, account = next(iter(accounts.items()))
+        return account, account_type
 
     for pattern in (
         r"([A-Za-z]?\d{6,12})（非定向资管账户）",
@@ -153,6 +198,71 @@ def _extract_securities_account(text: str, lines: list[str]) -> tuple[str, str]:
     return "", ""
 
 
+def _extract_basic_info_account_table(lines: list[str]) -> dict[str, str]:
+    labels = [
+        ("上海A股东卡号", "沪A"),
+        ("上海B股东卡号", "沪B"),
+        ("深圳A股东卡号", "深A"),
+        ("深圳B股东卡号", "深B"),
+    ]
+    label_to_type = {label: account_type for label, account_type in labels}
+    label_indices = {
+        label: index
+        for index, line in enumerate(lines)
+        for label in label_to_type
+        if line == label
+    }
+    if not label_indices:
+        return {}
+
+    first_label_index = min(label_indices.values())
+    while first_label_index > 0 and _looks_like_basic_info_label(lines[first_label_index - 1]):
+        first_label_index -= 1
+    table_labels = []
+    index = first_label_index
+    while index < len(lines) and _looks_like_basic_info_label(lines[index]):
+        table_labels.append(lines[index])
+        index += 1
+
+    values = []
+    while index < len(lines) and len(values) < len(table_labels):
+        line = lines[index]
+        if _looks_like_section_title(line):
+            break
+        values.append(line)
+        index += 1
+
+    if len(values) < len(table_labels):
+        return {}
+
+    accounts = {}
+    for label, value in zip(table_labels, values):
+        account_type = label_to_type.get(label)
+        if account_type and _looks_like_account(value):
+            accounts[account_type] = _clean_account(value)
+    return accounts
+
+
+def _looks_like_basic_info_label(value: str) -> bool:
+    return any(
+        keyword in str(value or "")
+        for keyword in (
+            "账户姓名",
+            "资金账号",
+            "资金帐号",
+            "股东卡号",
+            "证件类型",
+            "证件号码",
+            "客户姓名",
+        )
+    )
+
+
+def _looks_like_section_title(value: str) -> bool:
+    text = str(value or "").strip()
+    return text in {"资产信息", "持仓信息", "资金流水明细", "场内交割流水明细"}
+
+
 def _extract_period(text: str) -> tuple[str, str]:
     match = re.search(
         r"(20\d{2}[-/]\d{1,2}[-/]\d{1,2})\s*(?:至|到|--|—|-)\s*(20\d{2}[-/]\d{1,2}[-/]\d{1,2})",
@@ -161,7 +271,10 @@ def _extract_period(text: str) -> tuple[str, str]:
     if match:
         return _normalize_date(match.group(1)), _normalize_date(match.group(2))
 
-    date = _extract_labeled_date(text, ("查询日期", "截止日期", "截至日期", "打印日期"))
+    date = _extract_labeled_date(
+        text,
+        ("查询日期", "截止日期", "截至日期", "持有日期", "打印日期"),
+    )
     return "", date
 
 
@@ -226,6 +339,10 @@ def _normalize_date(value: str) -> str:
 
 
 def _infer_account_type(account: str, text: str) -> str:
+    if "深市B股" in text or "深圳B股东卡号" in text:
+        return "深B"
+    if "沪市B股" in text or "上海B股东卡号" in text:
+        return "沪B"
     if "深市" in text or "深圳A股东卡号" in text:
         return "深A"
     if "沪市" in text or "上海A股东卡号" in text:

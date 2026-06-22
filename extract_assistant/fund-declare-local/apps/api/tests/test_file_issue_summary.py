@@ -225,6 +225,206 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertIn("遮挡或涂抹", ocr_rows[0]["问题描述"])
         self.assertEqual(ocr_rows[0]["对应材料"], "001 涂抹材料.png")
 
+    def test_build_final_result_uses_processed_context_to_fill_market_accounts(self):
+        from app.pipeline.final_result_builder import build_final_result
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                case_id = "case_test"
+                case_dir = project_root / "data/cases/case_test"
+                output_dir = case_dir / "account_info/processed/file_001"
+                local_store.save_json(
+                    case_dir / "case.json",
+                    {
+                        "case_id": case_id,
+                        "name": "孙",
+                        "phone": "13800000000",
+                        "relation_type": "custom",
+                        "relation_type_label": "员工本人",
+                    },
+                )
+                local_store.save_json(
+                    case_dir / "files_index.json",
+                    {
+                        "files": [
+                            {
+                                "file_id": "file_001",
+                                "file_no": "001",
+                                "original_file_name": "广发对账单.pdf",
+                                "module": "account_info",
+                                "content_type": "guangfa",
+                                "route_type": "direct_pdf",
+                                "output_dir": (
+                                    "data/cases/case_test/account_info/processed/file_001"
+                                ),
+                                "process_status": "parsed",
+                                "extract_status": "success",
+                            }
+                        ]
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "raw_text.json",
+                    {
+                        "pages": [
+                            {
+                                "page": 1,
+                                "text": (
+                                    "基本信息\n"
+                                    "账户姓名\n资金账号\n上海A股东卡号\n上海B股东卡号\n"
+                                    "深圳A股东卡号\n深圳B股东卡号\n证件类型\n证件号码\n"
+                                    "孙\n36914385\nA486746523\n/\n0022608195\n/\n身份证\n1521011965\n"
+                                ),
+                            }
+                        ]
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "extract_result.json",
+                    {
+                        "file_id": "file_001",
+                        "case_id": case_id,
+                        "content_type": "guangfa",
+                        "source_type": "guangfa",
+                        "extract_status": "success",
+                        "document_info": {
+                            "holder_name": "孙",
+                            "capital_account": "36914385",
+                            "period_start": "2025-01-01",
+                            "period_end": "2025-09-24",
+                        },
+                        "trade_group": {
+                            "trade_columns": [
+                                "trade_id",
+                                "account_type",
+                                "securities_account",
+                                "trade_date",
+                                "trade_time",
+                                "serial_no",
+                                "capital_account",
+                                "security_code",
+                                "security_name",
+                                "direction",
+                                "quantity_raw",
+                                "price_raw",
+                                "amount_raw",
+                                "transfer_type_raw",
+                                "source_page",
+                                "row_no",
+                                "order_no",
+                            ],
+                            "trades": [
+                                [
+                                    "gf_sz",
+                                    "",
+                                    "",
+                                    "2025-04-14",
+                                    "191115",
+                                    "805409415",
+                                    "36914385",
+                                    "000951",
+                                    "中国重汽",
+                                    "buy",
+                                    "5000.0000",
+                                    "18.7400",
+                                    "-93716.4400",
+                                    "证券买入",
+                                    "1",
+                                    "124",
+                                    "",
+                                ],
+                                [
+                                    "gf_sh",
+                                    "",
+                                    "",
+                                    "2025-07-28",
+                                    "192441",
+                                    "805456215",
+                                    "36914385",
+                                    "600958",
+                                    "东方证券",
+                                    "buy",
+                                    "10000.0000",
+                                    "11.6700",
+                                    "-116720.4800",
+                                    "证券买入",
+                                    "1",
+                                    "234",
+                                    "",
+                                ],
+                                [
+                                    "gf_sh_name_only",
+                                    "",
+                                    "",
+                                    "2025-07-29",
+                                    "191936",
+                                    "807399864",
+                                    "36914385",
+                                    "",
+                                    "东方证券",
+                                    "buy",
+                                    "5000.00",
+                                    "11.6700",
+                                    "-113519.9100",
+                                    "证券买入",
+                                    "1",
+                                    "251",
+                                    "",
+                                ],
+                            ],
+                        },
+                        "position_group": {
+                            "position_columns": [
+                                "holding_id",
+                                "holding_date",
+                                "account_type",
+                                "securities_account",
+                                "security_code",
+                                "security_name",
+                                "quantity_raw",
+                                "source_page",
+                                "row_no",
+                            ],
+                            "positions": [
+                                [
+                                    "holding_blank",
+                                    "2025-09-24",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "1",
+                                    "60-66",
+                                ]
+                            ],
+                        },
+                    },
+                )
+
+                final_result = build_final_result(case_id)
+
+        complete_rows = final_result["sheets"]["完整表"]["rows"]
+        china_truck = next(row for row in complete_rows if row["security_name"] == "中国重汽")
+        east_securities = next(row for row in complete_rows if row["security_name"] == "东方证券")
+        east_name_only = next(
+            row for row in complete_rows if row["event_id"] == "807399864"
+        )
+        self.assertEqual(china_truck["securities_account"], "0022608195")
+        self.assertEqual(east_securities["securities_account"], "A486746523")
+        self.assertEqual(east_name_only["security_code"], "600958")
+        self.assertEqual(east_name_only["securities_account"], "A486746523")
+
+        review_text = "\n".join(
+            row["问题描述"] for row in final_result["sheets"]["待复核问题"]["rows"]
+        )
+        self.assertNotIn("中国重汽", review_text)
+        self.assertNotIn("东方证券", review_text)
+        self.assertIn("持仓记录", review_text)
+        self.assertIn("缺少证券账号", review_text)
+
     def test_file_issue_summarizer_fallback_without_issues_passes(self):
         from app.pipeline.file_issue_summarizer import summarize_file_issues
 

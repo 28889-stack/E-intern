@@ -190,8 +190,10 @@ class ChinaclearExtractor:
             if len(rows) < 2:
                 continue
 
-            header = rows[0] if isinstance(rows[0], list) else []
-            for row_index, row in enumerate(rows[1:], start=1):
+            first_row = rows[0] if isinstance(rows[0], list) else []
+            header = first_row if self._looks_like_table_header(first_row) else []
+            data_rows = rows[1:] if header else rows
+            for row_index, row in enumerate(data_rows, start=1):
                 if not isinstance(row, list) or not any(str(cell).strip() for cell in row):
                     continue
 
@@ -207,6 +209,23 @@ class ChinaclearExtractor:
                 )
 
         return flattened_rows
+
+    def _looks_like_table_header(self, row: list) -> bool:
+        header_text = " ".join(str(cell) for cell in row if cell is not None)
+        return any(
+            keyword in header_text
+            for keyword in (
+                "证券代码",
+                "证券名称",
+                "变动日期",
+                "发生日期",
+                "交易日期",
+                "持有数量",
+                "股份余额",
+                "过户类型",
+                "业务类型",
+            )
+        )
 
     def _batch_rows_to_text(self, rows: list[dict]) -> str:
         if not rows:
@@ -639,6 +658,12 @@ class ChinaclearExtractor:
             return int(str(value))
         except ValueError:
             return 10**9
+
+    def _first_text(self, *values: Any) -> str:
+        for value in values:
+            if value not in (None, ""):
+                return str(value).strip()
+        return ""
 
     def _dedupe_list(self, values: list) -> list:
         deduped = []

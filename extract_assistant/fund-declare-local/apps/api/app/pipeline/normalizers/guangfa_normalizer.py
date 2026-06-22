@@ -8,6 +8,7 @@ from app.pipeline.normalizers.common import (
     build_holding_row,
     build_normalized_result,
     empty_record_event_from_semantics,
+    is_pure_cash_flow_event,
     is_security_registration_text,
     review_item,
 )
@@ -129,6 +130,9 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
                 file_record,
                 document_info,
             )
+            if _should_ignore_guangfa_fund_flow_trade(event_payload):
+                ignored_non_holding_count += 1
+                continue
             if _should_ignore_non_holding_event(event_payload):
                 continue
             review_items.extend(event_review_items)
@@ -151,15 +155,19 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
                 )
             )
 
-        holding_rows = [
-            build_holding_row(
-                case_id,
-                file_record,
+        holding_rows = []
+        for index, holding in enumerate(holding_records):
+            mapped_holding = _map_business_holding(
+                holding,
+                index,
                 document_info,
-                _map_business_holding(holding, index, document_info, file_record),
+                file_record,
             )
-            for index, holding in enumerate(holding_records)
-        ]
+            if _is_blank_holding_record(mapped_holding):
+                continue
+            holding_rows.append(
+                build_holding_row(case_id, file_record, document_info, mapped_holding)
+            )
 
         return build_normalized_result(full_rows, holding_rows, review_items)
 
@@ -395,12 +403,7 @@ def _map_business_event(
         )
 
     if event_type == "ordinary_trade" and _is_fund_flow_source(event):
-        reason = "普通交易仅见于资金流水明细，需核对场内交割流水明细后再进入最终申报表"
         payload["include_in_final_declaration"] = False
-        payload["manual_review_required"] = True
-        payload["allow_full_table_with_review"] = True
-        payload["review_issue_types"] = ["manual_review_required"]
-        payload["review_reason"] = _join_reason(payload.get("review_reason"), reason)
 
     for reason in review_reasons:
         mapped_review_items.append(
@@ -425,20 +428,21 @@ def _is_fund_flow_source(event: dict) -> bool:
             evidence.get("row_no"),
             evidence.get("raw_text"),
             event.get("row_no"),
+            event.get("raw_text"),
             event.get("raw_summary"),
+            event.get("review_reason"),
         )
         if _first_text(value)
     )
     return "资金流水明细" in text or "资金流水" in text
 
 
-def _join_reason(existing: str, reason: str) -> str:
-    existing_text = str(existing or "").strip()
-    if not existing_text:
-        return reason
-    if reason in existing_text:
-        return existing_text
-    return f"{existing_text}；{reason}"
+def _should_ignore_guangfa_fund_flow_trade(event: dict) -> bool:
+    return (
+        event.get("event_type") == "ordinary_trade"
+        and event.get("direction") in {"buy", "sell"}
+        and _is_fund_flow_source(event)
+    )
 
 
 def _map_negative_proof(proof: dict, index: int) -> dict:
@@ -520,18 +524,27 @@ def _map_business_holding(
     document_info: dict,
     file_record: dict,
 ) -> dict:
-    candidates = holding.get("final_field_candidates") or holding
+    candidates = holding.get("final_field_candidates") or {}
     if not isinstance(candidates, dict):
         candidates = {}
 
-    security_code = _first_text(candidates.get("证券代码"), holding.get("security_code"))
+    def field(chinese_key: str, *holding_keys: str) -> str:
+        return _first_text(
+            candidates.get(chinese_key),
+            holding.get(chinese_key),
+            *(holding.get(key) for key in holding_keys),
+        )
+
+    security_code = field("证券代码", "security_code")
     securities_account = _first_text(
         candidates.get("证券账号"),
+        holding.get("证券账号"),
         holding.get("securities_account"),
+        holding.get("fund_account"),
     )
     review_reasons: list[str] = []
     account_type = _infer_account_type(
-        _first_text(candidates.get("账户类型"), holding.get("account_type")),
+        field("账户类型", "account_type"),
         securities_account,
         security_code,
         review_reasons,
@@ -542,18 +555,26 @@ def _map_business_holding(
         "securities_account": securities_account,
         "holding_date": _first_text(
             candidates.get("查询结果所属日期"),
+            holding.get("查询结果所属日期"),
             holding.get("holding_date"),
             holding.get("date"),
         ),
         "security_code": security_code,
-        "security_name": _first_text(candidates.get("证券名称"), holding.get("security_name")),
-        "quantity_raw": _first_text(candidates.get("持有数量"), holding.get("quantity")),
-        "market_value": _first_text(candidates.get("市值"), holding.get("market_value")),
-        "currency": _first_text(candidates.get("币种"), holding.get("currency")),
+        "security_name": field("证券名称", "security_name"),
+        "quantity_raw": field("持有数量", "quantity_raw", "quantity"),
+        "market_value": field("市值", "market_value"),
+        "currency": field("币种", "currency"),
         "source_page": _source_value(holding, "page"),
         "row_no": _source_value(holding, "row_no"),
         "review_reason": "；".join(review_reasons),
     }
+
+
+def _is_blank_holding_record(holding: dict) -> bool:
+    return not any(
+        _first_text(holding.get(key))
+        for key in ("security_code", "security_name", "quantity_raw")
+    )
 
 
 def _classify_business_event(raw_movement: str) -> tuple[str, str]:
@@ -609,6 +630,8 @@ def _is_full_only_event(raw_movement: str, event_type: str) -> bool:
 
 
 def _should_ignore_non_holding_event(event: dict) -> bool:
+    if is_pure_cash_flow_event(event):
+        return True
     text = " ".join(
         _first_text(value)
         for value in (

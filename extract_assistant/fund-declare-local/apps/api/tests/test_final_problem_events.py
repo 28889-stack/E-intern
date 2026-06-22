@@ -2,6 +2,7 @@ import sys
 from tempfile import TemporaryDirectory
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 API_ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,43 @@ if str(API_ROOT) not in sys.path:
 
 
 class FinalProblemEventsTest(unittest.TestCase):
+    def test_document_context_extracts_chinaclear_split_holding_header(self):
+        from app.pipeline.document_context import build_document_context
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            output_dir = project_root / "processed"
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    output_dir / "raw_text.json",
+                    {
+                        "text": "\n".join(
+                            [
+                                "中国证券登记结算有限责任公司投资者证券持有信息（深市B股）",
+                                "一码通账户号码：",
+                                "陈",
+                                "180112022881",
+                                "持有人名称：",
+                                "证券子账户号码：",
+                                "证件号码：",
+                                "4401111966",
+                                "2091310595（非定向资管账户）",
+                                "2001-05-30",
+                                "持有日期：",
+                                "2026-02-02",
+                            ]
+                        )
+                    },
+                )
+
+                context = build_document_context(output_dir)
+
+        self.assertEqual(context["holder_name"], "陈")
+        self.assertEqual(context["securities_account"], "2091310595")
+        self.assertEqual(context["account_type"], "深B")
+        self.assertEqual(context["period_end"], "2026-02-02")
+
     def test_common_event_type_normalizes_registration_synonyms(self):
         from app.pipeline.normalizers.common import normalize_direction, normalize_event_type
 
@@ -334,6 +372,143 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["final_declaration_rows"]), 2)
         self.assertEqual(resolved["review_issue_rows"], [])
 
+    def test_same_record_id_with_different_price_or_amount_is_not_source_conflict(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "普通账户",
+            "securities_account": "36914385",
+            "event_id": "805409415",
+            "event_type": "ordinary_trade",
+            "event_date": "2025-09-24",
+            "event_time": "10:15:30",
+            "security_code": "000951",
+            "security_name": "中国重汽",
+            "direction": "sell",
+            "quantity_raw": "100",
+            "balance_after_raw": "0",
+            "serial_no": "805409415",
+        }
+        resolved = resolve_case_events(
+            [
+                dict(
+                    base_row,
+                    price_raw="18.75",
+                    amount_raw="1875.00",
+                    source_evidence=[
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "file_name": "statement.pdf",
+                            "source_row_id": "805409415",
+                            "source_page": "3",
+                            "row_no": "12",
+                        }
+                    ],
+                ),
+                dict(
+                    base_row,
+                    price_raw="18.92",
+                    amount_raw="1892.00",
+                    source_evidence=[
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "file_name": "statement.pdf",
+                            "source_row_id": "805409415",
+                            "source_page": "3",
+                            "row_no": "13",
+                        }
+                    ],
+                ),
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 2)
+        self.assertEqual(resolved["review_issue_rows"], [])
+        self.assertFalse(
+            [
+                item
+                for item in resolved["merge_audit"]
+                if item.get("action") == "possible_same_event_conflict"
+            ]
+        )
+
+    def test_common_account_type_infers_b_share_markets(self):
+        from app.pipeline.normalizers.common import build_holding_row
+
+        sh_b = build_holding_row(
+            "case_test",
+            {"file_id": "file_001", "file_no": "001", "original_file_name": "holding.pdf"},
+            {"securities_accounts": {"沪B": "C123456789"}},
+            {"security_code": "900901", "security_name": "云赛B股", "quantity_raw": "100"},
+        )
+        sz_b = build_holding_row(
+            "case_test",
+            {"file_id": "file_001", "file_no": "001", "original_file_name": "holding.pdf"},
+            {"securities_accounts": {"深B": "2001234567"}},
+            {"security_code": "200869", "security_name": "张裕B", "quantity_raw": "100"},
+        )
+
+        self.assertEqual(sh_b["account_type"], "沪B")
+        self.assertEqual(sh_b["securities_account"], "C123456789")
+        self.assertEqual(sz_b["account_type"], "深B")
+        self.assertEqual(sz_b["securities_account"], "2001234567")
+
+    def test_holding_preserves_market_value_and_defaults_currency(self):
+        from app.pipeline.normalizers.common import build_holding_row
+
+        row = build_holding_row(
+            "case_test",
+            {"file_id": "file_001", "file_no": "001", "original_file_name": "holding.pdf"},
+            {},
+            {
+                "account_type": "深A",
+                "securities_account": "0012345678",
+                "holding_id": "holding_001",
+                "holding_date": "2026-01-01",
+                "security_code": "000001",
+                "security_name": "平安银行",
+                "quantity_raw": "100",
+                "market_value": "1000.00",
+            },
+        )
+
+        self.assertEqual(row["market_value"], "1000.00")
+        self.assertEqual(row["currency"], "人民币")
+
+    def test_holding_missing_market_value_enters_review_not_holding_table(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        resolved = resolve_case_events(
+            [],
+            holding_rows=[
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "holding.pdf",
+                    "account_type": "深A",
+                    "securities_account": "0012345678",
+                    "holding_id": "holding_001",
+                    "holding_date": "2026-01-01",
+                    "security_code": "000001",
+                    "security_name": "平安银行",
+                    "quantity_raw": "100",
+                    "currency": "人民币",
+                }
+            ],
+        )
+
+        self.assertEqual(resolved["holding_rows"], [])
+        self.assertEqual(len(resolved["review_issue_rows"]), 1)
+        issue = resolved["review_issues"][0]
+        self.assertIn("market_value", issue["missing_fields"])
+        self.assertIn("市值", resolved["review_issue_rows"][0]["待复核原因"])
+
     def test_distinct_trades_with_generic_table_record_id_are_not_source_conflicts(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 
@@ -410,6 +585,136 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["full_transaction_rows"]), 2)
         self.assertEqual(len(resolved["final_declaration_rows"]), 2)
         self.assertEqual(resolved["merge_audit"], [])
+
+    def test_reused_serial_with_different_trade_facts_is_not_source_conflict(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "深A",
+            "securities_account": "0022608195",
+            "event_id": "805409415",
+            "event_type": "ordinary_trade",
+            "event_date": "2025-04-14",
+            "security_code": "000951",
+            "security_name": "中国重汽",
+            "quantity_raw": "5000.0000",
+            "price_raw": "18.7400",
+            "amount_raw": "-93716.4400",
+            "serial_no": "805409415",
+        }
+        resolved = resolve_case_events(
+            [
+                dict(
+                    base_row,
+                    event_time="191115",
+                    direction="buy",
+                    transfer_type_raw="证券买入",
+                    row_nos="124",
+                    source_evidence=[
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "file_name": "statement.pdf",
+                            "source_row_id": "805409415",
+                            "source_page": "1",
+                            "row_no": "124",
+                        }
+                    ],
+                ),
+                dict(
+                    base_row,
+                    event_time="142805",
+                    direction="sell",
+                    transfer_type_raw="证券卖出",
+                    order_no="41398",
+                    row_nos="339",
+                    source_evidence=[
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "file_name": "statement.pdf",
+                            "source_row_id": "805409415",
+                            "source_page": "1",
+                            "row_no": "339",
+                        }
+                    ],
+                ),
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 2)
+        self.assertEqual(resolved["review_issue_rows"], [])
+        self.assertEqual(
+            [
+                item
+                for item in resolved["merge_audit"]
+                if item.get("action") == "possible_same_event_conflict"
+            ],
+            [],
+        )
+
+    def test_zero_quantity_ordinary_trade_artifacts_do_not_require_review(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "深A",
+            "securities_account": "0022608195",
+            "event_id": "803762914",
+            "event_type": "ordinary_trade",
+            "event_date": "2025-06-26",
+            "event_time": "170001",
+            "security_code": "000951",
+            "security_name": "中国重汽",
+            "direction": "buy",
+            "quantity_raw": "0.0000",
+            "price_raw": "17.7100",
+            "transfer_type_raw": "证券买入",
+            "serial_no": "803762914",
+            "source_evidence": [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "file_name": "statement.pdf",
+                    "source_row_id": "803762914",
+                    "source_page": "1",
+                    "row_no": "393",
+                }
+            ],
+        }
+        resolved = resolve_case_events(
+            [
+                dict(base_row, amount_raw="14175.0000", order_no="0"),
+                dict(base_row, amount_raw="0.0000"),
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "深A",
+                    "securities_account": "0022608195",
+                    "event_id": "7100",
+                    "event_type": "cash_dividend",
+                    "event_date": "2025-06-26",
+                    "security_code": "000951",
+                    "security_name": "中国重汽",
+                    "direction": "cash_income",
+                    "quantity_raw": "",
+                    "price_raw": "",
+                    "amount_raw": "14175.0000",
+                },
+            ]
+        )
+
+        self.assertEqual(resolved["review_issue_rows"], [])
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["full_transaction_rows"][0]["event_type"], "cash_dividend")
+        self.assertEqual(resolved["final_declaration_rows"], [])
 
     def test_review_item_reasons_do_not_expose_internal_field_names(self):
         from app.pipeline.case_event_resolver import resolve_case_events
@@ -808,6 +1113,91 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["final_declaration_rows"]), 1)
         self.assertEqual(resolved["review_issue_rows"], [])
 
+    def test_chinaclear_pure_cash_flow_events_are_excluded_from_full_table(self):
+        from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
+
+        normalized = normalize_chinaclear(
+            "case_test",
+            {
+                "document_info": {
+                    "file_name": "chinaclear.pdf",
+                    "securities_account": "A123456789",
+                    "account_type": "沪A",
+                },
+                "trade_group": {"trade_columns": [], "trades": []},
+                "other_events": [
+                    {
+                        "event_id": "cash_001",
+                        "event_type": "interest",
+                        "event_date": "2025-06-30",
+                        "transfer_type_raw": "账户利息入账",
+                        "amount_raw": "12.34",
+                    },
+                    {
+                        "event_id": "cash_002",
+                        "event_type": "bank_transfer",
+                        "event_date": "2025-07-01",
+                        "transfer_type_raw": "银行转存",
+                        "amount_raw": "1000.00",
+                    },
+                ],
+            },
+            {
+                "file_id": "file_002",
+                "file_no": "002",
+                "original_file_name": "chinaclear.pdf",
+            },
+        )
+
+        self.assertEqual(normalized["full_transaction_rows"], [])
+        self.assertEqual(normalized["final_declaration_rows"], [])
+
+    def test_chinaclear_security_income_events_remain_in_full_table_only(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
+
+        normalized = normalize_chinaclear(
+            "case_test",
+            {
+                "document_info": {
+                    "file_name": "chinaclear.pdf",
+                    "securities_account": "A123456789",
+                    "account_type": "沪A",
+                },
+                "trade_group": {"trade_columns": [], "trades": []},
+                "other_events": [
+                    {
+                        "event_id": "dividend_001",
+                        "event_type": "cash_dividend",
+                        "event_date": "2025-06-30",
+                        "security_code": "600000",
+                        "security_name": "浦发银行",
+                        "transfer_type_raw": "红利入账",
+                        "amount_raw": "88.00",
+                    },
+                    {
+                        "event_id": "interest_001",
+                        "event_type": "bond_interest",
+                        "event_date": "2025-07-01",
+                        "security_code": "113000",
+                        "security_name": "测试转债",
+                        "transfer_type_raw": "兑息派息",
+                        "amount_raw": "66.00",
+                    },
+                ],
+            },
+            {
+                "file_id": "file_002",
+                "file_no": "002",
+                "original_file_name": "chinaclear.pdf",
+            },
+        )
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 0)
+        self.assertEqual(resolved["review_issue_rows"], [])
+
     def test_chinaclear_event_schema_normalizes_holdings_negative_proofs_and_review_items(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
@@ -835,6 +1225,7 @@ class FinalProblemEventsTest(unittest.TestCase):
                         "证券代码": "000001",
                         "证券名称": "平安银行",
                         "持有数量": "100",
+                        "市值": "1000",
                         "查询结果所属日期": "2024-12-31",
                         "source_evidence": {
                             "page": 2,
@@ -880,6 +1271,7 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(holding["securities_account"], "A123456789")
         self.assertEqual(holding["security_code"], "000001")
         self.assertEqual(holding["quantity_raw"], "100")
+        self.assertEqual(holding["market_value"], "1000")
 
         resolved = resolve_case_events(
             normalized["full_transaction_rows"],
@@ -890,6 +1282,55 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(resolved["final_declaration_rows"][0]["event_type"], "no_trade_record")
         self.assertEqual(resolved["review_issue_rows"][0]["对应材料"], "006 chinaclear.pdf")
         self.assertIn("跨页权益事件", resolved["review_issue_rows"][0]["问题描述"])
+
+    def test_chinaclear_holding_reads_final_field_candidates_when_top_level_is_sparse(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.chinaclear_normalizer import normalize_chinaclear
+
+        normalized = normalize_chinaclear(
+            "case_test",
+            {
+                "schema_version": "chinaclear_event_understanding_v2",
+                "source_type": "chinaclear",
+                "document_info": {"period_end": "2025-12-31"},
+                "holding_records": [
+                    {
+                        "holding_id": "holding_001",
+                        "final_field_candidates": {
+                            "账户类型": "深A",
+                            "证券账号": "0012345678",
+                            "证券代码": "000001",
+                            "证券名称": "平安银行",
+                            "持有数量": "100",
+                            "市值": "1000",
+                            "查询结果所属日期": "2025-12-31",
+                            "币种": "人民币",
+                        },
+                        "source_evidence": {
+                            "page": 1,
+                            "row_no": "8",
+                            "raw_text": "000001 平安银行 100",
+                        },
+                    }
+                ],
+            },
+            {
+                "file_id": "file_006",
+                "file_no": "006",
+                "original_file_name": "chinaclear.pdf",
+            },
+        )
+
+        self.assertEqual(len(normalized["holding_rows"]), 1)
+        holding = normalized["holding_rows"][0]
+        self.assertEqual(holding["account_type"], "深A")
+        self.assertEqual(holding["securities_account"], "0012345678")
+        self.assertEqual(holding["security_code"], "000001")
+        self.assertEqual(holding["security_name"], "平安银行")
+        self.assertEqual(holding["quantity_raw"], "100")
+        resolved = resolve_case_events([], holding_rows=normalized["holding_rows"])
+        self.assertEqual(len(resolved["holding_rows"]), 1)
+        self.assertEqual(resolved["review_issue_rows"], [])
 
     def test_chinaclear_batch_merge_preserves_event_understanding_sections(self):
         from app.pipeline.chinaclear_extractor import ChinaclearExtractor
@@ -936,6 +1377,49 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(merged["holding_records"]), 1)
         self.assertEqual(len(merged["negative_proofs"]), 1)
         self.assertEqual(len(merged["document_level_review_items"]), 1)
+
+    def test_chinaclear_normalize_result_applies_document_context(self):
+        from app.pipeline.chinaclear_extractor import ChinaclearExtractor
+
+        result = ChinaclearExtractor()._normalize_result(
+            "case_test",
+            {
+                "file_id": "file_001",
+                "original_file_name": "chinaclear.pdf",
+                "route_type": "direct_pdf",
+            },
+            {
+                "schema_version": "chinaclear_event_understanding_v2",
+                "document_info": {},
+                "holding_records": [
+                    {
+                        "holding_id": "holding_001",
+                        "证券代码": "200001",
+                        "证券名称": "深物业B",
+                        "持有数量": "100",
+                    }
+                ],
+                "negative_proofs": [
+                    {
+                        "proof_type": "no_trade_record",
+                        "source_evidence": {"raw_text": "本期间无交易记录"},
+                    }
+                ],
+            },
+            {
+                "holder_name": "孙",
+                "securities_account": "2001234567",
+                "account_type": "深B",
+                "period_start": "2025-01-01",
+                "period_end": "2025-12-31",
+            },
+        )
+
+        self.assertEqual(result["holding_records"][0]["证券账号"], "2001234567")
+        self.assertEqual(result["holding_records"][0]["账户类型"], "深B")
+        self.assertEqual(result["holding_records"][0]["查询结果所属日期"], "2025-12-31")
+        self.assertEqual(result["negative_proofs"][0]["person_name"], "孙")
+        self.assertEqual(result["negative_proofs"][0]["securities_account"], "2001234567")
 
     def test_chinaclear_extractor_carries_document_context_to_later_batches(self):
         from app.pipeline.chinaclear_extractor import ChinaclearExtractor

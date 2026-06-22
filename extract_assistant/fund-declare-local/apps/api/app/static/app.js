@@ -19,6 +19,7 @@ const state = {
   assistantSubmitting: false,
   assistantDrag: null,
   analysisProgressTimer: null,
+  analysisProgressHoldTimer: null,
   analysisProgressValue: 0,
   stagedUploadSeq: 0,
 };
@@ -38,6 +39,10 @@ const editableTables = {
   最终申报表: ["账户类型", "证券账号", "证券代码", "证券名称", "变动类型", "日期", "成交数量", "成交单价", "收付金额"],
   完整表: ["账户类型", "证券账号", "证券代码", "证券名称", "变动类型", "起始日期", "终止日期", "日期", "成交数量", "成交单价", "收付金额", "数据来源"],
   持仓: ["账户类型", "证券账号", "证券代码", "证券名称", "持有数量", "市值", "查询结果所属日期", "币种"],
+};
+const reviewTableDescriptions = {
+  最终申报表: "对持仓造成影响的变动类型，如交易、打新等，可直接申报。",
+  完整表: "完整表记录证券/基金相关交易及权益事件，剔除账户利息、银证转账等纯资金流水。",
 };
 
 const identityColumns = ["姓名", "电话", "关系类型", "身份证姓名", "身份证号码", "地址", "有效期起", "有效期止"];
@@ -385,7 +390,9 @@ async function startAnalysis() {
 
   try {
     renderAnalysisSteps(1);
-    beginAnalysisProgress("读取材料与识别内容", 16, 78);
+    beginAnalysisProgress("读取材料与识别内容", 16, 88, {
+      holdLabel: "材料较多，正在继续抽取和校验",
+    });
     const analyzePayload = await requestJson(`/api/cases/${encodeURIComponent(state.caseId)}/files/analyze`, {
       method: "POST",
       headers: { Accept: "application/json" },
@@ -395,16 +402,17 @@ async function startAnalysis() {
       state.files = analyzePayload.files;
       renderMaterials();
     }
-    setAnalysisProgress(72, "智能抽取中");
-    renderAnalysisSteps(4);
+    advanceAnalysisProgress(88, "材料内容识别完成");
     renderAnalysisSteps(5);
-    beginAnalysisProgress("生成复核结果", 72, 94);
+    beginAnalysisProgress("生成复核结果", 88, 97, {
+      holdLabel: "正在整理复核表格",
+    });
     const finalizePayload = await requestJson(`/api/cases/${encodeURIComponent(state.caseId)}/finalize`, {
       method: "POST",
       headers: { Accept: "application/json" },
     });
     stopAnalysisProgress();
-    setAnalysisProgress(96, "加载人工复核数据");
+    advanceAnalysisProgress(98, "加载人工复核数据");
     state.finalizePayload = finalizePayload;
     logDebug("生成复核结果返回", finalizePayload);
     renderAnalysisSteps(6);
@@ -422,16 +430,24 @@ async function startAnalysis() {
   }
 }
 
-function beginAnalysisProgress(label, start, cap) {
+function beginAnalysisProgress(label, start, cap, options = {}) {
   stopAnalysisProgress();
-  setAnalysisProgress(Math.max(state.analysisProgressValue, start), label);
+  const intervalMs = options.intervalMs || 420;
+  advanceAnalysisProgress(start, label);
   state.analysisProgressTimer = window.setInterval(() => {
     if (state.analysisProgressValue >= cap) {
       return;
     }
     const step = state.analysisProgressValue < 55 ? 2 : 1;
-    setAnalysisProgress(Math.min(cap, state.analysisProgressValue + step), label);
-  }, 420);
+    advanceAnalysisProgress(Math.min(cap, state.analysisProgressValue + step), label);
+  }, intervalMs);
+  if (options.holdLabel) {
+    state.analysisProgressHoldTimer = window.setTimeout(() => {
+      if (state.analysisProgressTimer && state.analysisProgressValue >= cap) {
+        setAnalysisProgress(cap, options.holdLabel);
+      }
+    }, options.holdAfterMs || 14000);
+  }
 }
 
 function stopAnalysisProgress() {
@@ -439,6 +455,14 @@ function stopAnalysisProgress() {
     window.clearInterval(state.analysisProgressTimer);
     state.analysisProgressTimer = null;
   }
+  if (state.analysisProgressHoldTimer) {
+    window.clearTimeout(state.analysisProgressHoldTimer);
+    state.analysisProgressHoldTimer = null;
+  }
+}
+
+function advanceAnalysisProgress(percent, label) {
+  setAnalysisProgress(Math.max(state.analysisProgressValue || 0, percent), label);
 }
 
 function setAnalysisProgress(percent, label) {
@@ -491,10 +515,10 @@ function renderReview() {
 
   const data = state.reviewData || {};
   renderReviewSummary(data, state.reviewStatus || {});
-  for (const [sheetName, columns] of Object.entries(editableTables)) {
-    renderEditableTable(sheetName, columns, getRows(data, sheetName));
-  }
   renderIdentityTable(data["身份信息"] || data.identity_info || {});
+  renderEditableTable("持仓", editableTables["持仓"], getRows(data, "持仓"));
+  renderEditableTable("最终申报表", editableTables["最终申报表"], getRows(data, "最终申报表"));
+  renderEditableTable("完整表", editableTables["完整表"], getRows(data, "完整表"));
   renderReadonlyChecklist(data["checklist结果"] || data.checklist_rows || []);
   renderProblemList(data["待复核问题"] || data.review_issue_rows || []);
   renderFileIssues(state.reviewPayload || {});
@@ -536,6 +560,12 @@ function renderEditableTable(title, columns, rows) {
   const heading = document.createElement("h3");
   heading.textContent = title;
   titleBox.appendChild(heading);
+  if (reviewTableDescriptions[title]) {
+    const description = document.createElement("p");
+    description.className = "table-description";
+    description.textContent = reviewTableDescriptions[title];
+    titleBox.appendChild(description);
+  }
   const actions = document.createElement("div");
   actions.className = "table-actions";
   const addButton = document.createElement("button");
@@ -1348,6 +1378,30 @@ async function submitAssistantQuestion(question) {
 
 function assistantFallbackAnswer(question) {
   const text = question.toLowerCase();
+  if (question.includes("法规") || question.includes("依据") || question.includes("指引") || question.includes("规则")) {
+    return "当前业务口径参考《基金从业人员证券投资管理指引（试行）》：基金从业人员本人、配偶、利害关系人的证券账户、持仓和交易情况需要如实申报，并接受基金管理人的审查和持续管理。";
+  }
+  if (question.includes("利害关系") || question.includes("配偶") || question.includes("父母") || question.includes("子女")) {
+    return "利害关系人通常包括基金从业人员承担主要抚养费或赡养费的父母、子女及其他亲属，以及基金从业人员可以实际控制账户、提供具体投资建议、直接获取账户利益或作为账户资金实际持有人的人员或机构。";
+  }
+  if (question.includes("3个月") || question.includes("三个月") || question.includes("持有期限") || question.includes("提前卖")) {
+    return "指引要求基金管理人明确最短持有期限，原则上不得低于 3 个月。持有期限内卖出通常需要按公司制度审批，特殊情况也应留痕说明。";
+  }
+  if (question.includes("定期") || question.includes("对账单") || question.includes("交易流水")) {
+    return "定期申报一般需要提交证券账户信息、证券资产持有情况、交易记录，并提供证券经纪商出具的对账单或交易流水。系统会优先从账户交易材料中抽取持仓、交易和负向证明。";
+  }
+  if (question.includes("无账户") || question.includes("未开户") || question.includes("没有开户") || question.includes("未查询到证券账户")) {
+    return "无账户信息是独立证明事项，不等同于无持仓或无交易。材料能明确姓名和截止日期时，最终申报表会生成“无账户信息”记录；缺少姓名或截止日期时，需要进入待复核清单。";
+  }
+  if (question.includes("无持仓") || question.includes("未持仓") || question.includes("没有持仓")) {
+    return "无持仓表示已经有账户，但在某个查询日期没有证券持仓。它不是无账户信息；如果缺少账户、日期等关键要素，需要人工复核。";
+  }
+  if (question.includes("无交易") || question.includes("没有交易") || question.includes("未交易")) {
+    return "无交易表示有账户但某一期间没有交易记录。它可以作为申报结果保留，但需要能确认账户、期间或截止日期；关键字段缺失时进入待复核清单。";
+  }
+  if (question.includes("银行转证券") || question.includes("证券转银行") || question.includes("利息归本") || question.includes("资金流水")) {
+    return "银行转证券、证券转银行、利息归本属于资金流水或现金事项，通常不影响证券持仓申报；系统会重点关注买入、卖出、打新、送股、无账户信息、无持仓和无交易等与申报结论相关的事项。";
+  }
   if (question.includes("证券账号") || question.includes("账号")) {
     return "如果材料里没有证券账号，相关记录通常需要进入待复核清单。请在人工复核页核对账户类型、证券账号、日期和对应材料。";
   }

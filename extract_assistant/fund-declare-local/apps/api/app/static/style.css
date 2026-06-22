@@ -749,6 +749,13 @@ input[type="file"]::file-selector-button {
   margin-bottom: 16px;
 }
 
+.table-description {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .materials-table,
 .table-wrap {
   overflow-x: auto;
