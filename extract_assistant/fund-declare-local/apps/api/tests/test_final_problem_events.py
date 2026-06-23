@@ -56,6 +56,81 @@ class FinalProblemEventsTest(unittest.TestCase):
             self.assertEqual(normalize_event_type(event), "security_registration")
             self.assertEqual(normalize_direction(event), "registration_in")
 
+    def test_guangfa_allotment_is_full_table_only_without_review(self):
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        file_record = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "guangfa.pdf",
+            "content_type": "guangfa",
+        }
+        extract_result = {
+            "document_info": {
+                "holder_name": "张",
+                "securities_accounts": {"沪A": "A315570738"},
+            },
+            "business_events": [
+                {
+                    "raw_business_type": "申购配号",
+                    "inferred_event_type": "新股申购配号",
+                    "event_category": "打新",
+                    "include_in_full_table": True,
+                    "include_in_final_declaration": False,
+                    "affects_holding": False,
+                    "final_field_candidates": {
+                        "证券名称": "希获配号",
+                        "变动类型": "申购配号",
+                        "日期": "2022-01-11",
+                        "成交数量": "11.0000",
+                        "成交单价": "0.0000",
+                        "收付金额": "0.0000",
+                    },
+                    "source_evidence": {
+                        "raw_text": "2022-01-11 195954 100450901 15685657 789173 希获配号 申购配号 11.0000"
+                    },
+                }
+            ],
+        }
+
+        normalized = normalize_guangfa("case_001", extract_result, file_record)
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        self.assertEqual(normalized["full_transaction_rows"][0]["event_type"], "subscription_allotment")
+        self.assertEqual(normalized["full_transaction_rows"][0]["account_type"], "沪A")
+        self.assertEqual(normalized["full_transaction_rows"][0]["security_code"], "789173")
+        self.assertEqual(normalized["full_transaction_rows"][0]["securities_account"], "A315570738")
+        self.assertEqual(normalized["final_declaration_rows"], [])
+        self.assertEqual(normalized["review_items"], [])
+
+    def test_subscription_allotment_missing_security_code_does_not_require_review(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        resolved = resolve_case_events(
+            [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "guangfa.pdf",
+                    "account_type": "深A",
+                    "securities_account": "0002220266",
+                    "event_id": "allot_001",
+                    "event_type": "subscription_allotment",
+                    "event_date": "2022-01-14",
+                    "security_code": "",
+                    "security_name": "百合配号",
+                    "direction": "subscribe",
+                    "quantity_raw": "5.0000",
+                    "include_in_final_declaration": False,
+                }
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["pending_review_events"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+
     def test_exact_duplicate_like_events_are_merged_with_trace(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 

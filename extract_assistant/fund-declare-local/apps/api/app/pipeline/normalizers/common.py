@@ -44,6 +44,7 @@ FINAL_DECLARATION_DIRECTIONS = {
     "subscribe",
 }
 EXCLUDED_FINAL_EVENT_TYPES = {
+    "subscription_allotment",
     "cash_dividend",
     "bond_interest",
     "cash_flow",
@@ -444,6 +445,8 @@ def _account_type_from_security_code(value: Any) -> str:
         return "沪B"
     if code.startswith(("0", "3")):
         return "深A"
+    if code.startswith("7"):
+        return "沪A"
     if code.startswith("6"):
         return "沪A"
     if code.startswith(("83", "87", "88", "920")):
@@ -480,6 +483,8 @@ def normalize_event_type(event: dict) -> str:
         return "cash_flow"
     if raw_type in {"买入", "卖出", "证券买入", "证券卖出", "交易过户"}:
         return "ordinary_trade"
+    if any(keyword in raw_type for keyword in ("申购配号", "中购配号", "配号")):
+        return "subscription_allotment"
     if is_security_registration_text(raw_type):
         return "security_registration"
     if any(keyword in raw_type for keyword in ("送股", "转增", "红股")):
@@ -537,6 +542,8 @@ def normalize_direction(event: dict) -> str:
         return "sell"
     if is_security_registration_text(raw_type):
         return "registration_in"
+    if any(keyword in raw_type for keyword in ("申购配号", "中购配号", "配号")):
+        return "subscribe"
     if any(keyword in raw_type for keyword in ("送股", "转增", "红股")):
         return "rights_event"
     if any(keyword in raw_type for keyword in ("分红", "红利", "股息", "派息")):

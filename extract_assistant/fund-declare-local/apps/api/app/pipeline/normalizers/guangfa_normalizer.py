@@ -59,6 +59,8 @@ FINAL_EVENT_KEYWORDS = (
 )
 
 FULL_ONLY_EVENT_KEYWORDS = (
+    "申购配号",
+    "中购配号",
     "股息",
     "派息",
     "现金分红",
@@ -280,9 +282,12 @@ def _map_business_event(
         candidates.get("证券账号"),
         event.get("securities_account"),
     )
+    security_name = _first_text(candidates.get("证券名称"), event.get("security_name"))
+    raw_text = _source_value(event, "raw_text")
     security_code = _first_text(
         candidates.get("证券代码"),
         event.get("security_code"),
+        _infer_security_code_from_raw_text(raw_text, security_name),
     )
     review_reasons = [
         str(reason)
@@ -314,7 +319,7 @@ def _map_business_event(
         "serial_no": auxiliary.get("serial_no", ""),
         "order_no": auxiliary.get("order_no", ""),
         "security_code": security_code,
-        "security_name": _first_text(candidates.get("证券名称"), event.get("security_name")),
+        "security_name": security_name,
         "direction": direction,
         "quantity_raw": _first_text(candidates.get("成交数量"), event.get("quantity")),
         "price_raw": _first_text(candidates.get("成交单价"), event.get("price")),
@@ -323,7 +328,7 @@ def _map_business_event(
         "event_type_raw": raw_movement,
         "source_page": _source_value(event, "page"),
         "row_no": _source_value(event, "row_no"),
-        "raw_text": _source_value(event, "raw_text"),
+        "raw_text": raw_text,
         "review_reason": "；".join(review_reasons),
     }
 
@@ -593,6 +598,8 @@ def _classify_business_event(raw_movement: str) -> tuple[str, str]:
         return "ordinary_trade", "sell"
     if "买" in text:
         return "ordinary_trade", "buy"
+    if any(keyword in text for keyword in ("申购配号", "中购配号", "配号")):
+        return "subscription_allotment", "subscribe"
     if any(keyword in text for keyword in ("打新", "新股申购", "新股中签")):
         return "new_share_subscription", "subscribe"
     if is_security_registration_text(text):
@@ -624,7 +631,7 @@ def _business_rule_should_be_final(event_type: str, raw_movement: str) -> bool:
 
 
 def _is_full_only_event(raw_movement: str, event_type: str) -> bool:
-    if event_type in {"cash_dividend", "bond_interest", "cash_flow", "bank_transfer", "fund_transfer", "interest"}:
+    if event_type in {"subscription_allotment", "cash_dividend", "bond_interest", "cash_flow", "bank_transfer", "fund_transfer", "interest"}:
         return True
     return any(keyword in raw_movement for keyword in FULL_ONLY_EVENT_KEYWORDS)
 
@@ -727,6 +734,8 @@ def _account_type_from_security_code(security_code: str) -> str:
     code = str(security_code or "").strip()
     if code.startswith("6"):
         return "沪A"
+    if code.startswith("7"):
+        return "沪A"
     if code.startswith(("0", "3")):
         return "深A"
     if code.startswith(("83", "87", "88", "920")):
@@ -774,6 +783,27 @@ def _business_event_auxiliary_fields(event: dict, candidates: dict) -> dict:
             parsed.get("order_no"),
         ),
     }
+
+
+def _infer_security_code_from_raw_text(raw_text: str, security_name: str) -> str:
+    text = str(raw_text or "")
+    name_key = _security_name_key(security_name)
+    if not text or not name_key:
+        return ""
+
+    for match in re.finditer(r"(?<!\d)(\d{6})(?!\d)\s*([^\s\d,，。；;:：]{1,16})", text):
+        candidate_name = _security_name_key(match.group(2))
+        if candidate_name and (candidate_name == name_key or candidate_name in name_key or name_key in candidate_name):
+            return match.group(1)
+    return ""
+
+
+def _security_name_key(value: str) -> str:
+    text = re.sub(r"\s+", "", str(value or ""))
+    for suffix in ("配号", "证券", "股票"):
+        if text.endswith(suffix):
+            text = text[: -len(suffix)]
+    return text
 
 
 def _parse_auxiliary_from_raw_text(raw_text: str) -> dict:

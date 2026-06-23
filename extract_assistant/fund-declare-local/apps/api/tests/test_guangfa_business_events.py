@@ -439,6 +439,38 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         self.assertEqual(rows[1]["securities_account"], "A486746523")
         self.assertEqual(normalized["review_items"], [])
 
+    def test_context_extracts_shareholder_cards_when_ocr_placeholder_values_shift_table(self):
+        from app.pipeline.document_context import build_document_context
+        from app.services import local_store
+
+        tmp_root = local_store.ensure_dir(local_store.PROJECT_ROOT / "tmp")
+        with tempfile.TemporaryDirectory(dir=tmp_root) as tmp_dir:
+            output_dir = Path(tmp_dir)
+            local_store.save_json(
+                output_dir / "ocr_result.json",
+                {
+                    "page_results": [
+                        {
+                            "page": 1,
+                            "text": (
+                                "基本信息\n"
+                                "账户姓名\n资金账号\n上海A股东卡号\n上海B股东卡号\n"
+                                "深圳A股东卡号\n深圳B股东卡号\n证件类型\n证件号码\n"
+                                "张\n15685657\nA315570738\n1\n0002220266\n1\n身份证\n"
+                                "资产信息\n"
+                            ),
+                        }
+                    ]
+                },
+            )
+
+            context = build_document_context(output_dir)
+
+        self.assertEqual(
+            context["securities_accounts"],
+            {"沪A": "A315570738", "深A": "0002220266"},
+        )
+
     def test_business_holding_keeps_top_level_chinese_fields_when_candidates_are_partial(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa

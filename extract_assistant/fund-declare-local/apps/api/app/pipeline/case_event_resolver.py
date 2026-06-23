@@ -580,7 +580,13 @@ def _validate_event_row(row: dict) -> None:
         _validate_empty_record_row(row)
         return
 
-    missing_fields = _missing_fields(row, EVENT_REQUIRED_FIELDS)
+    required_fields = EVENT_REQUIRED_FIELDS
+    if row.get("event_type") == "subscription_allotment":
+        required_fields = [
+            field for field in EVENT_REQUIRED_FIELDS if field != "security_code"
+        ]
+
+    missing_fields = _missing_fields(row, required_fields)
     issue_types = []
     if missing_fields:
         issue_types.append("missing_required_fields")

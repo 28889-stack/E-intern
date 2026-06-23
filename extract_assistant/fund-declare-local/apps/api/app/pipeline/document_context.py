@@ -232,9 +232,6 @@ def _extract_basic_info_account_table(lines: list[str]) -> dict[str, str]:
         values.append(line)
         index += 1
 
-    if len(values) < len(table_labels):
-        return {}
-
     accounts = {}
     for label, value in zip(table_labels, values):
         account_type = label_to_type.get(label)
@@ -306,7 +303,7 @@ def _usable_value(value: str) -> bool:
 
 
 def _looks_like_label(value: str) -> bool:
-    return bool(re.search(r"(账号|帐号|号码|姓名|名称|类型|日期|区间|条件|类别)[:：]?$", value))
+    return bool(re.search(r"(账号|帐号|号码|卡号|姓名|名称|类型|日期|区间|条件|类别)[:：]?$", value))
 
 
 def _looks_like_account(value: str) -> bool:
