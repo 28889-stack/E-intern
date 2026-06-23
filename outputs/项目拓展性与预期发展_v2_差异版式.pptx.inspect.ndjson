@@ -1,0 +1,151 @@
+{"kind":"deck","id":"pr/rkpm5q","name":"Deck"}
+{"kind":"layout","layoutId":"2fa34918-e1ed-44e1-8e1f-0f5d49b63855","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"27e29f10-7e8a-4474-9bde-3b3db4c1367b","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/c4crjo","slide":1,"title":"E FUND 易方达风格参考","textShapes":25}
+{"kind":"shape","id":"sh/1orytsvu","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/u18jqh0f","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/jm1cfa9w","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/cfa9w3m9","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/1032lszq","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/u9knih4b","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/judg7ads","slide":1,"text":"拓展一｜材料识别能力","textPreview":"拓展一｜材料识别能力","textChars":10,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"text":"多来源材料识别能力拓展：泛化能力与识别准确率并重","textPreview":"多来源材料识别能力拓展：泛化能力与识别准确率并重","textChars":24,"textLines":1,"bbox":[150,106,830,52]}
+{"kind":"shape","id":"sh/54zidony","slide":1,"name":"badge-bg","bbox":[1012,102,190,38]}
+{"kind":"shape","id":"sh/t47y1kre","slide":1,"name":"badge-accent","bbox":[1012,102,4,38]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":1,"text":"多券商 / 复杂材料","textPreview":"多券商 / 复杂材料","textChars":10,"textLines":1,"bbox":[1028,112,156,20]}
+{"kind":"shape","id":"sh/byhgn29g","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/idonyd0z","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":1,"text":"拓展性与预期发展 1/3","textPreview":"拓展性与预期发展 1/3","textChars":12,"textLines":1,"bbox":[1040,681,162,22]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":1,"name":"objective-bg","bbox":[150,160,510,76]}
+{"kind":"shape","id":"sh/b6xkf6dc","slide":1,"name":"objective-accent","bbox":[150,160,5,76]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":1,"text":"可拓展内容","textPreview":"可拓展内容","textChars":5,"textLines":1,"bbox":[168,172,130,18]}
+{"kind":"textbox","id":"sh/tovahoza","slide":1,"text":"增强 Graph RAG，并强化 LLM 与 PDF 解析、OCR、表格抽取结果之间的协同。","textPreview":"增强 Graph RAG，并强化 LLM 与 PDF 解析、OCR、表格抽取结果之间的协同。","textChars":46,"textLines":1,"bbox":[168,196,474,28]}
+{"kind":"shape","id":"sh/032lszqt","slide":1,"name":"objective-bg","bbox":[692,160,510,76]}
+{"kind":"shape","id":"sh/czed8v6p","slide":1,"name":"objective-accent","bbox":[692,160,5,76]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":1,"text":"拓展目标","textPreview":"拓展目标","textChars":4,"textLines":1,"bbox":[710,172,130,18]}
+{"kind":"textbox","id":"sh/ytsvu9kn","slide":1,"text":"支持更多券商材料接入，同时提升扫描件、截图、多页表格、跨页记录等复杂材料识别准确率。","textPreview":"支持更多券商材料接入，同时提升扫描件、截图、多页表格、跨页记录等复杂材料识别准确率。","textChars":42,"textLines":1,"bbox":[710,196,474,28]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":1,"text":"主线一：多券商材料泛化","textPreview":"主线一：多券商材料泛化","textChars":11,"textLines":1,"bbox":[150,262,420,24]}
+{"kind":"shape","id":"sh/cbulwval","slide":1,"name":"track-left","bbox":[150,294,502,178]}
+{"kind":"shape","id":"sh/5sneloj2","slide":1,"name":"track-left-top","bbox":[150,294,502,5]}
+{"kind":"textbox","id":"sh/u54zidon","slide":1,"text":"建立多券商字段别名、交易类型表达、表格结构和证据位置关系\n识别不同券商材料中“不同表达背后的同一业务含义”\n新券商材料接入时，减少完全依赖人工重新适配","textPreview":"建立多券商字段别名、交易类型表达、表格结构和证据位置关系 | 识别不同券商材料中“不同表达背后的同一业务含义” | 新券商材料接入时，减少完全依赖人工重新适配","textChars":75,"textLines":3,"bbox":[178,328,446,90]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":1,"name":"track-left-rule","bbox":[178,432,410,1]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":1,"text":"Graph RAG 解决：券商格式和业务表达不一致","textPreview":"Graph RAG 解决：券商格式和业务表达不一致","textChars":25,"textLines":1,"bbox":[178,444,410,18]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":1,"text":"主线二：解析与模型协同","textPreview":"主线二：解析与模型协同","textChars":11,"textLines":1,"bbox":[700,262,420,24]}
+{"kind":"shape","id":"sh/v6psfil0","slide":1,"name":"track-right","bbox":[700,294,502,178]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":1,"name":"track-right-top","bbox":[700,294,502,5]}
+{"kind":"textbox","id":"sh/d8bat47y","slide":1,"text":"PDF 解析、OCR、表格抽取先保留行列结构、页码、区域和上下文\nLLM 处理整理后的结构化输入，而不是混乱原始文件\n对低置信 OCR、跨页表格、字段缺失、异常格式进行标记和复核","textPreview":"PDF 解析、OCR、表格抽取先保留行列结构、页码、区域和上下文 | LLM 处理整理后的结构化输入，而不是混乱原始文件 | 对低置信 OCR、跨页表格、字段缺失、异常格式进行标记和复核","textChars":89,"textLines":3,"bbox":[728,328,446,90]}
+{"kind":"shape","id":"sh/knih4byh","slide":1,"name":"track-right-rule","bbox":[728,432,410,1]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":1,"text":"解析协同解决：复杂材料输入质量不稳定","textPreview":"解析协同解决：复杂材料输入质量不稳定","textChars":18,"textLines":1,"bbox":[728,444,410,18]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":1,"text":"目标效果","textPreview":"目标效果","textChars":4,"textLines":1,"bbox":[150,506,170,22]}
+{"kind":"shape","id":"sh/d0z61032","slide":1,"name":"outcome-rule","bbox":[150,535,1052,1]}
+{"kind":"shape","id":"sh/kf6dcbul","slide":1,"name":"outcome","bbox":[150,548,246,68]}
+{"kind":"shape","id":"sh/vixczed8","slide":1,"name":"outcome-accent","bbox":[150,548,3,68]}
+{"kind":"textbox","id":"sh/2x4nap4r","slide":1,"text":"多券商接入更快","textPreview":"多券商接入更快","textChars":7,"textLines":1,"bbox":[166,556,222,18]}
+{"kind":"textbox","id":"sh/m1cfa9w3","slide":1,"text":"复用业务语义关系，减少重复适配","textPreview":"复用业务语义关系，减少重复适配","textChars":15,"textLines":1,"bbox":[166,583,222,24]}
+{"kind":"shape","id":"sh/bm58z25k","slide":1,"name":"outcome","bbox":[419,548,246,68]}
+{"kind":"shape","id":"sh/47y1kre1","slide":1,"name":"outcome-accent","bbox":[419,548,3,68]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":1,"text":"复杂材料识别更准","textPreview":"复杂材料识别更准","textChars":8,"textLines":1,"bbox":[435,556,222,18]}
+{"kind":"textbox","id":"sh/mp0bi9s3","slide":1,"text":"减少 OCR 错漏、表格错位和跨页丢失","textPreview":"减少 OCR 错漏、表格错位和跨页丢失","textChars":19,"textLines":1,"bbox":[435,583,222,24]}
+{"kind":"shape","id":"sh/bat47y1k","slide":1,"name":"outcome","bbox":[688,548,246,68]}
+{"kind":"shape","id":"sh/4vmtwra5","slide":1,"name":"outcome-accent","bbox":[688,548,3,68]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":1,"text":"抽取结果更可追溯","textPreview":"抽取结果更可追溯","textChars":8,"textLines":1,"bbox":[704,556,222,18]}
+{"kind":"textbox","id":"sh/mhk3q5o7","slide":1,"text":"字段回到页码、区域和原始证据","textPreview":"字段回到页码、区域和原始证据","textChars":14,"textLines":1,"bbox":[704,583,222,24]}
+{"kind":"shape","id":"sh/b2hwfyxo","slide":1,"name":"outcome","bbox":[956,548,246,68]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":1,"name":"outcome-accent","bbox":[956,548,3,68]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":1,"text":"泛化能力可持续沉淀","textPreview":"泛化能力可持续沉淀","textChars":9,"textLines":1,"bbox":[972,556,222,18]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":1,"text":"新材料反哺图谱和解析策略","textPreview":"新材料反哺图谱和解析策略","textChars":12,"textLines":1,"bbox":[972,583,222,24]}
+{"kind":"notes","id":"nt/c4crjo","slide":1,"text":""}
+{"kind":"slide","id":"sl/ip1t0x","slide":2,"title":"E FUND 易方达风格参考","textShapes":25}
+{"kind":"shape","id":"sh/u54zidon","slide":2,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/5sneloj2","slide":2,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/cbulwval","slide":2,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/neloj2t8","slide":2,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/ytsvu9kn","slide":2,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":2,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/czed8v6p","slide":2,"text":"拓展二｜规则知识化","textPreview":"拓展二｜规则知识化","textChars":9,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/n29gr2p8","slide":2,"text":"合规规则知识化拓展：支撑规则校验与“问小易”问答","textPreview":"合规规则知识化拓展：支撑规则校验与“问小易”问答","textChars":24,"textLines":1,"bbox":[150,106,830,52]}
+{"kind":"shape","id":"sh/yhgn29gr","slide":2,"name":"badge-bg","bbox":[1012,102,190,38]}
+{"kind":"shape","id":"sh/kb6xkf6d","slide":2,"name":"badge-accent","bbox":[1012,102,4,38]}
+{"kind":"textbox","id":"sh/9w3m94fu","slide":2,"text":"知识库技术支撑","textPreview":"知识库技术支撑","textChars":7,"textLines":1,"bbox":[1028,112,156,20]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":2,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":2,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":2,"text":"拓展性与预期发展 2/3","textPreview":"拓展性与预期发展 2/3","textChars":12,"textLines":1,"bbox":[1040,681,162,22]}
+{"kind":"shape","id":"sh/9knih4by","slide":2,"name":"objective-bg","bbox":[150,160,1052,76]}
+{"kind":"shape","id":"sh/2t83itgf","slide":2,"name":"objective-accent","bbox":[150,160,5,76]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":2,"text":"可拓展内容","textPreview":"可拓展内容","textChars":5,"textLines":1,"bbox":[168,172,130,18]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":2,"text":"建设可检索、可维护、可追溯的合规知识库，将制度条款、业务口径、材料要求、复核经验和常见问题沉淀为项目可调用的知识资产。","textPreview":"建设可检索、可维护、可追溯的合规知识库，将制度条款、业务口径、材料要求、复核经验和常见问题沉淀为项目可调用的知识资产。","textChars":59,"textLines":1,"bbox":[168,196,1016,28]}
+{"kind":"shape","id":"sh/9gr2p8nq","slide":2,"name":"goal-left","bbox":[150,260,502,190]}
+{"kind":"shape","id":"sh/d8bat47y","slide":2,"name":"goal-left-accent","bbox":[150,260,5,190]}
+{"kind":"textbox","id":"sh/knih4byh","slide":2,"text":"目标一：增强项目中的合规规则校验","textPreview":"目标一：增强项目中的合规规则校验","textChars":16,"textLines":1,"bbox":[178,284,430,24]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":2,"text":"抽取结果形成后，调用知识库中的制度条款、材料要求和校验口径\n辅助判断字段缺失、材料支撑不足、交易是否属于申报范围\n输出规则依据、适用口径和需要人工确认的问题项","textPreview":"抽取结果形成后，调用知识库中的制度条款、材料要求和校验口径 | 辅助判断字段缺失、材料支撑不足、交易是否属于申报范围 | 输出规则依据、适用口径和需要人工确认的问题项","textChars":79,"textLines":3,"bbox":[178,326,438,92]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":2,"name":"goal-right","bbox":[700,260,502,190]}
+{"kind":"shape","id":"sh/d0z61032","slide":2,"name":"goal-right-accent","bbox":[700,260,5,190]}
+{"kind":"textbox","id":"sh/kf6dcbul","slide":2,"text":"目标二：增强“问小易”的合规问答能力","textPreview":"目标二：增强“问小易”的合规问答能力","textChars":18,"textLines":1,"bbox":[728,284,430,24]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":2,"text":"员工和复核人员可自然语言查询申报范围、材料要求和流程口径\n回答附带依据来源、适用范围和人工复核提示\n常见问题和复核经验持续沉淀，形成可维护知识资产","textPreview":"员工和复核人员可自然语言查询申报范围、材料要求和流程口径 | 回答附带依据来源、适用范围和人工复核提示 | 常见问题和复核经验持续沉淀，形成可维护知识资产","textChars":73,"textLines":3,"bbox":[728,326,438,92]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":2,"text":"知识库支撑链路","textPreview":"知识库支撑链路","textChars":7,"textLines":1,"bbox":[150,480,220,22]}
+{"kind":"shape","id":"sh/donyd0z6","slide":2,"name":"knowledge-band","bbox":[150,512,1052,62]}
+{"kind":"shape","id":"sh/k3q5o7qp","slide":2,"name":"knowledge-accent","bbox":[150,512,5,62]}
+{"kind":"textbox","id":"sh/u54zidon","slide":2,"text":"制度条款入库","textPreview":"制度条款入库","textChars":6,"textLines":1,"bbox":[140,524,160,18]}
+{"kind":"textbox","id":"sh/nqxs72x4","slide":2,"text":"制度、口径、材料要求","textPreview":"制度、口径、材料要求","textChars":10,"textLines":1,"bbox":[140,546,160,14]}
+{"kind":"textbox","id":"sh/cbulwval","slide":2,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[316,532,26,18]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":2,"text":"规则口径结构化","textPreview":"规则口径结构化","textChars":7,"textLines":1,"bbox":[404,524,160,18]}
+{"kind":"textbox","id":"sh/ytsvu9kn","slide":2,"text":"字段、范围、例外情形","textPreview":"字段、范围、例外情形","textChars":10,"textLines":1,"bbox":[404,546,160,14]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":2,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[580,532,26,18]}
+{"kind":"textbox","id":"sh/czed8v6p","slide":2,"text":"系统调用","textPreview":"系统调用","textChars":4,"textLines":1,"bbox":[668,524,160,18]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":2,"text":"校验 / 问答 / 复核提示","textPreview":"校验 / 问答 / 复核提示","textChars":14,"textLines":1,"bbox":[668,546,160,14]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":2,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[844,532,26,18]}
+{"kind":"textbox","id":"sh/n29gr2p8","slide":2,"text":"依据留痕","textPreview":"依据留痕","textChars":4,"textLines":1,"bbox":[932,524,160,18]}
+{"kind":"textbox","id":"sh/36hcrmhk","slide":2,"text":"来源、版本、适用范围","textPreview":"来源、版本、适用范围","textChars":10,"textLines":1,"bbox":[932,546,160,14]}
+{"kind":"textbox","id":"sh/eloj2t83","slide":2,"text":"关键表达：知识库不是展示型文档库，而是将制度、口径和复核经验转化为系统可检索、可引用、可追溯的合规知识能力。","textPreview":"关键表达：知识库不是展示型文档库，而是将制度、口径和复核经验转化为系统可检索、可引用、可追溯的合规知识能力。","textChars":54,"textLines":1,"bbox":[150,606,1052,22]}
+{"kind":"notes","id":"nt/ip1t0x","slide":2,"text":""}
+{"kind":"slide","id":"sl/nzkc97","slide":3,"title":"E FUND 易方达风格参考","textShapes":26}
+{"kind":"shape","id":"sh/crmhk3q5","slide":3,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/j6tovaho","slide":3,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/ulwval87","slide":3,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/1kre1w7m","slide":3,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":3,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/ji5snelo","slide":3,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":3,"text":"拓展三｜复核场景迁移","textPreview":"拓展三｜复核场景迁移","textChars":10,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/1w7mp0bi","slide":3,"text":"合规材料复核场景拓展：面向内控与审计材料的初筛归类","textPreview":"合规材料复核场景拓展：面向内控与审计材料的初筛归类","textChars":25,"textLines":1,"bbox":[150,106,830,52]}
+{"kind":"shape","id":"sh/8bat47y1","slide":3,"name":"badge-bg","bbox":[1012,102,190,38]}
+{"kind":"shape","id":"sh/ytsvu9kn","slide":3,"name":"badge-accent","bbox":[1012,102,4,38]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":3,"text":"场景范围拓展","textPreview":"场景范围拓展","textChars":6,"textLines":1,"bbox":[1028,112,156,20]}
+{"kind":"shape","id":"sh/czed8v6p","slide":3,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":3,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/u54zidon","slide":3,"text":"拓展性与预期发展 3/3","textPreview":"拓展性与预期发展 3/3","textChars":12,"textLines":1,"bbox":[1040,681,162,22]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":3,"name":"objective-bg","bbox":[150,160,510,76]}
+{"kind":"shape","id":"sh/cbulwval","slide":3,"name":"objective-accent","bbox":[150,160,5,76]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":3,"text":"可拓展内容","textPreview":"可拓展内容","textChars":5,"textLines":1,"bbox":[168,172,130,18]}
+{"kind":"textbox","id":"sh/y90je9cv","slide":3,"text":"将“材料理解 + 规则判断 + 证据链管理”能力迁移到内控检查、审计支持、稽核材料整理等复核环节。","textPreview":"将“材料理解 + 规则判断 + 证据链管理”能力迁移到内控检查、审计支持、稽核材料整理等复核环节。","textChars":49,"textLines":1,"bbox":[168,196,474,28]}
+{"kind":"shape","id":"sh/nuxc3ylc","slide":3,"name":"objective-bg","bbox":[692,160,510,76]}
+{"kind":"shape","id":"sh/fmlkjm1c","slide":3,"name":"objective-accent","bbox":[692,160,5,76]}
+{"kind":"textbox","id":"sh/q1orytsv","slide":3,"text":"拓展目标","textPreview":"拓展目标","textChars":4,"textLines":1,"bbox":[710,172,130,18]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":3,"text":"提前完成材料整理、风险提示和证据定位，减少人工查找、归类、比对的重复工作；最终判断仍由人工完成。","textPreview":"提前完成材料整理、风险提示和证据定位，减少人工查找、归类、比对的重复工作；最终判断仍由人工完成。","textChars":48,"textLines":1,"bbox":[710,196,474,28]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":3,"text":"场景迁移流程","textPreview":"场景迁移流程","textChars":6,"textLines":1,"bbox":[150,266,220,24]}
+{"kind":"shape","id":"sh/je9cvixc","slide":3,"name":"scenario-step","bbox":[150,304,238,128]}
+{"kind":"shape","id":"sh/qtcj6tov","slide":3,"name":"step-top","bbox":[150,304,238,5]}
+{"kind":"textbox","id":"sh/1gvy90je","slide":3,"text":"材料接入","textPreview":"材料接入","textChars":4,"textLines":1,"bbox":[170,328,190,24]}
+{"kind":"textbox","id":"sh/8z25kb6x","slide":3,"text":"制度 / 附件 / 底稿\n按项目和流程进入系统","textPreview":"制度 / 附件 / 底稿 | 按项目和流程进入系统","textChars":23,"textLines":2,"bbox":[170,366,198,44]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[388,352,30,22]}
+{"kind":"shape","id":"sh/qpg3ex0n","slide":3,"name":"scenario-step","bbox":[418,304,238,128]}
+{"kind":"shape","id":"sh/kzupwb2h","slide":3,"name":"step-top","bbox":[418,304,238,5]}
+{"kind":"textbox","id":"sh/9knih4by","slide":3,"text":"内控初筛","textPreview":"内控初筛","textChars":4,"textLines":1,"bbox":[438,328,190,24]}
+{"kind":"textbox","id":"sh/2t83itgf","slide":3,"text":"识别材料类型和关键字段\n提示缺失、版本、签章异常","textPreview":"识别材料类型和关键字段 | 提示缺失、版本、签章异常","textChars":24,"textLines":2,"bbox":[438,366,198,44]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[656,352,30,22]}
+{"kind":"shape","id":"sh/kb6xkf6d","slide":3,"name":"scenario-step","bbox":[686,304,238,128]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":3,"name":"step-top","bbox":[686,304,238,5]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":3,"text":"审计归类","textPreview":"审计归类","textChars":4,"textLines":1,"bbox":[706,328,190,24]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":3,"text":"按期间、机构、业务类型归档\n抽取事实和证据位置","textPreview":"按期间、机构、业务类型归档 | 抽取事实和证据位置","textChars":23,"textLines":2,"bbox":[706,366,198,44]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[924,352,30,22]}
+{"kind":"shape","id":"sh/94fu18jq","slide":3,"name":"scenario-step","bbox":[954,304,238,128]}
+{"kind":"shape","id":"sh/psfil0rq","slide":3,"name":"step-top","bbox":[954,304,238,5]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":3,"text":"人工确认","textPreview":"人工确认","textChars":4,"textLines":1,"bbox":[974,328,190,24]}
+{"kind":"textbox","id":"sh/7mp0bi9s","slide":3,"text":"高风险和冲突事项入清单\n复核结论反向沉淀","textPreview":"高风险和冲突事项入清单 | 复核结论反向沉淀","textChars":20,"textLines":2,"bbox":[974,366,198,44]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":3,"text":"适用边界","textPreview":"适用边界","textChars":4,"textLines":1,"bbox":[150,472,170,22]}
+{"kind":"shape","id":"sh/pg3ex0nu","slide":3,"name":"boundary","bbox":[150,504,1052,72]}
+{"kind":"shape","id":"sh/wval87ed","slide":3,"name":"boundary-accent","bbox":[150,504,5,72]}
+{"kind":"textbox","id":"sh/7adsji5s","slide":3,"text":"适合材料密集、规则明确、需要证据索引的复核环节；系统负责初筛、归类、提示和索引，不替代内控或审计人员作出最终判断。","textPreview":"适合材料密集、规则明确、需要证据索引的复核环节；系统负责初筛、归类、提示和索引，不替代内控或审计人员作出最终判断。","textChars":57,"textLines":1,"bbox":[176,526,988,24]}
+{"kind":"textbox","id":"sh/epkzupwb","slide":3,"text":"预期效果","textPreview":"预期效果","textChars":4,"textLines":1,"bbox":[150,604,170,22]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":3,"name":"effect-line","bbox":[270,616,932,1]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":3,"text":"降低整理成本     提高初筛一致性     强化证据管理     形成可迁移能力底座","textPreview":"降低整理成本     提高初筛一致性     强化证据管理     形成可迁移能力底座","textChars":43,"textLines":1,"bbox":[300,606,830,24]}
+{"kind":"notes","id":"nt/nzkc97","slide":3,"text":""}

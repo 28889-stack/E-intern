@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from app.pipeline.security_account import classify_security_account
 from app.pipeline.normalizers.common import (
     as_list,
     build_event_row,
@@ -329,8 +330,12 @@ def _is_non_business_document_review_item(item: dict) -> bool:
         keyword in text
         for keyword in (
             "非业务记录",
+            "非业务数据",
             "无业务信息",
             "无业务数据",
+            "无实际业务记录",
+            "无有效业务记录",
+            "非交割流水",
             "无数据行",
             "使用注意事项",
             "页码行",
@@ -870,16 +875,13 @@ def _normalize_account_type(value: str) -> str:
 
 
 def _account_type_from_securities_account(securities_account: str) -> str:
-    account = str(securities_account or "").strip()
-    if account.startswith("06"):
-        return "深圳信用账户"
-    if account.startswith(("E", "e")):
-        return "上海信用账户"
-    return ""
+    return classify_security_account(securities_account)
 
 
 def _account_type_from_security_code(security_code: str) -> str:
     code = str(security_code or "").strip()
+    if not re.fullmatch(r"\d{6}", code):
+        return ""
     if code.startswith("6"):
         return "沪A"
     if code.startswith("7"):

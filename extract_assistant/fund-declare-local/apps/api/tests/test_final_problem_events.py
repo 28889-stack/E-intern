@@ -113,6 +113,33 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(context["account_type"], "深B")
         self.assertEqual(context["period_end"], "2026-02-02")
 
+    def test_document_context_rejects_invalid_security_account_shape(self):
+        from app.pipeline.document_context import build_document_context
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            output_dir = project_root / "processed"
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    output_dir / "raw_text.json",
+                    {
+                        "text": "\n".join(
+                            [
+                                "历史成交",
+                                "证券子账户号码：",
+                                "15659218",
+                                "账户类型：沪A",
+                                "查询日期：2024-12-20",
+                            ]
+                        )
+                    },
+                )
+
+                context = build_document_context(output_dir)
+
+        self.assertNotIn("securities_account", context)
+
     def test_common_event_type_normalizes_registration_synonyms(self):
         from app.pipeline.normalizers.common import normalize_direction, normalize_event_type
 
@@ -1405,6 +1432,111 @@ class FinalProblemEventsTest(unittest.TestCase):
                     "page_results": [
                         {
                             "page": 1,
+                            "text": "证券账号 A123456789\n沪A\n历史成交\n起始日期：2024-01-01\n终止日期：2024-12-20\n共0条\n没有相应的查询信息！",
+                        }
+                    ]
+                },
+            )
+            normalized = normalize_guangfa(
+                "case_test",
+                {
+                    "document_info": {"file_name": "申报2.jpg"},
+                    "trade_group": {"columns": [], "trades": []},
+                    "position_group": {"columns": [], "positions": []},
+                    "transactions": [],
+                    "events": [],
+                    "other_events": [],
+                    "cash_flows": [],
+                    "holdings": [],
+                    "input_sources": {"ocr_result_path": str(ocr_path)},
+                },
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "申报2.jpg",
+                },
+            )
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        row = normalized["full_transaction_rows"][0]
+        self.assertEqual(row["event_type"], "no_trade_record")
+        self.assertEqual(row["securities_account"], "A123456789")
+        self.assertEqual(row["event_date"], "2024-12-20")
+        self.assertEqual(row["security_code"], "0")
+        self.assertEqual(row["quantity_raw"], "0")
+        self.assertEqual(normalized["final_declaration_rows"], [])
+        self.assertEqual(normalized["review_items"], [])
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_guangfa_empty_trade_query_rejects_invalid_securities_account_shape(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            ocr_path = Path(temp_dir) / "ocr_result.json"
+            local_store.save_json(
+                ocr_path,
+                {
+                    "page_results": [
+                        {
+                            "page": 1,
+                            "text": "证券账号 15659218\n沪A\n历史成交\n起始日期：2024-01-01\n终止日期：2024-12-20\n共0条\n没有相应的查询信息！",
+                        }
+                    ]
+                },
+            )
+            normalized = normalize_guangfa(
+                "case_test",
+                {
+                    "document_info": {"file_name": "申报2.jpg"},
+                    "trade_group": {"columns": [], "trades": []},
+                    "position_group": {"columns": [], "positions": []},
+                    "transactions": [],
+                    "events": [],
+                    "other_events": [],
+                    "cash_flows": [],
+                    "holdings": [],
+                    "input_sources": {"ocr_result_path": str(ocr_path)},
+                },
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "申报2.jpg",
+                },
+            )
+
+        row = normalized["full_transaction_rows"][0]
+        self.assertEqual(row["event_type"], "no_trade_record")
+        self.assertEqual(row["securities_account"], "")
+
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertIn(
+            "空交易/空持仓证明缺少证券账号",
+            resolved["review_issue_rows"][0]["待复核原因"],
+        )
+
+    def test_guangfa_empty_trade_query_with_only_multi_account_requires_review(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            ocr_path = Path(temp_dir) / "ocr_result.json"
+            local_store.save_json(
+                ocr_path,
+                {
+                    "page_results": [
+                        {
+                            "page": 1,
                             "text": "多帐号 15659218\n历史成交\n起始日期：2024-01-01\n终止日期：2024-12-20\n共0条\n没有相应的查询信息！",
                         }
                     ]
@@ -1433,20 +1565,19 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(normalized["full_transaction_rows"]), 1)
         row = normalized["full_transaction_rows"][0]
         self.assertEqual(row["event_type"], "no_trade_record")
-        self.assertEqual(row["securities_account"], "15659218")
-        self.assertEqual(row["event_date"], "2024-12-20")
-        self.assertEqual(row["security_code"], "0")
-        self.assertEqual(row["quantity_raw"], "0")
-        self.assertEqual(normalized["final_declaration_rows"], [])
-        self.assertEqual(normalized["review_items"], [])
+        self.assertEqual(row["securities_account"], "")
+        self.assertEqual(row["account_type"], "")
 
         resolved = resolve_case_events(
             normalized["full_transaction_rows"],
             review_items=normalized["review_items"],
         )
         self.assertEqual(len(resolved["full_transaction_rows"]), 1)
-        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
-        self.assertEqual(resolved["review_issue_rows"], [])
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(len(resolved["review_issue_rows"]), 1)
+        reason = resolved["review_issue_rows"][0]["待复核原因"]
+        self.assertIn("空交易/空持仓证明缺少证券账号", reason)
+        self.assertNotIn("缺失：", reason)
 
     def test_chinaclear_empty_holding_semantics_becomes_no_holding_record_event(self):
         from app.pipeline.case_event_resolver import resolve_case_events
@@ -2294,8 +2425,9 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["review_issue_rows"]), 1)
         issue = resolved["review_issue_rows"][0]
         self.assertEqual(issue["_meta"]["file_id"], "file_003")
-        self.assertIn("证券账号", issue["待复核原因"])
-        self.assertIn("查询日期/期间", issue["待复核原因"])
+        self.assertIn("空交易/空持仓证明缺少证券账号", issue["待复核原因"])
+        self.assertIn("空交易/空持仓证明缺少查询日期/期间", issue["待复核原因"])
+        self.assertNotIn("缺失：", issue["待复核原因"])
         self.assertNotIn("empty_record", issue["待复核原因"])
 
     def test_review_issue_rows_use_chinese_display_values(self):

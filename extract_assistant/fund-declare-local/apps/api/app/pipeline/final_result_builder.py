@@ -9,6 +9,7 @@ from app.pipeline.case_event_resolver import REVIEW_ISSUE_COLUMNS, resolve_case_
 from app.pipeline.document_context import build_document_context, merge_document_info
 from app.pipeline.file_issue_collector import collect_file_issues
 from app.pipeline.file_issue_summarizer import summarize_file_issues
+from app.pipeline.material_validity_checker import collect_material_validity_issues
 from app.pipeline.normalizers import normalize_chinaclear, normalize_guangfa
 from app.pipeline.source_overlap_deduper import dedupe_source_overlap_rows
 from app.pipeline.normalizers.common import (
@@ -166,6 +167,7 @@ def build_final_result(case_id: str) -> dict:
     review_items: list[dict] = []
     complete_rows: list[dict] = []
     holding_rows: list[dict] = []
+    material_issues: list[dict] = []
     source_extract_results = []
 
     for item in extract_items:
@@ -226,6 +228,15 @@ def build_final_result(case_id: str) -> dict:
             case_id,
             extract_result,
             file_record,
+        )
+        material_issues.extend(
+            collect_material_validity_issues(
+                file_record,
+                extract_path.parent,
+                extract_result,
+                transaction_rows=normalized["full_transaction_rows"],
+                holding_rows=normalized["holding_rows"],
+            )
         )
         complete_rows.extend(normalized["full_transaction_rows"])
         holding_rows.extend(normalized["holding_rows"])
@@ -289,6 +300,7 @@ def build_final_result(case_id: str) -> dict:
         review_issue_rows=review_issue_rows,
         pending_review_events=resolved.get("pending_review_events", []),
         pending_review_holdings=resolved.get("pending_review_holdings", []),
+        material_issues=material_issues,
     )
     review_issue_rows = [
         *review_issue_rows,
@@ -517,6 +529,12 @@ EXTRACT_REVIEW_ISSUE_TYPES = {
     "llm_output_truncated",
     "schema_invalid",
 }
+MATERIAL_REVIEW_ISSUE_TYPES = {
+    "material_missing_securities_account",
+    "material_missing_period",
+    "material_missing_market",
+    "empty_record_proof_incomplete",
+}
 
 
 def _review_issue_rows_from_file_issues(
@@ -530,6 +548,7 @@ def _review_issue_rows_from_file_issues(
         for reason, type_set in (
             ("OCR问题", OCR_REVIEW_ISSUE_TYPES),
             ("抽取问题", EXTRACT_REVIEW_ISSUE_TYPES),
+            ("材料有效性问题", MATERIAL_REVIEW_ISSUE_TYPES),
         ):
             matched_types = sorted(issue_types & type_set)
             if not matched_types:
@@ -560,6 +579,8 @@ def _file_issue_review_description(issue: dict, issue_types: list[str], reason: 
     ][:3]
     if reason == "OCR问题":
         action = "请核对原文件与 OCR 识别结果；如存在遮挡或涂抹，请重新上传无遮挡材料。"
+    elif reason == "材料有效性问题":
+        action = "请核对原始材料是否包含证券账号、查询时间和市场/账户类型；如缺失，请补充有效材料。"
     else:
         action = "请核对抽取结果，必要时重新抽取或在人工复核页补充缺失内容。"
     details = "、".join(label for label in labels if label)
@@ -588,6 +609,10 @@ def _file_issue_type_label(issue_type: str) -> str:
         "json_parse_failed": "结构化结果解析失败",
         "llm_output_truncated": "智能抽取输出被截断",
         "schema_invalid": "抽取结构不合法",
+        "material_missing_securities_account": "缺少证券账号",
+        "material_missing_period": "缺少交易/持仓对应时间",
+        "material_missing_market": "缺少市场或账户类型",
+        "empty_record_proof_incomplete": "空交易/空持仓证明不完整",
     }.get(issue_type, issue_type)
 
 
@@ -600,6 +625,11 @@ def _evidence_matches_issue_types(evidence: str, issue_types: list[str]) -> bool
         return "置信度" in evidence or "confidence" in evidence
     if "suspected_occlusion" in issue_types:
         return "遮挡" in evidence or "涂抹" in evidence
+    if any(issue_type in MATERIAL_REVIEW_ISSUE_TYPES for issue_type in issue_types):
+        return any(
+            keyword in evidence
+            for keyword in ("材料", "证券账号", "时间", "市场", "账户类型", "空交易", "空持仓", "负向证明")
+        )
     return any(keyword in evidence for keyword in ("抽取", "LLM", "JSON", "schema", "截断"))
 
 

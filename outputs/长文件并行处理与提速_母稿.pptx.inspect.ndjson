@@ -1,0 +1,82 @@
+{"kind":"deck","id":"pr/xo72gi","name":"Deck"}
+{"kind":"layout","layoutId":"e46100af-e2d6-42ed-b0a2-7319bc20fb4d","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"ec4a9611-53b4-467c-a6d4-f419e8d3c5e2","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/2quv7g","slide":1,"title":"E FUND 易方达风格参考","textShapes":39}
+{"kind":"shape","id":"sh/qtcj6tov","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/1gvy90je","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/8z25kb6x","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/fmlkjm1c","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/q1orytsv","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":1,"text":"方法｜长材料处理性能优化","textPreview":"方法｜长材料处理性能优化","textChars":12,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":1,"text":"长文件并行处理：提速、去重、截断兜底","textPreview":"长文件并行处理：提速、去重、截断兜底","textChars":18,"textLines":1,"bbox":[150,106,760,52]}
+{"kind":"shape","id":"sh/qd4vmtwr","slide":1,"name":"speed-badge-bg","bbox":[1030,102,172,38]}
+{"kind":"shape","id":"sh/sfil0rqd","slide":1,"name":"speed-badge-accent","bbox":[1030,102,4,38]}
+{"kind":"textbox","id":"sh/h0fepkzu","slide":1,"text":"速度提升 2x+","textPreview":"速度提升 2x+","textChars":8,"textLines":1,"bbox":[1040,112,154,20]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":1,"text":"长文件处理母稿","textPreview":"长文件处理母稿","textChars":7,"textLines":1,"bbox":[1070,681,132,22]}
+{"kind":"shape","id":"sh/hcrmhk3q","slide":1,"name":"note-bg","bbox":[150,160,1052,52]}
+{"kind":"shape","id":"sh/al87ed8b","slide":1,"name":"note-accent","bbox":[150,160,5,52]}
+{"kind":"textbox","id":"sh/z61032ls","slide":1,"text":"核心思路：长材料不整份硬塞给模型，而是按页 / 表格区域切分成任务队列；OCR、表格解析、LLM 抽取并行执行，再由合并层去重、校验和补偿。","textPreview":"核心思路：长材料不整份硬塞给模型，而是按页 / 表格区域切分成任务队列；OCR、表格解析、LLM 抽取并行执行，再由合并层去重、校验和补偿。","textChars":70,"textLines":1,"bbox":[170,172,1016,34]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":1,"text":"并行处理逻辑","textPreview":"并行处理逻辑","textChars":6,"textLines":1,"bbox":[150,232,260,24]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":1,"name":"pipeline-node","bbox":[150,268,154,72]}
+{"kind":"shape","id":"sh/1w7mp0bi","slide":1,"name":"pipeline-node-top","bbox":[150,268,154,5]}
+{"kind":"textbox","id":"sh/8bat47y1","slide":1,"text":"文件切分","textPreview":"文件切分","textChars":4,"textLines":1,"bbox":[166,282,122,18]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":1,"text":"按页 / 表格 / 截图区域","textPreview":"按页 / 表格 / 截图区域","textChars":14,"textLines":1,"bbox":[166,308,122,20]}
+{"kind":"textbox","id":"sh/q5o7qpg3","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[303,293,24,22]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":1,"name":"pipeline-node","bbox":[322,268,154,72]}
+{"kind":"shape","id":"sh/8nqxs72x","slide":1,"name":"pipeline-node-top","bbox":[322,268,154,5]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":1,"text":"任务入队","textPreview":"任务入队","textChars":4,"textLines":1,"bbox":[338,282,122,18]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":1,"text":"OCR 与表格解析并行","textPreview":"OCR 与表格解析并行","textChars":11,"textLines":1,"bbox":[338,308,122,20]}
+{"kind":"textbox","id":"sh/1cfa9w3m","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[475,293,24,22]}
+{"kind":"shape","id":"sh/crmhk3q5","slide":1,"name":"pipeline-node","bbox":[494,268,154,72]}
+{"kind":"shape","id":"sh/mp0bi9s3","slide":1,"name":"pipeline-node-top","bbox":[494,268,154,5]}
+{"kind":"textbox","id":"sh/bat47y1k","slide":1,"text":"并发抽取","textPreview":"并发抽取","textChars":4,"textLines":1,"bbox":[510,282,122,18]}
+{"kind":"textbox","id":"sh/4vmtwra5","slide":1,"text":"多 chunk 调 LLM","textPreview":"多 chunk 调 LLM","textChars":13,"textLines":1,"bbox":[510,308,122,20]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[647,293,24,22]}
+{"kind":"shape","id":"sh/m1cfa9w3","slide":1,"name":"pipeline-node","bbox":[666,268,154,72]}
+{"kind":"shape","id":"sh/bm58z25k","slide":1,"name":"pipeline-node-top","bbox":[666,268,154,5]}
+{"kind":"textbox","id":"sh/47y1kre1","slide":1,"text":"统一合并","textPreview":"统一合并","textChars":4,"textLines":1,"bbox":[682,282,122,18]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":1,"text":"按账户 / 证券 / 日期聚合","textPreview":"按账户 / 证券 / 日期聚合","textChars":15,"textLines":1,"bbox":[682,308,122,20]}
+{"kind":"textbox","id":"sh/m58z25kb","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[819,293,24,22]}
+{"kind":"shape","id":"sh/bq1oryts","slide":1,"name":"pipeline-node","bbox":[838,268,154,72]}
+{"kind":"shape","id":"sh/je9cvixc","slide":1,"name":"pipeline-node-top","bbox":[838,268,154,5]}
+{"kind":"textbox","id":"sh/qtcj6tov","slide":1,"text":"去重兜底","textPreview":"去重兜底","textChars":4,"textLines":1,"bbox":[854,282,122,18]}
+{"kind":"textbox","id":"sh/1gvy90je","slide":1,"text":"重复、截断、失败补偿","textPreview":"重复、截断、失败补偿","textChars":10,"textLines":1,"bbox":[854,308,122,20]}
+{"kind":"textbox","id":"sh/8z25kb6x","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[991,293,24,22]}
+{"kind":"shape","id":"sh/fmlkjm1c","slide":1,"name":"pipeline-node","bbox":[1010,268,154,72]}
+{"kind":"shape","id":"sh/q1orytsv","slide":1,"name":"pipeline-node-top","bbox":[1010,268,154,5]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":1,"text":"最终输出","textPreview":"最终输出","textChars":4,"textLines":1,"bbox":[1026,282,122,18]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":1,"text":"完整表 + 问题清单","textPreview":"完整表 + 问题清单","textChars":10,"textLines":1,"bbox":[1026,308,122,20]}
+{"kind":"shape","id":"sh/fyxobm58","slide":1,"name":"mini-card","bbox":[150,372,326,150]}
+{"kind":"shape","id":"sh/qd4vmtwr","slide":1,"name":"mini-card-accent","bbox":[150,372,5,150]}
+{"kind":"shape","id":"sh/wjudg7ad","slide":1,"name":"mini-label-bg","bbox":[168,390,92,26]}
+{"kind":"textbox","id":"sh/p4r65wju","slide":1,"text":"提速方式","textPreview":"提速方式","textChars":4,"textLines":1,"bbox":[178,396,78,14]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":1,"text":"• OCR / PDF / Table 解析按页并发\n• LLM 抽取按 chunk 并发，限制并发数防止拥塞\n• 已解析文件做缓存，重复上传不重新 OCR\n• 先做材料类型识别，只把相关片段送入抽取","textPreview":"• OCR / PDF / Table 解析按页并发 | • LLM 抽取按 chunk 并发，限制并发数防止拥塞 | • 已解析文件做缓存，重复上传不重新 OCR | • 先做材料类型识别，只把相关片段送入抽取","textChars":100,"textLines":4,"bbox":[172,430,288,80]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":1,"name":"mini-card","bbox":[500,372,326,150]}
+{"kind":"shape","id":"sh/0bi9s36h","slide":1,"name":"mini-card-accent","bbox":[500,372,5,150]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":1,"name":"mini-label-bg","bbox":[518,390,92,26]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":1,"text":"兜底机制","textPreview":"兜底机制","textChars":4,"textLines":1,"bbox":[528,396,78,14]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":1,"text":"• 每个 chunk 独立保存中间结果，失败可单段重试\n• 预估 token，超限自动二次切分\n• JSON 输出截断时按 checkpoint 续跑\n• 合并层校验缺失字段并生成问题清单","textPreview":"• 每个 chunk 独立保存中间结果，失败可单段重试 | • 预估 token，超限自动二次切分 | • JSON 输出截断时按 checkpoint 续跑 | • 合并层校验缺失字段并生成问题清单","textChars":94,"textLines":4,"bbox":[522,430,288,80]}
+{"kind":"shape","id":"sh/0z61032l","slide":1,"name":"mini-card","bbox":[850,372,352,150]}
+{"kind":"shape","id":"sh/pkzupwb2","slide":1,"name":"mini-card-accent","bbox":[850,372,5,150]}
+{"kind":"shape","id":"sh/donyd0z6","slide":1,"name":"mini-label-bg","bbox":[868,390,92,26]}
+{"kind":"textbox","id":"sh/k3q5o7qp","slide":1,"text":"去重合并","textPreview":"去重合并","textChars":4,"textLines":1,"bbox":[878,396,78,14]}
+{"kind":"textbox","id":"sh/vixczed8","slide":1,"text":"• 交易按账户 + 证券代码 + 日期 + 方向 + 金额近似匹配\n• 持仓按账户 + 证券代码 + 截止日期归并\n• 同一证据多次命中只保留一条结果\n• 冲突结果不覆盖，进入复核清单","textPreview":"• 交易按账户 + 证券代码 + 日期 + 方向 + 金额近似匹配 | • 持仓按账户 + 证券代码 + 截止日期归并 | • 同一证据多次命中只保留一条结果 | • 冲突结果不覆盖，进入复核清单","textChars":92,"textLines":4,"bbox":[872,430,314,80]}
+{"kind":"shape","id":"sh/2x4nap4r","slide":1,"name":"effect-panel","bbox":[150,548,1052,98]}
+{"kind":"shape","id":"sh/dcbulwva","slide":1,"name":"effect-accent","bbox":[150,548,5,98]}
+{"kind":"textbox","id":"sh/kre1w7mp","slide":1,"text":"效果展示：长材料处理耗时降低约 50%，速度提升一倍以上","textPreview":"效果展示：长材料处理耗时降低约 50%，速度提升一倍以上","textChars":28,"textLines":1,"bbox":[176,566,520,24]}
+{"kind":"textbox","id":"sh/val87ed8","slide":1,"text":"串行处理","textPreview":"串行处理","textChars":4,"textLines":1,"bbox":[176,596,132,22]}
+{"kind":"shape","id":"sh/6psfil0r","slide":1,"name":"bar-bg","bbox":[314,598,276,18]}
+{"kind":"shape","id":"sh/d8bat47y","slide":1,"name":"bar-fill","bbox":[314,598,288,18]}
+{"kind":"textbox","id":"sh/knih4byh","slide":1,"text":"约 20 min","textPreview":"约 20 min","textChars":8,"textLines":1,"bbox":[600,596,90,22]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":1,"text":"并行处理","textPreview":"并行处理","textChars":4,"textLines":1,"bbox":[176,623,132,22]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":1,"name":"bar-bg","bbox":[314,625,276,18]}
+{"kind":"shape","id":"sh/gn29gr2p","slide":1,"name":"bar-fill","bbox":[314,625,132,18]}
+{"kind":"textbox","id":"sh/58z25kb6","slide":1,"text":"约 8–10 min","textPreview":"约 8–10 min","textChars":10,"textLines":1,"bbox":[600,623,90,22]}
+{"kind":"shape","id":"sh/y90je9cv","slide":1,"name":"speed-result","bbox":[1038,578,130,44]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":1,"text":"2x+","textPreview":"2x+","textChars":3,"textLines":1,"bbox":[1058,583,90,24]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":1,"text":"处理速度提升","textPreview":"处理速度提升","textChars":6,"textLines":1,"bbox":[1058,606,90,16]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":1,"text":"注：效果用于汇报展示，可按实际测试数据替换为具体平均耗时。","textPreview":"注：效果用于汇报展示，可按实际测试数据替换为具体平均耗时。","textChars":29,"textLines":1,"bbox":[176,648,540,18]}
+{"kind":"notes","id":"nt/2quv7g","slide":1,"text":""}

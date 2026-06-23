@@ -39,6 +39,7 @@ def collect_file_issues(
     review_issue_rows: list[dict] | None = None,
     pending_review_events: list[dict] | None = None,
     pending_review_holdings: list[dict] | None = None,
+    material_issues: list[dict] | None = None,
 ) -> list[dict]:
     states = {
         str(file_record.get("file_id") or ""): _base_state(file_record)
@@ -55,6 +56,9 @@ def collect_file_issues(
         state = states[file_id]
         _collect_from_file_record(state, file_record)
         _collect_from_processed_files(case_id, state, file_record)
+
+    for issue in material_issues or []:
+        _collect_material_issue(states, issue)
 
     for issue in review_issues or []:
         _collect_from_review_issue(states, issue)
@@ -211,16 +215,17 @@ def _collect_from_review_issue(states: dict[str, dict], issue: dict) -> None:
                 "请核对该文件的关键字段。",
             )
 
-        for field in _as_list(issue.get("missing_fields")):
-            mapped = FIELD_ISSUE_TYPES.get(str(field))
-            if mapped:
-                _add_issue(
-                    state,
-                    mapped,
-                    "warning",
-                    f"待复核记录缺失关键字段：{_field_label(str(field))}。",
-                    "请补充或确认该关键字段。",
-                )
+        if not _is_empty_record_review_issue(issue_types):
+            for field in _as_list(issue.get("missing_fields")):
+                mapped = FIELD_ISSUE_TYPES.get(str(field))
+                if mapped:
+                    _add_issue(
+                        state,
+                        mapped,
+                        "warning",
+                        f"待复核记录缺失关键字段：{_field_label(str(field))}。",
+                        "请补充或确认该关键字段。",
+                    )
 
 
 def _collect_pending_row(states: dict[str, dict], row: dict, issue_type: str) -> None:
@@ -235,6 +240,20 @@ def _collect_pending_row(states: dict[str, dict], row: dict, issue_type: str) ->
         "warning",
         f"文件中存在待复核记录：{row.get('event_id') or row.get('holding_id') or '未命名记录'}。",
         "请核对待复核记录。",
+    )
+
+
+def _collect_material_issue(states: dict[str, dict], issue: dict) -> None:
+    file_id = str(issue.get("file_id") or "")
+    state = states.get(file_id)
+    if not state:
+        return
+    _add_issue(
+        state,
+        str(issue.get("issue_type") or "material_validity_issue"),
+        str(issue.get("severity") or "warning"),
+        str(issue.get("evidence") or "材料有效性存疑。"),
+        str(issue.get("suggested_action") or "请核对原始材料。"),
     )
 
 
@@ -439,9 +458,14 @@ def _file_issue_type_from_review_type(issue_type: str) -> str:
         "account_type_missing": "missing_account_type",
         "unknown_event_type": "unknown_event_type",
         "conflict_between_sources": "conflict_between_sources",
-        "empty_record_account_missing": "missing_securities_account",
-        "empty_record_period_missing": "missing_date",
+        "empty_record_account_missing": "empty_record_proof_incomplete",
+        "empty_record_period_missing": "empty_record_proof_incomplete",
+        "empty_record_market_missing": "empty_record_proof_incomplete",
     }.get(issue_type, issue_type or "manual_review_required")
+
+
+def _is_empty_record_review_issue(issue_types: list) -> bool:
+    return any(str(issue_type).startswith("empty_record_") for issue_type in issue_types)
 
 
 def _review_issue_evidence(issue: dict) -> str:

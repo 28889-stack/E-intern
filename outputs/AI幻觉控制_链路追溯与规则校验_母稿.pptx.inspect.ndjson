@@ -1,0 +1,69 @@
+{"kind":"deck","id":"pr/mupcml","name":"Deck"}
+{"kind":"layout","layoutId":"5d74a925-58d7-496c-bdbf-ca5fd09526f4","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"32b58c70-d09b-4a72-8556-f7732a13f257","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/8zuas8","slide":1,"title":"E FUND 易方达风格参考","textShapes":29}
+{"kind":"shape","id":"sh/bulwval8","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/0fepkzup","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/p0bi9s36","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/ixczed8v","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/032lszqt","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/tovahoza","slide":1,"text":"方法｜AI 结果可信度控制","textPreview":"方法｜AI 结果可信度控制","textChars":13,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":1,"text":"用链路追溯和代码规则，控制 AI 幻觉与误判","textPreview":"用链路追溯和代码规则，控制 AI 幻觉与误判","textChars":22,"textLines":1,"bbox":[150,106,840,52]}
+{"kind":"shape","id":"sh/b6xkf6dc","slide":1,"name":"badge-bg","bbox":[1072,102,130,38]}
+{"kind":"shape","id":"sh/32lszqtc","slide":1,"name":"badge-accent","bbox":[1072,102,4,38]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":1,"text":"可追溯 / 可校验","textPreview":"可追溯 / 可校验","textChars":9,"textLines":1,"bbox":[1082,112,112,20]}
+{"kind":"shape","id":"sh/l87ed8ba","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/sneloj2t","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":1,"text":"AI 幻觉控制母稿","textPreview":"AI 幻觉控制母稿","textChars":9,"textLines":1,"bbox":[1070,681,132,22]}
+{"kind":"shape","id":"sh/at47y1kr","slide":1,"name":"note-bg","bbox":[150,160,1052,52]}
+{"kind":"shape","id":"sh/lkjm1cfa","slide":1,"name":"note-accent","bbox":[150,160,5,52]}
+{"kind":"textbox","id":"sh/szqtcj6t","slide":1,"text":"核心思路：AI 只生成初步抽取结果；最终进入申报版前，必须同时通过“证据链可追溯”和“代码规则可校验”。","textPreview":"核心思路：AI 只生成初步抽取结果；最终进入申报版前，必须同时通过“证据链可追溯”和“代码规则可校验”。","textChars":52,"textLines":1,"bbox":[170,172,1016,34]}
+{"kind":"shape","id":"sh/3itgfmlk","slide":1,"name":"control-card","bbox":[150,238,512,230]}
+{"kind":"shape","id":"sh/ex0nuxc3","slide":1,"name":"control-card-top","bbox":[150,238,512,6]}
+{"kind":"shape","id":"sh/i9s36hcr","slide":1,"name":"control-label-bg","bbox":[170,266,96,28]}
+{"kind":"shape","id":"sh/bulwval8","slide":1,"name":"control-label-accent","bbox":[170,266,4,28]}
+{"kind":"textbox","id":"sh/0fepkzup","slide":1,"text":"链路追溯","textPreview":"链路追溯","textChars":4,"textLines":1,"bbox":[184,273,76,14]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":1,"text":"每个字段都能回到原始材料","textPreview":"每个字段都能回到原始材料","textChars":12,"textLines":1,"bbox":[170,310,472,28]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":1,"text":"• 保留原始文件、页码、表格区域或截图位置\n• 记录 OCR / PDF / Table chunk 与抽取字段的对应关系\n• 金额、日期、证券代码、账户等关键字段必须有来源证据\n• 复核人员可从结果反查到证据，不只看 AI 结论","textPreview":"• 保留原始文件、页码、表格区域或截图位置 | • 记录 OCR / PDF / Table chunk 与抽取字段的对应关系 | • 金额、日期、证券代码、账户等关键字段必须有来源证据 | • 复核人员可从结果反查到证据，不只看 AI 结论","textChars":115,"textLines":4,"bbox":[170,356,472,100]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":1,"name":"control-card","bbox":[690,238,512,230]}
+{"kind":"shape","id":"sh/032lszqt","slide":1,"name":"control-card-top","bbox":[690,238,512,6]}
+{"kind":"shape","id":"sh/tovahoza","slide":1,"name":"control-label-bg","bbox":[710,266,96,28]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":1,"name":"control-label-accent","bbox":[710,266,4,28]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":1,"text":"规则校验","textPreview":"规则校验","textChars":4,"textLines":1,"bbox":[724,273,76,14]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":1,"text":"用代码规则约束 AI 输出","textPreview":"用代码规则约束 AI 输出","textChars":13,"textLines":1,"bbox":[710,310,472,28]}
+{"kind":"textbox","id":"sh/obm58z25","slide":1,"text":"• 字段类型校验：日期、金额、证券代码、交易方向\n• 业务枚举归一：买入 / 卖出 / 分红 / 派息 / 非申报流水\n• 跨表一致性校验：交易、持仓、账户、材料来源互相印证\n• 不确定或冲突结果不进最终版，进入问题清单","textPreview":"• 字段类型校验：日期、金额、证券代码、交易方向 | • 业务枚举归一：买入 / 卖出 / 分红 / 派息 / 非申报流水 | • 跨表一致性校验：交易、持仓、账户、材料来源互相印证 | • 不确定或冲突结果不进最终版，进入问题清单","textChars":110,"textLines":4,"bbox":[710,356,472,100]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":1,"text":"字段归一化到最终版","textPreview":"字段归一化到最终版","textChars":9,"textLines":1,"bbox":[150,496,360,24]}
+{"kind":"shape","id":"sh/65wjudg7","slide":1,"name":"bottom-step","bbox":[150,532,196,72]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":1,"name":"step-top","bbox":[150,532,196,5]}
+{"kind":"shape","id":"sh/oza1gvy9","slide":1,"name":"step-1-accent","bbox":[166,549,4,36]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":1,"text":"AI 初抽取","textPreview":"AI 初抽取","textChars":6,"textLines":1,"bbox":[180,546,156,18]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":1,"text":"从局部材料生成候选字段","textPreview":"从局部材料生成候选字段","textChars":11,"textLines":1,"bbox":[180,572,156,18]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[344,554,24,22]}
+{"kind":"shape","id":"sh/orytsvu9","slide":1,"name":"bottom-step","bbox":[362,532,196,72]}
+{"kind":"shape","id":"sh/c7u54zid","slide":1,"name":"step-top","bbox":[362,532,196,5]}
+{"kind":"shape","id":"sh/1orytsvu","slide":1,"name":"step-2-accent","bbox":[378,549,4,36]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":1,"text":"字段标准化","textPreview":"字段标准化","textChars":5,"textLines":1,"bbox":[392,546,156,18]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":1,"text":"统一名称、类型、枚举和值域","textPreview":"统一名称、类型、枚举和值域","textChars":13,"textLines":1,"bbox":[392,572,156,18]}
+{"kind":"textbox","id":"sh/cfa9w3m9","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[556,554,24,22]}
+{"kind":"shape","id":"sh/1032lszq","slide":1,"name":"bottom-step","bbox":[574,532,196,72]}
+{"kind":"shape","id":"sh/u9knih4b","slide":1,"name":"step-top","bbox":[574,532,196,5]}
+{"kind":"shape","id":"sh/judg7ads","slide":1,"name":"step-3-accent","bbox":[590,549,4,36]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"text":"规则校验","textPreview":"规则校验","textChars":4,"textLines":1,"bbox":[604,546,156,18]}
+{"kind":"textbox","id":"sh/54zidony","slide":1,"text":"格式、业务、跨来源一致性","textPreview":"格式、业务、跨来源一致性","textChars":12,"textLines":1,"bbox":[604,572,156,18]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[768,554,24,22]}
+{"kind":"shape","id":"sh/2p8nqxs7","slide":1,"name":"bottom-step","bbox":[786,532,196,72]}
+{"kind":"shape","id":"sh/9gr2p8nq","slide":1,"name":"step-top","bbox":[786,532,196,5]}
+{"kind":"shape","id":"sh/gvy90je9","slide":1,"name":"step-4-accent","bbox":[802,549,4,36]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":1,"text":"证据挂接","textPreview":"证据挂接","textChars":4,"textLines":1,"bbox":[816,546,156,18]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":1,"text":"绑定文件、页码、表格行列","textPreview":"绑定文件、页码、表格行列","textChars":12,"textLines":1,"bbox":[816,572,156,18]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[980,554,24,22]}
+{"kind":"shape","id":"sh/kjm1cfa9","slide":1,"name":"bottom-step","bbox":[998,532,196,72]}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":1,"name":"step-top","bbox":[998,532,196,5]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":1,"name":"step-5-accent","bbox":[1014,549,4,36]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":1,"text":"结果分流","textPreview":"结果分流","textChars":4,"textLines":1,"bbox":[1028,546,156,18]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":1,"text":"通过进入最终版，异常进问题清单","textPreview":"通过进入最终版，异常进问题清单","textChars":15,"textLines":1,"bbox":[1028,572,156,18]}
+{"kind":"shape","id":"sh/s72x4nap","slide":1,"name":"note-bg","bbox":[150,622,1052,36]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":1,"name":"note-accent","bbox":[150,622,5,36]}
+{"kind":"textbox","id":"sh/adsji5sn","slide":1,"text":"落地效果：AI 的不确定性不会被直接包装成结论，而是被转化为可追溯的证据、可执行的校验规则和可复核的问题项。","textPreview":"落地效果：AI 的不确定性不会被直接包装成结论，而是被转化为可追溯的证据、可执行的校验规则和可复核的问题项。","textChars":54,"textLines":1,"bbox":[170,634,1016,18]}
+{"kind":"notes","id":"nt/8zuas8","slide":1,"text":""}

@@ -1,0 +1,76 @@
+{"kind":"deck","id":"pr/5og9cc","name":"Deck"}
+{"kind":"layout","layoutId":"fb310b2b-25ec-49ea-a8ec-e931c0ca6174","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"e979b0ce-9d72-4bd5-ab77-045b9ef33289","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/h8767p","slide":1,"title":"E FUND 易方达风格参考","textShapes":41}
+{"kind":"shape","id":"sh/svu9knih","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/za1gvy90","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/hoza1gvy","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/s36hcrmh","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":1,"text":"流程｜系统操作路径","textPreview":"流程｜系统操作路径","textChars":9,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":1,"text":"从材料上传到 Excel 导出，形成可复核的操作闭环","textPreview":"从材料上传到 Excel 导出，形成可复核的操作闭环","textChars":26,"textLines":1,"bbox":[150,112,900,46]}
+{"kind":"shape","id":"sh/s72x4nap","slide":1,"name":"badge-bg","bbox":[1070,106,132,34]}
+{"kind":"shape","id":"sh/idonyd0z","slide":1,"name":"badge-accent","bbox":[1070,106,4,34]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":1,"text":"操作闭环","textPreview":"操作闭环","textChars":4,"textLines":1,"bbox":[1084,115,104,18]}
+{"kind":"shape","id":"sh/0je9cvix","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":1,"text":"操作流程母稿","textPreview":"操作流程母稿","textChars":6,"textLines":1,"bbox":[1070,681,132,22]}
+{"kind":"shape","id":"sh/b6xkf6dc","slide":1,"name":"note-bg","bbox":[150,162,1052,52]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":1,"name":"note-accent","bbox":[150,162,5,52]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":1,"text":"面向复核人员的核心链路：先批量上传材料，由系统完成识别与结构化，再由人工围绕问题项修改核对，最后回传系统或导出 Excel 留痕。","textPreview":"面向复核人员的核心链路：先批量上传材料，由系统完成识别与结构化，再由人工围绕问题项修改核对，最后回传系统或导出 Excel 留痕。","textChars":65,"textLines":1,"bbox":[170,173,1016,36]}
+{"kind":"shape","id":"sh/ixczed8v","slide":1,"name":"process-card","bbox":[150,242,244,288]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":1,"name":"process-top","bbox":[150,242,244,6]}
+{"kind":"shape","id":"sh/zidonyd0","slide":1,"name":"step-index-bg","bbox":[168,268,36,36]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[168,276,36,18]}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":1,"text":"上传材料","textPreview":"上传材料","textChars":4,"textLines":1,"bbox":[216,267,160,26]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":1,"text":"批量导入 PDF、图片、截图或压缩包","textPreview":"批量导入 PDF、图片、截图或压缩包","textChars":18,"textLines":1,"bbox":[216,297,160,36]}
+{"kind":"shape","id":"sh/za1gvy90","slide":1,"name":"card-rule","bbox":[168,350,208,1]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":1,"text":"系统处理","textPreview":"系统处理","textChars":4,"textLines":1,"bbox":[168,367,80,18]}
+{"kind":"textbox","id":"sh/hgn29gr2","slide":1,"text":"文件归档、生成任务编号、记录上传人和时间","textPreview":"文件归档、生成任务编号、记录上传人和时间","textChars":20,"textLines":1,"bbox":[168,390,208,42]}
+{"kind":"textbox","id":"sh/svu9knih","slide":1,"text":"人工动作","textPreview":"人工动作","textChars":4,"textLines":1,"bbox":[168,444,80,18]}
+{"kind":"textbox","id":"sh/3ylc7u54","slide":1,"text":"选择申报对象，确认材料范围和补充说明","textPreview":"选择申报对象，确认材料范围和补充说明","textChars":18,"textLines":1,"bbox":[168,466,208,42]}
+{"kind":"textbox","id":"sh/adsji5sn","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[389,367,34,30]}
+{"kind":"shape","id":"sh/kf6dcbul","slide":1,"name":"process-card","bbox":[419,242,244,288]}
+{"kind":"shape","id":"sh/d0z61032","slide":1,"name":"process-top","bbox":[419,242,244,6]}
+{"kind":"shape","id":"sh/29gr2p8n","slide":1,"name":"step-index-bg","bbox":[437,268,36,36]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":1,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[437,276,36,18]}
+{"kind":"textbox","id":"sh/knih4byh","slide":1,"text":"识别抽取","textPreview":"识别抽取","textChars":4,"textLines":1,"bbox":[485,267,160,26]}
+{"kind":"textbox","id":"sh/d8bat47y","slide":1,"text":"OCR / PDF / 表格解析后生成候选结果","textPreview":"OCR / PDF / 表格解析后生成候选结果","textChars":23,"textLines":1,"bbox":[485,297,160,36]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":1,"name":"card-rule","bbox":[437,350,208,1]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":1,"text":"系统处理","textPreview":"系统处理","textChars":4,"textLines":1,"bbox":[437,367,80,18]}
+{"kind":"textbox","id":"sh/kre1w7mp","slide":1,"text":"识别身份、账户、持仓、交易与证明类材料","textPreview":"识别身份、账户、持仓、交易与证明类材料","textChars":19,"textLines":1,"bbox":[437,390,208,42]}
+{"kind":"textbox","id":"sh/dcbulwva","slide":1,"text":"人工动作","textPreview":"人工动作","textChars":4,"textLines":1,"bbox":[437,444,80,18]}
+{"kind":"textbox","id":"sh/p4r65wju","slide":1,"text":"查看识别状态，定位失败或需补充的文件","textPreview":"查看识别状态，定位失败或需补充的文件","textChars":18,"textLines":1,"bbox":[437,466,208,42]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[658,367,34,30]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":1,"name":"process-card","bbox":[688,242,244,288]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":1,"name":"process-top","bbox":[688,242,244,6]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":1,"name":"step-index-bg","bbox":[706,268,36,36]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":1,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[706,276,36,18]}
+{"kind":"textbox","id":"sh/7qpg3ex0","slide":1,"text":"修改核对","textPreview":"修改核对","textChars":4,"textLines":1,"bbox":[754,267,160,26]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":1,"text":"围绕合规结论、材料质量和证据链复核","textPreview":"围绕合规结论、材料质量和证据链复核","textChars":17,"textLines":1,"bbox":[754,297,160,36]}
+{"kind":"shape","id":"sh/pkzupwb2","slide":1,"name":"card-rule","bbox":[706,350,208,1]}
+{"kind":"textbox","id":"sh/0z61032l","slide":1,"text":"系统处理","textPreview":"系统处理","textChars":4,"textLines":1,"bbox":[706,367,80,18]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":1,"text":"输出申报合规规则判断，识别材料模糊、缺页或证据不足","textPreview":"输出申报合规规则判断，识别材料模糊、缺页或证据不足","textChars":25,"textLines":1,"bbox":[706,390,208,42]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":1,"text":"人工动作","textPreview":"人工动作","textChars":4,"textLines":1,"bbox":[706,444,80,18]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":1,"text":"人工核对结论与证据，修正字段并确认准确性","textPreview":"人工核对结论与证据，修正字段并确认准确性","textChars":20,"textLines":1,"bbox":[706,466,208,42]}
+{"kind":"textbox","id":"sh/18jqh0fe","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[927,367,34,30]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":1,"name":"process-card","bbox":[957,242,244,288]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":1,"name":"process-top","bbox":[957,242,244,6]}
+{"kind":"shape","id":"sh/8bat47y1","slide":1,"name":"step-index-bg","bbox":[975,268,36,36]}
+{"kind":"textbox","id":"sh/1w7mp0bi","slide":1,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[975,276,36,18]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":1,"text":"回传 / 导出","textPreview":"回传 / 导出","textChars":7,"textLines":1,"bbox":[1023,267,160,26]}
+{"kind":"textbox","id":"sh/ji5snelo","slide":1,"text":"形成最终申报结果和留痕文件","textPreview":"形成最终申报结果和留痕文件","textChars":13,"textLines":1,"bbox":[1023,297,160,36]}
+{"kind":"shape","id":"sh/bat47y1k","slide":1,"name":"card-rule","bbox":[975,350,208,1]}
+{"kind":"textbox","id":"sh/mp0bi9s3","slide":1,"text":"系统处理","textPreview":"系统处理","textChars":4,"textLines":1,"bbox":[975,367,80,18]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":1,"text":"生成最终表、完整表、持仓表、核对清单和问题清单","textPreview":"生成最终表、完整表、持仓表、核对清单和问题清单","textChars":23,"textLines":1,"bbox":[975,390,208,42]}
+{"kind":"textbox","id":"sh/4vmtwra5","slide":1,"text":"人工动作","textPreview":"人工动作","textChars":4,"textLines":1,"bbox":[975,444,80,18]}
+{"kind":"textbox","id":"sh/bm58z25k","slide":1,"text":"确认后上传系统，或导出 Excel 用于归档与复核","textPreview":"确认后上传系统，或导出 Excel 用于归档与复核","textChars":25,"textLines":1,"bbox":[975,466,208,42]}
+{"kind":"shape","id":"sh/m1cfa9w3","slide":1,"name":"output-bar","bbox":[150,554,1052,44]}
+{"kind":"shape","id":"sh/tsvu9kni","slide":1,"name":"output-accent","bbox":[150,554,5,44]}
+{"kind":"textbox","id":"sh/47y1kre1","slide":1,"text":"最终输出","textPreview":"最终输出","textChars":4,"textLines":1,"bbox":[178,566,110,18]}
+{"kind":"textbox","id":"sh/bq1oryts","slide":1,"text":"可编辑申报结果  /  可追溯证据链  /  Excel 导出文件  /  系统回传记录","textPreview":"可编辑申报结果  /  可追溯证据链  /  Excel 导出文件  /  系统回传记录","textChars":44,"textLines":1,"bbox":[290,566,850,18]}
+{"kind":"shape","id":"sh/m58z25kb","slide":1,"name":"note-bg","bbox":[150,614,1052,40]}
+{"kind":"shape","id":"sh/w7mp0bi9","slide":1,"name":"note-accent","bbox":[150,614,5,40]}
+{"kind":"textbox","id":"sh/psfil0rq","slide":1,"text":"操作原则：系统先把材料整理成可核对结果，人工只处理需要判断和确认的事项。","textPreview":"操作原则：系统先把材料整理成可核对结果，人工只处理需要判断和确认的事项。","textChars":36,"textLines":1,"bbox":[170,625,1016,24]}
+{"kind":"notes","id":"nt/h8767p","slide":1,"text":""}

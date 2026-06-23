@@ -1,0 +1,61 @@
+{"kind":"deck","id":"pr/ajce5m","name":"Deck"}
+{"kind":"layout","layoutId":"24a8b124-b723-49ad-8b02-19a64d8c7a7b","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"4c7bc2f3-5f7d-47eb-afd9-59738525d789","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/kek56y","slide":1,"title":"E FUND 易方达风格参考","textShapes":25}
+{"kind":"shape","id":"sh/1032lszq","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/u9knih4b","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/judg7ads","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/c7u54zid","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/1orytsvu","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":1,"text":"前期储备｜法律规则梳理","textPreview":"前期储备｜法律规则梳理","textChars":11,"textLines":1,"bbox":[150,78,520,22]}
+{"kind":"textbox","id":"sh/cvixczed","slide":1,"text":"证券投资申报规则梳理：明确主体、流程与申报字段","textPreview":"证券投资申报规则梳理：明确主体、流程与申报字段","textChars":23,"textLines":1,"bbox":[150,106,840,52]}
+{"kind":"shape","id":"sh/5gbq1ory","slide":1,"name":"badge-bg","bbox":[1012,102,190,38]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":1,"name":"badge-accent","bbox":[1012,102,4,38]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":1,"text":"规则前置理解","textPreview":"规则前置理解","textChars":6,"textLines":1,"bbox":[1028,112,156,20]}
+{"kind":"shape","id":"sh/j2t83itg","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/1w7mp0bi","slide":1,"text":"法律规则梳理母稿","textPreview":"法律规则梳理母稿","textChars":8,"textLines":1,"bbox":[1040,681,162,22]}
+{"kind":"shape","id":"sh/8bat47y1","slide":1,"name":"note-bg","bbox":[150,160,1052,56]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":1,"name":"note-accent","bbox":[150,160,5,56]}
+{"kind":"textbox","id":"sh/q5o7qpg3","slide":1,"text":"前期重点研究《基金从业人员证券投资管理指引（试行）》等规则，将大量法条压缩为项目需要落地的三个问题：谁要申报、何时申报、申报什么。","textPreview":"前期重点研究《基金从业人员证券投资管理指引（试行）》等规则，将大量法条压缩为项目需要落地的三个问题：谁要申报、何时申报、申报什么。","textChars":65,"textLines":1,"bbox":[170,172,1016,38]}
+{"kind":"shape","id":"sh/1kre1w7m","slide":1,"name":"pillar","bbox":[150,246,326,224]}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":1,"name":"pillar-top","bbox":[150,246,326,5]}
+{"kind":"shape","id":"sh/orytsvu9","slide":1,"name":"pillar-label-bg","bbox":[170,270,118,28]}
+{"kind":"shape","id":"sh/hcrmhk3q","slide":1,"name":"pillar-label-accent","bbox":[170,270,4,28]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":1,"text":"申报主体","textPreview":"申报主体","textChars":4,"textLines":1,"bbox":[184,277,94,14]}
+{"kind":"textbox","id":"sh/z61032ls","slide":1,"text":"覆盖本人、配偶及相关账户","textPreview":"覆盖本人、配偶及相关账户","textChars":12,"textLines":1,"bbox":[170,316,286,28]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":1,"text":"基金从业人员包括董事、监事、高级管理人员和相关业务人员。\n申报范围还需覆盖配偶、利害关系人，以及制度要求纳入管理的父母、子女账户。\n重点岗位可适用更严格的审批和交易限制。","textPreview":"基金从业人员包括董事、监事、高级管理人员和相关业务人员。 | 申报范围还需覆盖配偶、利害关系人，以及制度要求纳入管理的父母、子女账户。 | 重点岗位可适用更严格的审批和交易限制。","textChars":85,"textLines":3,"bbox":[170,358,286,92]}
+{"kind":"shape","id":"sh/h0fepkzu","slide":1,"name":"pillar","bbox":[501,246,326,224]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":1,"name":"pillar-top","bbox":[501,246,326,5]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":1,"name":"pillar-label-bg","bbox":[521,270,118,28]}
+{"kind":"shape","id":"sh/obm58z25","slide":1,"name":"pillar-label-accent","bbox":[521,270,4,28]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":1,"text":"申报方式","textPreview":"申报方式","textChars":4,"textLines":1,"bbox":[535,277,94,14]}
+{"kind":"textbox","id":"sh/7u54zido","slide":1,"text":"覆盖入职、事前、定期和变更","textPreview":"覆盖入职、事前、定期和变更","textChars":13,"textLines":1,"bbox":[521,316,286,28]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":1,"text":"申报管理不是一次性填报，而是贯穿入职申报、交易前申报或审批、批准有效期、计划变更、定期报告和系统登记。\n不同岗位可按信息接触程度和决策权限差异化管理。","textPreview":"申报管理不是一次性填报，而是贯穿入职申报、交易前申报或审批、批准有效期、计划变更、定期报告和系统登记。 | 不同岗位可按信息接触程度和决策权限差异化管理。","textChars":75,"textLines":2,"bbox":[521,358,286,92]}
+{"kind":"shape","id":"sh/l0rqd4vm","slide":1,"name":"pillar","bbox":[852,246,350,224]}
+{"kind":"shape","id":"sh/wfyxobm5","slide":1,"name":"pillar-top","bbox":[852,246,350,5]}
+{"kind":"shape","id":"sh/36hcrmhk","slide":1,"name":"pillar-label-bg","bbox":[872,270,118,28]}
+{"kind":"shape","id":"sh/eloj2t83","slide":1,"name":"pillar-label-accent","bbox":[872,270,4,28]}
+{"kind":"textbox","id":"sh/lc7u54zi","slide":1,"text":"申报内容","textPreview":"申报内容","textChars":4,"textLines":1,"bbox":[886,277,94,14]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":1,"text":"账户、持仓、交易、关系信息","textPreview":"账户、持仓、交易、关系信息","textChars":13,"textLines":1,"bbox":[872,316,310,28]}
+{"kind":"textbox","id":"sh/7adsji5s","slide":1,"text":"账户类：身份、关系、证券/资金账户、券商、实际控制人。\n持仓类：证券名称、代码、数量、市值、持有期限。\n交易类：方向、金额、时间、理由及利益冲突判断。","textPreview":"账户类：身份、关系、证券/资金账户、券商、实际控制人。 | 持仓类：证券名称、代码、数量、市值、持有期限。 | 交易类：方向、金额、时间、理由及利益冲突判断。","textChars":75,"textLines":3,"bbox":[872,358,310,92]}
+{"kind":"textbox","id":"sh/epkzupwb","slide":1,"text":"对项目设计的转化","textPreview":"对项目设计的转化","textChars":8,"textLines":1,"bbox":[150,504,240,22]}
+{"kind":"shape","id":"sh/ex0nuxc3","slide":1,"name":"conversion-rule","bbox":[150,534,1052,1]}
+{"kind":"shape","id":"sh/3itgfmlk","slide":1,"name":"conversion","bbox":[150,548,246,70]}
+{"kind":"shape","id":"sh/w3m94fu1","slide":1,"name":"conversion-accent","bbox":[150,548,3,70]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":1,"text":"人员范围判断","textPreview":"人员范围判断","textChars":6,"textLines":1,"bbox":[166,556,220,18]}
+{"kind":"textbox","id":"sh/e9cvixcz","slide":1,"text":"识别员工、配偶、利害关系人及需纳入管理的亲属账户","textPreview":"识别员工、配偶、利害关系人及需纳入管理的亲属账户","textChars":24,"textLines":1,"bbox":[166,583,220,24]}
+{"kind":"shape","id":"sh/3q5o7qpg","slide":1,"name":"conversion","bbox":[419,548,246,70]}
+{"kind":"shape","id":"sh/wb2hwfyx","slide":1,"name":"conversion-accent","bbox":[419,548,3,70]}
+{"kind":"textbox","id":"sh/lwval87e","slide":1,"text":"材料与流程校验","textPreview":"材料与流程校验","textChars":7,"textLines":1,"bbox":[435,556,220,18]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":1,"text":"判断入职、事前、定期、变更等节点材料是否齐备","textPreview":"判断入职、事前、定期、变更等节点材料是否齐备","textChars":22,"textLines":1,"bbox":[435,583,220,24]}
+{"kind":"shape","id":"sh/32lszqtc","slide":1,"name":"conversion","bbox":[688,548,246,70]}
+{"kind":"shape","id":"sh/t47y1kre","slide":1,"name":"conversion-accent","bbox":[688,548,3,70]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":1,"text":"字段抽取框架","textPreview":"字段抽取框架","textChars":6,"textLines":1,"bbox":[704,556,220,18]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":1,"text":"围绕账户、持仓、交易、关系四类字段设计抽取结构","textPreview":"围绕账户、持仓、交易、关系四类字段设计抽取结构","textChars":23,"textLines":1,"bbox":[704,583,220,24]}
+{"kind":"shape","id":"sh/idonyd0z","slide":1,"name":"conversion","bbox":[956,548,246,70]}
+{"kind":"shape","id":"sh/tcj6tova","slide":1,"name":"conversion-accent","bbox":[956,548,3,70]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":1,"text":"复核问题清单","textPreview":"复核问题清单","textChars":6,"textLines":1,"bbox":[972,556,220,18]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":1,"text":"缺材料、缺字段、关系不明或交易异常进入人工复核","textPreview":"缺材料、缺字段、关系不明或交易异常进入人工复核","textChars":23,"textLines":1,"bbox":[972,583,220,24]}
+{"kind":"notes","id":"nt/kek56y","slide":1,"text":""}

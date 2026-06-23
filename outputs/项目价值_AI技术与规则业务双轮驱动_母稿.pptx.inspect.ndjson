@@ -1,0 +1,66 @@
+{"kind":"deck","id":"pr/dx2b95","name":"Deck"}
+{"kind":"layout","layoutId":"7ee25d80-f268-4c73-b8f3-008089b936d9","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"f96c783f-bfee-4735-81ad-663c7870b662","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/iwxews","slide":1,"title":"E FUND 易方达风格参考","textShapes":30}
+{"kind":"shape","id":"sh/twra5gbq","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/m58z25kb","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/bq1oryts","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/4nap4r65","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/t83itgfm","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/mhk3q5o7","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/b2hwfyxo","slide":1,"text":"总结｜项目价值","textPreview":"总结｜项目价值","textChars":7,"textLines":1,"bbox":[150,78,320,22]}
+{"kind":"textbox","id":"sh/4vmtwra5","slide":1,"text":"项目价值：AI 技术与规则业务理解共同发力","textPreview":"项目价值：AI 技术与规则业务理解共同发力","textChars":21,"textLines":1,"bbox":[150,106,780,52]}
+{"kind":"shape","id":"sh/tgfmlkjm","slide":1,"name":"badge-bg","bbox":[1012,102,190,38]}
+{"kind":"shape","id":"sh/xc3ylc7u","slide":1,"name":"badge-accent","bbox":[1012,102,4,38]}
+{"kind":"textbox","id":"sh/4r65wjud","slide":1,"text":"技术 × 规则 × 业务","textPreview":"技术 × 规则 × 业务","textChars":12,"textLines":1,"bbox":[1028,112,156,20]}
+{"kind":"shape","id":"sh/f6dcbulw","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/mlkjm1cf","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/xkf6dcbu","slide":1,"text":"项目价值母稿","textPreview":"项目价值母稿","textChars":6,"textLines":1,"bbox":[1070,681,132,22]}
+{"kind":"shape","id":"sh/4zidonyd","slide":1,"name":"note-bg","bbox":[150,160,1052,52]}
+{"kind":"shape","id":"sh/fepkzupw","slide":1,"name":"note-accent","bbox":[150,160,5,52]}
+{"kind":"textbox","id":"sh/mtwra5gb","slide":1,"text":"项目价值不只是把材料“识别出来”，而是把 AI 处理能力、工程链路、法规要求和证券业务判断固化到同一套可复核流程中。","textPreview":"项目价值不只是把材料“识别出来”，而是把 AI 处理能力、工程链路、法规要求和证券业务判断固化到同一套可复核流程中。","textChars":58,"textLines":1,"bbox":[170,172,1016,34]}
+{"kind":"shape","id":"sh/xobm58z2","slide":1,"name":"value-column","bbox":[150,238,500,230]}
+{"kind":"shape","id":"sh/83itgfml","slide":1,"name":"column-top","bbox":[150,238,500,6]}
+{"kind":"shape","id":"sh/4byhgn29","slide":1,"name":"column-label-bg","bbox":[172,266,136,30]}
+{"kind":"shape","id":"sh/twra5gbq","slide":1,"name":"column-label-accent","bbox":[172,266,4,30]}
+{"kind":"textbox","id":"sh/m58z25kb","slide":1,"text":"AI + 技术应用","textPreview":"AI + 技术应用","textChars":9,"textLines":1,"bbox":[186,273,112,16]}
+{"kind":"textbox","id":"sh/bq1oryts","slide":1,"text":"把非结构化材料转成可处理数据","textPreview":"把非结构化材料转成可处理数据","textChars":14,"textLines":1,"bbox":[172,316,456,30]}
+{"kind":"textbox","id":"sh/4nap4r65","slide":1,"text":"• OCR / PDF / Table 解析统一接入不同来源材料\n• Chunk、Embedding、Graph RAG 提升长材料召回与关联\n• Schema 输出、规则校验、并行处理控制稳定性和效率\n• 证据链挂接到文件、页码、表格区域和原始字段","textPreview":"• OCR / PDF / Table 解析统一接入不同来源材料 | • Chunk、Embedding、Graph RAG 提升长材料召回与关联 | • Schema 输出、规则校验、并行处理控制稳定性和效率 | • 证据链挂接到文件、页码、表格区域和原始字段","textChars":125,"textLines":4,"bbox":[172,360,456,95]}
+{"kind":"shape","id":"sh/t83itgfm","slide":1,"name":"value-column","bbox":[702,238,500,230]}
+{"kind":"shape","id":"sh/mhk3q5o7","slide":1,"name":"column-top","bbox":[702,238,500,6]}
+{"kind":"shape","id":"sh/b2hwfyxo","slide":1,"name":"column-label-bg","bbox":[724,266,136,30]}
+{"kind":"shape","id":"sh/4vmtwra5","slide":1,"name":"column-label-accent","bbox":[724,266,4,30]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":1,"text":"规则 + 业务理解","textPreview":"规则 + 业务理解","textChars":9,"textLines":1,"bbox":[738,273,112,16]}
+{"kind":"textbox","id":"sh/ji5snelo","slide":1,"text":"判断哪些结果真正服务合规申报","textPreview":"判断哪些结果真正服务合规申报","textChars":14,"textLines":1,"bbox":[724,316,456,30]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":1,"text":"• 理解基金从业人员证券投资申报、登记、复核和留痕要求\n• 区分申报交易、权益事件、持仓信息和非申报资金流水\n• 把账户、交易、持仓、材料来源之间的印证关系纳入判断\n• 将不确定、冲突、缺证据的结果转化为人工复核问题","textPreview":"• 理解基金从业人员证券投资申报、登记、复核和留痕要求 | • 区分申报交易、权益事件、持仓信息和非申报资金流水 | • 把账户、交易、持仓、材料来源之间的印证关系纳入判断 | • 将不确定、冲突、缺证据的结果转化为人工复核问题","textChars":108,"textLines":4,"bbox":[724,360,456,95]}
+{"kind":"shape","id":"sh/1kre1w7m","slide":1,"name":"capability-band","bbox":[150,494,1052,54]}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":1,"name":"capability-accent","bbox":[150,494,5,54]}
+{"kind":"textbox","id":"sh/j6tovaho","slide":1,"text":"材料处理能力","textPreview":"材料处理能力","textChars":6,"textLines":1,"bbox":[184,504,160,18]}
+{"kind":"textbox","id":"sh/ulwval87","slide":1,"text":"AI 与工程链路","textPreview":"AI 与工程链路","textChars":8,"textLines":1,"bbox":[184,525,160,14]}
+{"kind":"shape","id":"sh/1cfa9w3m","slide":1,"name":"band-line","bbox":[376,519,84,1.4]}
+{"kind":"textbox","id":"sh/crmhk3q5","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[448,509,24,20]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":1,"text":"业务判断能力","textPreview":"业务判断能力","textChars":6,"textLines":1,"bbox":[510,504,160,18]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":1,"text":"法规要求与证券业务","textPreview":"法规要求与证券业务","textChars":9,"textLines":1,"bbox":[510,525,160,14]}
+{"kind":"shape","id":"sh/adsji5sn","slide":1,"name":"band-line","bbox":[702,519,84,1.4]}
+{"kind":"textbox","id":"sh/3ylc7u54","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[774,509,24,20]}
+{"kind":"textbox","id":"sh/sji5snel","slide":1,"text":"合规复核结果","textPreview":"合规复核结果","textChars":6,"textLines":1,"bbox":[840,504,160,18]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":1,"text":"可追溯、可复核、可导出","textPreview":"可追溯、可复核、可导出","textChars":11,"textLines":1,"bbox":[840,525,160,14]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":1,"text":"最终实现的效果","textPreview":"最终实现的效果","textChars":7,"textLines":1,"bbox":[150,564,280,22]}
+{"kind":"shape","id":"sh/3m94fu18","slide":1,"name":"outcome-rule","bbox":[150,593,1052,1]}
+{"kind":"shape","id":"sh/s72x4nap","slide":1,"name":"outcome-cell","bbox":[150,604,246,70]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":1,"name":"outcome-accent","bbox":[150,604,3,70]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":1,"text":"材料处理自动化","textPreview":"材料处理自动化","textChars":7,"textLines":1,"bbox":[166,612,218,18]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":1,"text":"从逐页翻材料，变为自动解析、抽取、分类和合并","textPreview":"从逐页翻材料，变为自动解析、抽取、分类和合并","textChars":22,"textLines":1,"bbox":[166,640,218,24]}
+{"kind":"shape","id":"sh/90je9cvi","slide":1,"name":"outcome-cell","bbox":[419,604,246,70]}
+{"kind":"shape","id":"sh/gfmlkjm1","slide":1,"name":"outcome-accent","bbox":[419,604,3,70]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":1,"text":"申报判断结构化","textPreview":"申报判断结构化","textChars":7,"textLines":1,"bbox":[435,612,218,18]}
+{"kind":"textbox","id":"sh/yd0z6103","slide":1,"text":"把交易类型、账户关系和持仓印证固化成可检查规则","textPreview":"把交易类型、账户关系和持仓印证固化成可检查规则","textChars":23,"textLines":1,"bbox":[435,640,218,24]}
+{"kind":"shape","id":"sh/9s36hcrm","slide":1,"name":"outcome-cell","bbox":[688,604,246,70]}
+{"kind":"shape","id":"sh/g7adsji5","slide":1,"name":"outcome-accent","bbox":[688,604,3,70]}
+{"kind":"textbox","id":"sh/rmhk3q5o","slide":1,"text":"复核过程可追溯","textPreview":"复核过程可追溯","textChars":7,"textLines":1,"bbox":[704,612,218,18]}
+{"kind":"textbox","id":"sh/y1kre1w7","slide":1,"text":"每个字段回到材料来源，异常进入问题清单","textPreview":"每个字段回到材料来源，异常进入问题清单","textChars":19,"textLines":1,"bbox":[704,640,218,24]}
+{"kind":"shape","id":"sh/5o7qpg3e","slide":1,"name":"outcome-cell","bbox":[956,604,246,70]}
+{"kind":"shape","id":"sh/g3ex0nux","slide":1,"name":"outcome-accent","bbox":[956,604,3,70]}
+{"kind":"textbox","id":"sh/cfa9w3m9","slide":1,"text":"结果可落地复用","textPreview":"结果可落地复用","textChars":7,"textLines":1,"bbox":[972,612,218,18]}
+{"kind":"textbox","id":"sh/1032lszq","slide":1,"text":"输出可编辑、可下载、可留痕的申报结果和完整表","textPreview":"输出可编辑、可下载、可留痕的申报结果和完整表","textChars":22,"textLines":1,"bbox":[972,640,218,24]}
+{"kind":"notes","id":"nt/iwxews","slide":1,"text":""}

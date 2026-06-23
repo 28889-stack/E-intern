@@ -121,6 +121,18 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
                         "message": "表内出现非交易行：使用注意事项",
                     },
                     {
+                        "issue_type": "非业务记录",
+                        "page": "1",
+                        "row_no": "广发证券",
+                        "message": "金融终端界面，包含行情、自选股、指数等非交割流水内容，无有效业务记录。",
+                    },
+                    {
+                        "issue_type": "非业务数据行",
+                        "page": "1",
+                        "row_no": "期权",
+                        "message": "该行包含查询条件，但无实际业务记录。",
+                    },
+                    {
                         "issue_type": "broken_ocr_row",
                         "page": "3",
                         "row_no": "p003_ocr_row_018",

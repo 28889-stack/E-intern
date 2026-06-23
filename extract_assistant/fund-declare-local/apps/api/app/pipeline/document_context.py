@@ -5,6 +5,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+from app.pipeline.security_account import (
+    classify_security_account,
+    clean_security_account,
+    normalize_account_type as normalize_security_account_type,
+)
 from app.services import local_store
 
 
@@ -161,8 +166,8 @@ def _extract_securities_accounts(text: str, lines: list[str]) -> dict[str, str]:
     accounts = {}
     for label, account_type in market_labels:
         value = _extract_labeled_value(lines, (label,))
-        if _looks_like_account(value):
-            accounts[account_type] = _clean_account(value)
+        if _looks_like_security_account(value, account_type):
+            accounts[account_type] = clean_security_account(value)
 
     table_accounts = _extract_basic_info_account_table(lines)
     for account_type, account in table_accounts.items():
@@ -187,13 +192,14 @@ def _extract_securities_account(
         r"证券账户(?:号码|账号)?[:：\s]*([A-Za-z]?\d{6,12})",
     ):
         match = re.search(pattern, text)
-        if match:
-            account = _clean_account(match.group(1))
+        if match and _looks_like_security_account(match.group(1), _infer_account_type(match.group(1), text)):
+            account = clean_security_account(match.group(1))
             return account, _infer_account_type(account, text)
 
     value = _extract_labeled_value(lines, ("证券子账户", "证券子账户号码", "证券账号", "证券账户"))
-    if _looks_like_account(value):
-        account = _clean_account(value)
+    inferred_type = _infer_account_type(value, text)
+    if _looks_like_security_account(value, inferred_type):
+        account = clean_security_account(value)
         return account, _infer_account_type(account, text)
     return "", ""
 
@@ -235,8 +241,8 @@ def _extract_basic_info_account_table(lines: list[str]) -> dict[str, str]:
     accounts = {}
     for label, value in zip(table_labels, values):
         account_type = label_to_type.get(label)
-        if account_type and _looks_like_account(value):
-            accounts[account_type] = _clean_account(value)
+        if account_type and _looks_like_security_account(value, account_type):
+            accounts[account_type] = clean_security_account(value)
     return accounts
 
 
@@ -311,6 +317,10 @@ def _looks_like_account(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z]?\d{5,15}", text))
 
 
+def _looks_like_security_account(value: str, account_type_hint: str = "") -> bool:
+    return bool(classify_security_account(value, account_type_hint))
+
+
 def _looks_like_person_name(value: str) -> bool:
     text = str(value or "").strip()
     if text in {"证件号码", "证券子账户号码", "一码通账户号码", "持有人名称", "客户姓名"}:
@@ -336,6 +346,9 @@ def _normalize_date(value: str) -> str:
 
 
 def _infer_account_type(account: str, text: str) -> str:
+    labeled_type = _extract_labeled_account_type(text)
+    if labeled_type:
+        return labeled_type
     if "深市B股" in text or "深圳B股东卡号" in text:
         return "深B"
     if "沪市B股" in text or "上海B股东卡号" in text:
@@ -346,4 +359,9 @@ def _infer_account_type(account: str, text: str) -> str:
         return "沪A"
     if str(account or "").startswith("02"):
         return "深A"
-    return ""
+    return classify_security_account(account)
+
+
+def _extract_labeled_account_type(text: str) -> str:
+    match = re.search(r"(?:账户类型|市场)[:：\s]*(沪A|深A|沪B|深B|上海A股|深圳A股|上海B股|深圳B股)", text)
+    return normalize_security_account_type(match.group(1)) if match else ""

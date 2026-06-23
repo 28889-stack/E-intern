@@ -1,0 +1,96 @@
+{"kind":"deck","id":"pr/us3ux3","name":"Deck"}
+{"kind":"layout","layoutId":"662d9b0d-1f02-4c53-a782-1bb02642e43e","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"bcc1a993-6a11-4d3b-93ad-8c4e8a4f6dd0","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/t5xp3g","slide":1,"title":"E FUND 易方达风格参考","textShapes":49}
+{"kind":"shape","id":"sh/t47y1kre","slide":1,"name":"top-bar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/idonyd0z","slide":1,"name":"left-bg","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/byhgn29g","slide":1,"name":"left-accent","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":1,"name":"title-rule","bbox":[150,101,1052,3]}
+{"kind":"shape","id":"sh/tcj6tova","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":1,"text":"E FUND 易方达风格参考","textPreview":"E FUND 易方达风格参考","textChars":14,"textLines":1,"bbox":[180,10,260,24]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":1,"text":"解决方法｜Graph RAG 上下文增强","textPreview":"解决方法｜Graph RAG 上下文增强","textChars":20,"textLines":1,"bbox":[150,78,560,22]}
+{"kind":"textbox","id":"sh/032lszqt","slide":1,"text":"Graph RAG：抽取前的上下文增强层","textPreview":"Graph RAG：抽取前的上下文增强层","textChars":20,"textLines":1,"bbox":[150,106,780,52]}
+{"kind":"shape","id":"sh/tovahoza","slide":1,"name":"badge-bg","bbox":[1072,102,130,38]}
+{"kind":"shape","id":"sh/l87ed8ba","slide":1,"name":"badge-accent","bbox":[1072,102,4,38]}
+{"kind":"textbox","id":"sh/sneloj2t","slide":1,"text":"增强召回 / 降噪","textPreview":"增强召回 / 降噪","textChars":9,"textLines":1,"bbox":[1082,112,112,20]}
+{"kind":"shape","id":"sh/32lszqtc","slide":1,"name":"footer-rule","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":1,"text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,420,22]}
+{"kind":"textbox","id":"sh/lkjm1cfa","slide":1,"text":"Graph RAG 母稿","textPreview":"Graph RAG 母稿","textChars":12,"textLines":1,"bbox":[1094,681,108,22]}
+{"kind":"shape","id":"sh/szqtcj6t","slide":1,"name":"note-bg","bbox":[150,160,1052,52]}
+{"kind":"shape","id":"sh/3ex0nuxc","slide":1,"name":"note-accent","bbox":[150,160,5,52]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":1,"text":"定位：Graph RAG 不替代 OCR 或 LLM 抽取，而是在 OCR/PDF/Table 结果生成后，为抽取模型提供更相关的局部上下文。","textPreview":"定位：Graph RAG 不替代 OCR 或 LLM 抽取，而是在 OCR/PDF/Table 结果生成后，为抽取模型提供更相关的局部上下文。","textChars":71,"textLines":1,"bbox":[170,173,1016,34]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":1,"text":"处理机制","textPreview":"处理机制","textChars":4,"textLines":1,"bbox":[150,238,260,24]}
+{"kind":"shape","id":"sh/w3m94fu1","slide":1,"name":"flow-node","bbox":[150,272,196,92]}
+{"kind":"shape","id":"sh/s72x4nap","slide":1,"name":"flow-node-top","bbox":[150,272,196,5]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[164,289,34,18]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":1,"text":"OCR / 表格结果","textPreview":"OCR / 表格结果","textChars":10,"textLines":1,"bbox":[198,287,134,20]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":1,"text":"形成可读文本与表格","textPreview":"形成可读文本与表格","textChars":9,"textLines":1,"bbox":[198,322,134,28]}
+{"kind":"textbox","id":"sh/sji5snel","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[343,305,24,26]}
+{"kind":"shape","id":"sh/h4byhgn2","slide":1,"name":"flow-node","bbox":[362,272,196,92]}
+{"kind":"shape","id":"sh/adsji5sn","slide":1,"name":"flow-node-top","bbox":[362,272,196,5]}
+{"kind":"textbox","id":"sh/3ylc7u54","slide":1,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[376,289,34,18]}
+{"kind":"textbox","id":"sh/svu9knih","slide":1,"text":"Chunk / 向量化","textPreview":"Chunk / 向量化","textChars":11,"textLines":1,"bbox":[410,287,134,20]}
+{"kind":"textbox","id":"sh/hgn29gr2","slide":1,"text":"bge-small-zh-v1.5","textPreview":"bge-small-zh-v1.5","textChars":17,"textLines":1,"bbox":[410,322,134,28]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[555,305,24,26]}
+{"kind":"shape","id":"sh/yd0z6103","slide":1,"name":"flow-node","bbox":[574,272,196,92]}
+{"kind":"shape","id":"sh/90je9cvi","slide":1,"name":"flow-node-top","bbox":[574,272,196,5]}
+{"kind":"textbox","id":"sh/gfmlkjm1","slide":1,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[588,289,34,18]}
+{"kind":"textbox","id":"sh/rmhk3q5o","slide":1,"text":"相似度检索","textPreview":"相似度检索","textChars":5,"textLines":1,"bbox":[622,287,134,20]}
+{"kind":"textbox","id":"sh/y1kre1w7","slide":1,"text":"找到交易、持仓、分红片段","textPreview":"找到交易、持仓、分红片段","textChars":12,"textLines":1,"bbox":[622,322,134,28]}
+{"kind":"textbox","id":"sh/9s36hcrm","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[767,305,24,26]}
+{"kind":"shape","id":"sh/g7adsji5","slide":1,"name":"flow-node","bbox":[786,272,196,92]}
+{"kind":"shape","id":"sh/nih4byhg","slide":1,"name":"flow-node-top","bbox":[786,272,196,5]}
+{"kind":"textbox","id":"sh/yxobm58z","slide":1,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[800,289,34,18]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":1,"text":"图关系扩展","textPreview":"图关系扩展","textChars":5,"textLines":1,"bbox":[834,287,134,20]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":1,"text":"沿账户、证券、事件补上下文","textPreview":"沿账户、证券、事件补上下文","textChars":13,"textLines":1,"bbox":[834,322,134,28]}
+{"kind":"textbox","id":"sh/0z61032l","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[979,305,24,26]}
+{"kind":"shape","id":"sh/pkzupwb2","slide":1,"name":"flow-node","bbox":[998,272,196,92]}
+{"kind":"shape","id":"sh/ih4byhgn","slide":1,"name":"flow-node-top","bbox":[998,272,196,5]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":1,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1012,289,34,18]}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":1,"text":"LLM 抽取","textPreview":"LLM 抽取","textChars":6,"textLines":1,"bbox":[1046,287,134,20]}
+{"kind":"textbox","id":"sh/p8nqxs72","slide":1,"text":"相关局部材料进入结构化抽取","textPreview":"相关局部材料进入结构化抽取","textChars":13,"textLines":1,"bbox":[1046,322,134,28]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":1,"name":"graph-entity-box","bbox":[150,385,496,160]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":1,"text":"图结构扩展的实体关系","textPreview":"图结构扩展的实体关系","textChars":10,"textLines":1,"bbox":[170,405,250,24]}
+{"kind":"shape","id":"sh/x0nuxc3y","slide":1,"name":"entity","bbox":[174,450,80,30]}
+{"kind":"shape","id":"sh/4fu18jqh","slide":1,"name":"entity-accent","bbox":[174,450,4,30]}
+{"kind":"textbox","id":"sh/fu18jqh0","slide":1,"text":"账户","textPreview":"账户","textChars":2,"textLines":1,"bbox":[186,458,62,13]}
+{"kind":"shape","id":"sh/m94fu18j","slide":1,"name":"entity","bbox":[286,450,80,30]}
+{"kind":"shape","id":"sh/xobm58z2","slide":1,"name":"entity-accent","bbox":[286,450,4,30]}
+{"kind":"textbox","id":"sh/83itgfml","slide":1,"text":"证券代码","textPreview":"证券代码","textChars":4,"textLines":1,"bbox":[298,458,62,13]}
+{"kind":"shape","id":"sh/fil0rqd4","slide":1,"name":"entity","bbox":[418,450,80,30]}
+{"kind":"shape","id":"sh/qxs72x4n","slide":1,"name":"entity-accent","bbox":[418,450,4,30]}
+{"kind":"textbox","id":"sh/xkf6dcbu","slide":1,"text":"交易事件","textPreview":"交易事件","textChars":4,"textLines":1,"bbox":[430,458,62,13]}
+{"kind":"shape","id":"sh/4zidonyd","slide":1,"name":"entity","bbox":[230,500,80,30]}
+{"kind":"shape","id":"sh/0fepkzup","slide":1,"name":"entity-accent","bbox":[230,500,4,30]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":1,"text":"持仓","textPreview":"持仓","textChars":2,"textLines":1,"bbox":[242,508,62,13]}
+{"kind":"shape","id":"sh/i9s36hcr","slide":1,"name":"entity","bbox":[354,500,112,30]}
+{"kind":"shape","id":"sh/bulwval8","slide":1,"name":"entity-accent","bbox":[354,500,4,30]}
+{"kind":"textbox","id":"sh/032lszqt","slide":1,"text":"分红 / 利息事件","textPreview":"分红 / 利息事件","textChars":9,"textLines":1,"bbox":[366,508,96,13]}
+{"kind":"textbox","id":"sh/tovahoza","slide":1,"text":"账户 ↔ 证券 ↔ 交易 / 持仓 / 分红利息","textPreview":"账户 ↔ 证券 ↔ 交易 / 持仓 / 分红利息","textChars":24,"textLines":1,"bbox":[176,538,410,18]}
+{"kind":"shape","id":"sh/ixczed8v","slide":1,"name":"model-card","bbox":[150,568,496,88]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":1,"name":"model-top","bbox":[150,568,496,5]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":1,"text":"模型与边界","textPreview":"模型与边界","textChars":5,"textLines":1,"bbox":[170,584,140,20]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":1,"text":"Embedding：BAAI/bge-small-zh-v1.5；负责把 OCR/table chunk 向量化用于相似度检索。\n图结构：在检索结果基础上，沿账户、证券代码、交易/分红/利息事件关系扩展上下文。","textPreview":"Embedding：BAAI/bge-small-zh-v1.5；负责把 OCR/table chunk 向量化用于相似度检索。 | 图结构：在检索结果基础上，沿账户、证券代码、交易/分红/利息事件关系扩展上下文。","textChars":105,"textLines":2,"bbox":[170,612,438,35]}
+{"kind":"textbox","id":"sh/j6tovaho","slide":1,"text":"相比普通 RAG 的项目优势","textPreview":"相比普通 RAG 的项目优势","textChars":14,"textLines":1,"bbox":[690,385,360,24]}
+{"kind":"shape","id":"sh/ulwval87","slide":1,"name":"advantage-card","bbox":[690,420,512,72]}
+{"kind":"shape","id":"sh/1cfa9w3m","slide":1,"name":"advantage-accent","bbox":[690,420,6,72]}
+{"kind":"textbox","id":"sh/crmhk3q5","slide":1,"text":"提高召回","textPreview":"提高召回","textChars":4,"textLines":1,"bbox":[708,430,110,20]}
+{"kind":"textbox","id":"sh/ji5snelo","slide":1,"text":"普通 RAG：只按文本相似度找片段","textPreview":"普通 RAG：只按文本相似度找片段","textChars":17,"textLines":1,"bbox":[822,432,250,16]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":1,"text":"Graph RAG：检索后沿实体关系补相关片段","textPreview":"Graph RAG：检索后沿实体关系补相关片段","textChars":23,"textLines":1,"bbox":[822,454,276,16]}
+{"kind":"shape","id":"sh/1kre1w7m","slide":1,"name":"outcome-bg","bbox":[822,472,180,15]}
+{"kind":"textbox","id":"sh/c3ylc7u5","slide":1,"text":"交易 / 持仓 / 分红更不易漏","textPreview":"交易 / 持仓 / 分红更不易漏","textChars":16,"textLines":1,"bbox":[822,475,180,8]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":1,"name":"advantage-card","bbox":[690,496,512,72]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":1,"name":"advantage-accent","bbox":[690,496,6,72]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":1,"text":"增强关联","textPreview":"增强关联","textChars":4,"textLines":1,"bbox":[708,506,110,20]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":1,"text":"普通 RAG：跨页信息容易断开","textPreview":"普通 RAG：跨页信息容易断开","textChars":15,"textLines":1,"bbox":[822,508,250,16]}
+{"kind":"textbox","id":"sh/s72x4nap","slide":1,"text":"Graph RAG：把同账户、同证券、同事件连起来","textPreview":"Graph RAG：把同账户、同证券、同事件连起来","textChars":25,"textLines":1,"bbox":[822,530,276,16]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":1,"name":"outcome-bg","bbox":[822,548,180,15]}
+{"kind":"textbox","id":"sh/adsji5sn","slide":1,"text":"跨页 / 跨行信息可合并","textPreview":"跨页 / 跨行信息可合并","textChars":12,"textLines":1,"bbox":[822,551,180,8]}
+{"kind":"shape","id":"sh/3ylc7u54","slide":1,"name":"advantage-card","bbox":[690,572,512,72]}
+{"kind":"shape","id":"sh/sji5snel","slide":1,"name":"advantage-accent","bbox":[690,572,6,72]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":1,"text":"减少干扰","textPreview":"减少干扰","textChars":4,"textLines":1,"bbox":[708,582,110,20]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":1,"text":"普通 RAG：Top-K 片段仍混入无关 OCR","textPreview":"普通 RAG：Top-K 片段仍混入无关 OCR","textChars":24,"textLines":1,"bbox":[822,584,250,16]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":1,"text":"Graph RAG：实体扩展后只保留相关局部上下文","textPreview":"Graph RAG：实体扩展后只保留相关局部上下文","textChars":25,"textLines":1,"bbox":[822,606,276,16]}
+{"kind":"shape","id":"sh/9s36hcrm","slide":1,"name":"outcome-bg","bbox":[822,624,180,15]}
+{"kind":"textbox","id":"sh/g7adsji5","slide":1,"text":"降低错抽和输出过长风险","textPreview":"降低错抽和输出过长风险","textChars":11,"textLines":1,"bbox":[822,627,180,8]}
+{"kind":"notes","id":"nt/t5xp3g","slide":1,"text":""}

@@ -141,6 +141,110 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertIn("复核问题_001", issue["related_problem_ids"])
         self.assertTrue(issue["evidence"])
 
+    def test_material_validity_flags_account_material_missing_context(self):
+        from app.pipeline.material_validity_checker import collect_material_validity_issues
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "processed/file_001"
+            local_store.save_json(
+                output_dir / "ocr_result.json",
+                {
+                    "ocr_status": "success",
+                    "page_results": [
+                        {
+                            "page": 1,
+                            "text": "广发证券 金融终端 历史成交 查询 输出 共0条",
+                        }
+                    ],
+                },
+            )
+
+            issues = collect_material_validity_issues(
+                {
+                    "file_id": "file_001",
+                    "module": "account_info",
+                    "content_type": "guangfa",
+                },
+                output_dir,
+                {"extract_status": "success", "document_info": {}},
+                transaction_rows=[],
+                holding_rows=[],
+            )
+
+        issue_types = {issue["issue_type"] for issue in issues}
+        self.assertIn("material_missing_securities_account", issue_types)
+        self.assertIn("material_missing_period", issue_types)
+        self.assertIn("material_missing_market", issue_types)
+
+    def test_material_validity_accepts_empty_query_with_account_period_and_market(self):
+        from app.pipeline.material_validity_checker import collect_material_validity_issues
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "processed/file_001"
+            local_store.save_json(
+                output_dir / "ocr_result.json",
+                {
+                    "ocr_status": "success",
+                    "page_results": [
+                        {
+                            "page": 1,
+                            "text": (
+                                "广发证券 历史成交 证券账号 A123456789 "
+                                "起始日期：2024-01-01 终止日期：2024-12-31 沪A 共0条"
+                            ),
+                        }
+                    ],
+                },
+            )
+
+            issues = collect_material_validity_issues(
+                {
+                    "file_id": "file_001",
+                    "module": "account_info",
+                    "content_type": "guangfa",
+                },
+                output_dir,
+                {"extract_status": "success", "document_info": {}},
+                transaction_rows=[],
+                holding_rows=[],
+            )
+
+        self.assertEqual(issues, [])
+
+    def test_material_validity_does_not_require_securities_account_for_no_account_proof(self):
+        from app.pipeline.material_validity_checker import collect_material_validity_issues
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "processed/file_001"
+            local_store.save_json(
+                output_dir / "raw_text.json",
+                {
+                    "pages": [
+                        {
+                            "page": 1,
+                            "text": "截至2024-12-31，张三未开立证券账户。",
+                        }
+                    ],
+                },
+            )
+
+            issues = collect_material_validity_issues(
+                {
+                    "file_id": "file_001",
+                    "module": "account_info",
+                    "content_type": "chinaclear",
+                },
+                output_dir,
+                {"extract_status": "success", "document_info": {}},
+                transaction_rows=[],
+                holding_rows=[],
+            )
+
+        self.assertEqual(issues, [])
+
     def test_build_final_result_adds_ocr_file_issues_to_review_issue_sheet(self):
         from app.pipeline.final_result_builder import build_final_result
         from app.services import local_store
@@ -224,6 +328,92 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertEqual(len(ocr_rows), 1)
         self.assertIn("遮挡或涂抹", ocr_rows[0]["问题描述"])
         self.assertEqual(ocr_rows[0]["对应材料"], "001 涂抹材料.png")
+
+    def test_build_final_result_adds_material_validity_issue_separately(self):
+        from app.pipeline.final_result_builder import build_final_result
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                case_id = "case_test"
+                case_dir = project_root / "data/cases/case_test"
+                output_dir = case_dir / "account_info/processed/file_001"
+                local_store.save_json(
+                    case_dir / "case.json",
+                    {
+                        "case_id": case_id,
+                        "name": "张三",
+                        "phone": "13800000000",
+                        "relation_type": "custom",
+                        "relation_type_label": "员工本人",
+                    },
+                )
+                local_store.save_json(
+                    case_dir / "files_index.json",
+                    {
+                        "files": [
+                            {
+                                "file_id": "file_001",
+                                "file_no": "001",
+                                "original_file_name": "行情终端截图.png",
+                                "module": "account_info",
+                                "content_type": "guangfa",
+                                "route_type": "image",
+                                "output_dir": (
+                                    "data/cases/case_test/account_info/processed/file_001"
+                                ),
+                                "process_status": "ocr_done",
+                                "ocr_status": "success",
+                                "extract_status": "success",
+                            }
+                        ]
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "ocr_result.json",
+                    {
+                        "ocr_status": "success",
+                        "page_results": [
+                            {
+                                "page": 1,
+                                "confidence_avg": 0.93,
+                                "status": "success",
+                                "text": "广发证券 金融终端 历史成交 共0条 查询 输出",
+                            }
+                        ],
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "extract_result.json",
+                    {
+                        "file_id": "file_001",
+                        "case_id": case_id,
+                        "content_type": "guangfa",
+                        "source_type": "guangfa",
+                        "extract_status": "success",
+                        "document_info": {},
+                        "trade_group": {"columns": [], "trades": []},
+                        "position_group": {"columns": [], "positions": []},
+                        "transactions": [],
+                        "events": [],
+                        "other_events": [],
+                        "cash_flows": [],
+                        "holdings": [],
+                    },
+                )
+
+                final_result = build_final_result(case_id)
+
+        file_issue = final_result["file_issues"][0]
+        self.assertIn("material_missing_securities_account", file_issue["issue_types"])
+        self.assertIn("material_missing_period", file_issue["issue_types"])
+        self.assertIn("material_missing_market", file_issue["issue_types"])
+        rows = final_result["sheets"]["待复核问题"]["rows"]
+        material_rows = [row for row in rows if row["待复核原因"] == "材料有效性问题"]
+        self.assertEqual(len(material_rows), 1)
+        self.assertIn("证券账号", material_rows[0]["问题描述"])
+        self.assertEqual(material_rows[0]["对应材料"], "001 行情终端截图.png")
 
     def test_build_final_result_uses_processed_context_to_fill_market_accounts(self):
         from app.pipeline.final_result_builder import build_final_result

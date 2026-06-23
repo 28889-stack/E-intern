@@ -4,6 +4,14 @@ from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
 
+from app.pipeline.security_account import (
+    classify_security_account,
+    extract_security_account_from_text,
+    infer_account_type_from_text,
+    market_from_account_type,
+    normalize_account_type as normalize_security_account_type,
+)
+
 
 DOCUMENT_COLUMNS = [
     "document_type",
@@ -424,6 +432,8 @@ def _normalize_account_type(value: Any) -> str:
 
 def _account_type_from_security_code(value: Any) -> str:
     code = str(value or "").strip()
+    if not re.fullmatch(r"\d{6}", code):
+        return ""
     if code.startswith("200"):
         return "深B"
     if code.startswith("900"):
@@ -440,16 +450,7 @@ def _account_type_from_security_code(value: Any) -> str:
 
 
 def _account_type_from_securities_account(value: Any) -> str:
-    account = str(value or "").strip()
-    if account.startswith("A"):
-        return "沪A"
-    if account.startswith("C"):
-        return "沪B"
-    if account.startswith(("00", "02", "03", "08")):
-        return "深A"
-    if account.startswith("20"):
-        return "深B"
-    return ""
+    return classify_security_account(value)
 
 
 def normalize_event_type(event: dict) -> str:
@@ -593,7 +594,8 @@ def empty_record_event_from_semantics(
         return None
 
     event_type, raw_type, event_id = _empty_record_type(source_text)
-    account = _semantic_account(document_info, extract_result, source_text)
+    account_type = _semantic_account_type(document_info, source_text)
+    account = _semantic_account(document_info, extract_result, source_text, account_type)
     if event_type == "no_account_record" and not account:
         account = "未开立"
     period_start = _semantic_date(document_info, source_text, "period_start")
@@ -612,6 +614,9 @@ def empty_record_event_from_semantics(
         semantic_document_info["period_start"] = period_start
     if period_end:
         semantic_document_info["period_end"] = period_end
+    if account_type:
+        semantic_document_info["account_type"] = account_type
+        semantic_document_info["market"] = market_from_account_type(account_type)
 
     if event_type == "no_account_info":
         event = {
@@ -639,6 +644,8 @@ def empty_record_event_from_semantics(
         "event_type": event_type,
         "event_date": event_date,
         "securities_account": account,
+        "account_type": account_type,
+        "market": market_from_account_type(account_type),
         "security_code": "0",
         "security_name": "0",
         "quantity_raw": "0",
@@ -853,28 +860,31 @@ def _looks_like_empty_holding_query(text: str) -> bool:
     )
 
 
-def _semantic_account(document_info: dict, extract_result: dict, text: str) -> str:
+def _semantic_account(
+    document_info: dict,
+    extract_result: dict,
+    text: str,
+    account_type_hint: str = "",
+) -> str:
     for source in (document_info, extract_result):
         for key in (
             "securities_account",
-            "fund_account",
-            "one_code_account",
-            "account_no",
-            "account_number",
+            "stockholder_account",
+            "shareholder_account",
         ):
             value = str(source.get(key) or "").strip()
-            if value:
+            if value and classify_security_account(value, account_type_hint):
                 return value
 
-    patterns = [
-        r"(?:证券账户|证券账号|资金账号|资金帐号|一码通账户|一码通账号|股东代码)[:：\s]*([A-Za-z0-9\-]{5,})",
-        r"多帐号\s*([A-Za-z0-9]{5,})",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, text)
-        if match:
-            return match.group(1)
-    return ""
+    return extract_security_account_from_text(text, account_type_hint)
+
+
+def _semantic_account_type(document_info: dict, text: str) -> str:
+    for key in ("account_type", "market"):
+        value = str(document_info.get(key) or "").strip()
+        if value:
+            return normalize_security_account_type(value)
+    return infer_account_type_from_text(text)
 
 
 def _semantic_date(document_info: dict, text: str, field: str) -> str:

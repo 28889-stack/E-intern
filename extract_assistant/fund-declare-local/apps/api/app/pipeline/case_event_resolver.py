@@ -98,8 +98,9 @@ ISSUE_TYPE_LABELS = {
     "source_evidence_missing": "缺少原文证据",
     "unknown_event_type": "无法判断事件类型",
     "conflict_between_sources": "来源字段冲突",
-    "empty_record_account_missing": "空记录缺少账户",
-    "empty_record_period_missing": "空记录缺少查询时间",
+    "empty_record_account_missing": "空交易/空持仓证明缺少证券账号",
+    "empty_record_period_missing": "空交易/空持仓证明缺少查询日期/期间",
+    "empty_record_market_missing": "空交易/空持仓证明缺少市场或账户类型",
     "ocr_failed": "文字识别失败",
     "schema_invalid": "抽取结构不符合要求",
     "extract_failed": "抽取失败",
@@ -705,6 +706,11 @@ def _validate_empty_record_row(row: dict) -> None:
     if row.get("event_type") != "no_account_record" and not row.get("securities_account"):
         issue_types.append("empty_record_account_missing")
         _append_missing(missing_fields, "securities_account")
+    if row.get("event_type") != "no_account_record" and not (
+        row.get("account_type") or row.get("market")
+    ):
+        issue_types.append("empty_record_market_missing")
+        _append_missing(missing_fields, "account_type")
     if not (
         row.get("event_date")
         or row.get("period_start")
@@ -911,8 +917,20 @@ def _review_issue_message(row: dict, record_category: str) -> str:
         return "疑似同一记录在多个来源中的字段不一致，需人工复核。"
     if row.get("event_type") == "no_account_info":
         return "材料显示无账户信息，但缺少姓名、截止日期或原文证据，请人工核对。"
-    if issue_types & {"empty_record_account_missing", "empty_record_period_missing"}:
-        return "空交易/空持仓记录缺少账户或查询时间，无法确认归属。"
+    empty_record_issues = issue_types & {
+        "empty_record_account_missing",
+        "empty_record_period_missing",
+        "empty_record_market_missing",
+    }
+    if empty_record_issues:
+        missing_parts = []
+        if "empty_record_account_missing" in empty_record_issues:
+            missing_parts.append("证券账号")
+        if "empty_record_period_missing" in empty_record_issues:
+            missing_parts.append("查询日期/期间")
+        if "empty_record_market_missing" in empty_record_issues:
+            missing_parts.append("市场或账户类型")
+        return f"空交易/空持仓证明缺少{'、'.join(missing_parts)}，无法作为有效负向证明。"
     if {"securities_account_missing", "account_type_missing"} <= issue_types:
         return "缺少证券账号和账户类型，无法确认账户和最终申报归属。"
     if "securities_account_missing" in issue_types:
@@ -934,6 +952,8 @@ def _review_issue_message(row: dict, record_category: str) -> str:
 def _review_issue_suggestion(row: dict, record_category: str) -> str:
     if row.get("event_type") == "no_account_info":
         return "请核对材料中的姓名、截止日期和无账户信息原文。"
+    if row.get("event_type") in {"no_trade_record", "no_holding_record", "no_account_record"}:
+        return "请核对该无交易/无持仓证明是否包含证券账号、查询日期/期间和市场或账户类型。"
     if not row.get("securities_account") and not row.get("account_type"):
         return "请补充证券账号和账户类型；如只有资金账号，请在人工复核后确认其对应证券账号。"
     if not row.get("securities_account"):
@@ -978,7 +998,13 @@ def _review_issue_id_label(value: Any) -> str:
 
 def _review_issue_reason(issue: dict) -> str:
     issue_types = _join_labels(issue.get("issue_types"), ISSUE_TYPE_LABELS)
-    missing_fields = _join_labels(issue.get("missing_fields"), FIELD_LABELS)
+    raw_issue_types = set(unique_list(issue.get("issue_types")))
+    is_empty_record_issue = any(
+        str(issue_type).startswith("empty_record_") for issue_type in raw_issue_types
+    )
+    missing_fields = (
+        "" if is_empty_record_issue else _join_labels(issue.get("missing_fields"), FIELD_LABELS)
+    )
     conflict_fields = _join_labels(issue.get("conflict_fields"), FIELD_LABELS)
     parts = []
     if issue_types:
