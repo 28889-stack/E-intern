@@ -87,6 +87,10 @@ IGNORED_NON_HOLDING_EVENT_KEYWORDS = (
     "资金存入",
     "资金取出",
     "资金存取",
+    "银行转存",
+    "银行转取",
+    "转账冻结取消",
+    "转账冻结",
     "银行利息",
     "资金利息",
     "利息归本",
@@ -100,7 +104,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
     document_info = extract_result.get("document_info") or {}
     full_rows = []
     review_items = []
-    ignored_non_holding_count = 0
 
     business_events = [
         event
@@ -130,9 +133,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         event = _map_group_event(trade)
         event.setdefault("event_id", _event_id(trade, f"guangfa_trade_{index + 1}"))
         event.setdefault("event_type", "ordinary_trade")
-        if _should_ignore_non_holding_event(event):
-            ignored_non_holding_count += 1
-            continue
         full_rows.append(build_event_row(case_id, file_record, document_info, event))
 
     if business_events or holding_records or negative_proofs:
@@ -143,11 +143,8 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
                 file_record,
                 document_info,
             )
-            if _should_ignore_guangfa_fund_flow_trade(event_payload):
-                ignored_non_holding_count += 1
-                continue
-            if _should_ignore_non_holding_event(event_payload):
-                continue
+            if _reclassify_fund_flow_trade_if_needed(event_payload):
+                event_review_items = []
             review_items.extend(event_review_items)
             if (
                 event.get("include_in_full_table") is False
@@ -190,9 +187,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
             continue
         event = _map_group_event(transaction)
         event.setdefault("event_id", _event_id(transaction, f"guangfa_txn_{index + 1}"))
-        if _should_ignore_non_holding_event(event):
-            ignored_non_holding_count += 1
-            continue
         full_rows.append(build_event_row(case_id, file_record, document_info, event))
 
     for index, other_event in enumerate(as_list(extract_result.get("other_events"))):
@@ -203,9 +197,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
             "event_id",
             _event_id(other_event, f"guangfa_other_event_{index + 1}"),
         )
-        if _should_ignore_non_holding_event(event_payload):
-            ignored_non_holding_count += 1
-            continue
         full_rows.append(
             build_event_row(case_id, file_record, document_info, event_payload)
         )
@@ -231,9 +222,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
             cash_flow.get("cash_flow_id") or f"cash_flow_{index + 1}",
         )
         event.setdefault("event_type", "cash_flow")
-        if _should_ignore_non_holding_event(event):
-            ignored_non_holding_count += 1
-            continue
         full_rows.append(build_event_row(case_id, file_record, document_info, event))
 
     holding_rows = [
@@ -250,7 +238,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         not full_rows
         and not holding_rows
         and not review_items
-        and ignored_non_holding_count == 0
     ):
         empty_record_event = empty_record_event_from_semantics(
             case_id,
@@ -282,6 +269,8 @@ def _map_document_level_review_items(items, file_record: dict) -> list[dict]:
     file_id = file_record.get("file_id") or ""
     for index, item in enumerate(as_list(items), start=1):
         if not isinstance(item, dict):
+            continue
+        if _is_non_business_document_review_item(item):
             continue
         message = _first_text(
             item.get("message"),
@@ -317,6 +306,40 @@ def _map_document_level_review_items(items, file_record: dict) -> list[dict]:
         mapped["original_file_name"] = file_record.get("original_file_name", "")
         mapped_items.append(mapped)
     return mapped_items
+
+
+def _is_non_business_document_review_item(item: dict) -> bool:
+    issue_type = _first_text(item.get("issue_type"), item.get("field"))
+    message = _first_text(
+        item.get("message"),
+        item.get("reason"),
+        item.get("review_reason"),
+        item.get("raw_summary"),
+    )
+    text = f"{issue_type} {message}"
+    non_business_issue_types = (
+        "表头残片",
+        "空表",
+        "非交易行",
+        "页脚/非业务文本",
+    )
+    if any(issue in issue_type for issue in non_business_issue_types):
+        return True
+    return any(
+        keyword in text
+        for keyword in (
+            "非业务记录",
+            "无业务信息",
+            "无业务数据",
+            "无数据行",
+            "使用注意事项",
+            "页码行",
+            "空行或分隔行",
+            "仅含分隔符",
+            "表内全为'/'",
+            '表内全为"/"',
+        )
+    )
 
 
 def _dedupe_same_source_event_rows(rows: list[dict]) -> list[dict]:
@@ -539,6 +562,16 @@ def _should_ignore_guangfa_fund_flow_trade(event: dict) -> bool:
         and event.get("direction") in {"buy", "sell"}
         and _is_fund_flow_source(event)
     )
+
+
+def _reclassify_fund_flow_trade_if_needed(event: dict) -> bool:
+    if not _should_ignore_guangfa_fund_flow_trade(event):
+        return False
+    event["event_type"] = "cash_flow"
+    event["direction"] = ""
+    event["event_category"] = event.get("event_category") or "fund_flow"
+    event["review_reason"] = ""
+    return True
 
 
 def _map_negative_proof(proof: dict, index: int) -> dict:

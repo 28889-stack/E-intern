@@ -302,6 +302,75 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["full_transaction_rows"]), 2)
         self.assertEqual(len(resolved["final_declaration_rows"]), 2)
 
+    def test_source_overlap_deduper_merges_only_same_source_row(self):
+        from app.pipeline.source_overlap_deduper import dedupe_source_overlap_rows
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "沪A",
+            "securities_account": "A315570738",
+            "event_type": "security_registration",
+            "event_date": "2022-01-05",
+            "security_code": "688262",
+            "security_name": "国芯科技",
+            "direction": "registration_in",
+            "quantity_raw": "500.0000",
+            "price_raw": "41.9800",
+            "amount_raw": "0.0000",
+            "transfer_type_raw": "新股入账",
+        }
+
+        rows, audit = dedupe_source_overlap_rows(
+            [
+                {
+                    **base_row,
+                    "event_id": "batch_1_row_303",
+                    "source_evidence": [
+                        {
+                            "file_id": "file_001",
+                            "source_row_id": "p001_table_1_row_303",
+                            "source_page": "1",
+                            "row_no": "303",
+                        }
+                    ],
+                },
+                {
+                    **base_row,
+                    "event_id": "batch_2_row_303",
+                    "source_evidence": [
+                        {
+                            "file_id": "file_001",
+                            "source_row_id": "p001_table_1_row_303",
+                            "source_page": "1",
+                            "row_no": "303",
+                        }
+                    ],
+                },
+                {
+                    **base_row,
+                    "event_id": "business_event_same_fields",
+                    "source_evidence": [
+                        {
+                            "file_id": "file_001",
+                            "source_row_id": "p001_table_1_row_304",
+                            "source_page": "1",
+                            "row_no": "304",
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(audit), 1)
+        self.assertEqual(audit[0]["action"], "merged_source_overlap_duplicate")
+        self.assertEqual(
+            {row["event_id"] for row in rows},
+            {"batch_1_row_303", "business_event_same_fields"},
+        )
+
     def test_cross_file_trade_rows_are_merged_when_one_to_one_and_complementary(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 

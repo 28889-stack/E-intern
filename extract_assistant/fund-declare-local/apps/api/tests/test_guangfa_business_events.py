@@ -95,6 +95,45 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         self.assertEqual(item["field"], "document_level_review_items")
         self.assertIn("第 2 页存在断行", item["message"])
 
+    def test_normalizer_suppresses_non_business_document_level_review_items(self):
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "document_level_review_items": [
+                    {
+                        "issue_type": "表头残片",
+                        "page": "1",
+                        "row_no": "1",
+                        "message": "表头行包含统计区间和打印柜员等非业务信息",
+                    },
+                    {
+                        "issue_type": "空表",
+                        "page": "2",
+                        "row_no": "row_index=11",
+                        "message": "港股通表内全为'/'，无数据",
+                    },
+                    {
+                        "issue_type": "非交易行",
+                        "page": "2",
+                        "row_no": "尊敬的投资者：",
+                        "message": "表内出现非交易行：使用注意事项",
+                    },
+                    {
+                        "issue_type": "broken_ocr_row",
+                        "page": "3",
+                        "row_no": "p003_ocr_row_018",
+                        "message": "疑似业务行断裂，证券代码和数量分布在两行",
+                    },
+                ],
+            },
+            self.file_record,
+        )
+
+        self.assertEqual(len(normalized["review_items"]), 1)
+        self.assertIn("疑似业务行断裂", normalized["review_items"][0]["message"])
+
     def test_normalizer_treats_llm_final_flags_as_non_control_hints(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
@@ -1650,7 +1689,8 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["final_declaration_rows"]), 0)
         self.assertEqual(resolved["review_issue_rows"], [])
 
-    def test_bank_to_securities_transfer_is_ignored(self):
+    def test_bank_to_securities_transfer_is_kept_in_full_table_only(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
 
         normalized = normalize_guangfa(
@@ -1676,11 +1716,18 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
             self.file_record,
         )
 
-        self.assertEqual(normalized["full_transaction_rows"], [])
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        self.assertEqual(normalized["full_transaction_rows"][0]["event_type"], "cash_flow")
         self.assertEqual(normalized["final_declaration_rows"], [])
         self.assertEqual(normalized["review_items"], [])
 
-    def test_interest_capitalization_is_ignored(self):
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_interest_capitalization_is_kept_in_full_table_only(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
 
         normalized = normalize_guangfa(
@@ -1706,11 +1753,18 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
             self.file_record,
         )
 
-        self.assertEqual(normalized["full_transaction_rows"], [])
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        self.assertEqual(normalized["full_transaction_rows"][0]["event_type"], "cash_flow")
         self.assertEqual(normalized["final_declaration_rows"], [])
         self.assertEqual(normalized["review_items"], [])
 
-    def test_guangfa_pure_cash_flow_variants_are_ignored(self):
+        resolved = resolve_case_events(normalized["full_transaction_rows"])
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_guangfa_pure_cash_flow_variants_are_kept_in_full_table_only(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
 
         normalized = normalize_guangfa(
@@ -1757,11 +1811,24 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
             self.file_record,
         )
 
-        self.assertEqual(normalized["full_transaction_rows"], [])
+        self.assertEqual(len(normalized["full_transaction_rows"]), 3)
+        self.assertEqual(
+            {row["event_type"] for row in normalized["full_transaction_rows"]},
+            {"cash_flow"},
+        )
         self.assertEqual(normalized["final_declaration_rows"], [])
         self.assertEqual(normalized["review_items"], [])
 
-    def test_legacy_cash_flow_is_ignored(self):
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["full_transaction_rows"]), 3)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_legacy_cash_flow_is_kept_in_full_table_only(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
 
         normalized = normalize_guangfa(
@@ -1780,9 +1847,21 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
             self.file_record,
         )
 
-        self.assertEqual(normalized["full_transaction_rows"], [])
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        row = normalized["full_transaction_rows"][0]
+        self.assertEqual(row["event_type"], "cash_flow")
+        self.assertEqual(row["transfer_type_raw"], "银行转证券")
+        self.assertEqual(row["amount_raw"], "10000.00")
         self.assertEqual(normalized["final_declaration_rows"], [])
         self.assertEqual(normalized["review_items"], [])
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
 
     def test_script_exclusion_overrides_llm_final_flag_for_cash_events(self):
         from app.pipeline.normalizers.common import is_final_declaration_row
@@ -1830,7 +1909,7 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         messages = [item["message"] for item in normalized["review_items"]]
         self.assertIn("证券账号推断账户类型与证券代码市场推断结果不一致", messages)
 
-    def test_ordinary_trade_from_fund_flow_is_ignored(self):
+    def test_ordinary_trade_from_fund_flow_is_reclassified_to_full_table_only(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
 
@@ -1872,7 +1951,8 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
             review_items=normalized["review_items"],
         )
 
-        self.assertEqual(len(resolved["full_transaction_rows"]), 0)
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["full_transaction_rows"][0]["event_type"], "cash_flow")
         self.assertEqual(len(resolved["final_declaration_rows"]), 0)
         self.assertEqual(resolved["review_issue_rows"], [])
 

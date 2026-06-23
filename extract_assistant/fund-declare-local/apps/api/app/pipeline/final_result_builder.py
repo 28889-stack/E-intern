@@ -10,6 +10,7 @@ from app.pipeline.document_context import build_document_context, merge_document
 from app.pipeline.file_issue_collector import collect_file_issues
 from app.pipeline.file_issue_summarizer import summarize_file_issues
 from app.pipeline.normalizers import normalize_chinaclear, normalize_guangfa
+from app.pipeline.source_overlap_deduper import dedupe_source_overlap_rows
 from app.pipeline.normalizers.common import (
     as_list as normalizer_as_list,
     empty_normalized_result,
@@ -245,6 +246,8 @@ def build_final_result(case_id: str) -> dict:
             )
         )
 
+    complete_rows, source_overlap_audit = dedupe_source_overlap_rows(complete_rows)
+
     resolved = resolve_case_events(
         complete_rows,
         holding_rows=holding_rows,
@@ -359,7 +362,7 @@ def build_final_result(case_id: str) -> dict:
             "manual_review_required": bool(review_items or review_issues or file_issues),
         },
         "export_audit": export_audit,
-        "merge_audit": resolved.get("merge_audit", []),
+        "merge_audit": [*source_overlap_audit, *resolved.get("merge_audit", [])],
         "file_issues": file_issues,
         "file_issue_summaries": file_issue_summaries,
         "sheet_order": [
