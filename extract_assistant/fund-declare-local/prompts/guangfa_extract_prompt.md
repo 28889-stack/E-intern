@@ -10,7 +10,7 @@
 2. 尽量逐条保留原材料业务记录，不要把多笔交易合并为汇总；跨批次重复行由后端按交易全要素去重。
 3. 数字、账号、证券代码、流水号、委托编号均用字符串，保留原始小数位和正负号。
 4. 不要用成交数量乘成交单价反推收付金额。
-5. 无法判断的业务字段填空字符串；只有能形成一条可复核业务事实的特殊事件才写入 `business_events`。纯乱码、断行、遮挡、表头残片或无法形成业务事实的内容写入 `document_level_review_items`，不要逐行制造“无法判断”事件。
+5. 无法判断的业务字段填空字符串；只有能形成一条可复核业务事实的特殊事件才写入 `business_events`。纯乱码、断行、遮挡、表头残片或无法形成业务事实的内容不要逐行制造“无法判断”事件；其中纯空白表格噪声、分隔线噪声、只由 `i/1/!/|/A` 等字符组成的 OCR 噪声直接忽略。
 6. 普通买入/卖出成交交易必须使用 `trade_group.trades` 的列定义 + 行数组格式，不要为每笔普通交易输出大对象。
 7. 普通交易不要输出 `classification_reason`、`classification_confidence`、`raw_summary` 或大段 `raw_text`；只保留页码、行号、流水号、委托编号等定位信息。
 8. 普通买入、卖出、证券登记入账、送股、转增、配股入账等证券事件，只从“场内交割流水明细”识别。
@@ -174,37 +174,40 @@
 
 ## 五、business_events 结构
 
-特殊事件、可复核的无法判断业务，才写入 `business_events`。无法形成业务事实的 OCR 乱码、断行、表头残片、遮挡问题写入 `document_level_review_items`，不要逐行制造“无法判断”事件。
+特殊事件、可复核的无法判断业务，才写入 `business_events`。无法形成业务事实的 OCR 乱码、断行、表头残片、空白表格噪声或页脚噪声不要写入 `business_events`；只有影响交易、持仓、账户、日期、金额等关键业务字段识别的问题才写入汇总级 `document_level_review_items`，不要逐行制造“无法判断”事件。
 
-`business_events` 只保留下列字段，供 normalizer 做字段映射，供 resolver 做完整表 / 最终表 / 待复核分流：
+每条 `business_events` 使用对象格式，供 normalizer 做字段映射，供 resolver 做完整表 / 最终表 / 待复核分流。
 
 ```json
-{
-  "raw_business_type": "",
-  "inferred_event_type": "",
-  "event_category": "",
-  "final_field_candidates": {
-    "账户类型": "",
-    "证券账号": "",
-    "证券代码": "",
-    "证券名称": "",
-    "变动类型": "",
-    "日期": "",
-    "成交数量": "",
-    "成交单价": "",
-    "收付金额": ""
-  },
-  "source_evidence": {
-    "page": "",
-    "row_no": "",
-    "event_time": "",
-    "serial_no": "",
-    "order_no": "",
-    "raw_text": ""
-  },
-  "manual_review_required": false,
-  "review_reasons": []
-}
+"business_events": [
+  {
+    "event_id": "be_001",
+    "raw_business_type": "申购配号",
+    "inferred_event_type": "新股申购配号",
+    "event_category": "打新配号",
+    "final_field_candidates": {
+      "账户类型": "",
+      "证券账号": "",
+      "证券代码": "736237",
+      "证券名称": "五芳配号",
+      "变动类型": "申购配号",
+      "日期": "2022-08-22",
+      "成交数量": "6.0000",
+      "成交单价": "",
+      "收付金额": ""
+    },
+    "source_evidence": {
+      "page": "2",
+      "row_no": "2022-08-22",
+      "event_time": "",
+      "serial_no": "100499222",
+      "order_no": "20464",
+      "raw_text": "2022-08-22 申购配号 736237 五芳配号 6.0000"
+    },
+    "manual_review_required": false,
+    "review_reasons": []
+  }
+]
 ```
 
 禁止在 `business_events` 中输出以下字段：
@@ -257,7 +260,7 @@
 配号记录输出要求：
 
 * 写入 `business_events`，不要写入 `trade_group.trades`；
-* `raw_business_type` 和 `final_field_candidates.变动类型` 使用原文，例如“申购配号”“中购配号”；
+* `raw_business_type` 使用原文，例如“申购配号”“中购配号”；
 * `inferred_event_type` 可写“新股申购配号”或“配号”；
 * `event_category` 写“打新配号”；
 * 证券代码、成交单价、收付金额、证券账号或账户类型缺失时可以留空，不要仅因此设置 `manual_review_required=true`。
@@ -279,7 +282,7 @@
 * `raw_business_type` 和 `final_field_candidates.变动类型` 填“无法判断”或原文；
 * `manual_review_required=true`；
 * 在 `review_reasons` 写一句短原因；
-* 如果只是 OCR 乱码、断行残片、空表头、页脚或无法形成业务事实，不要写入 `business_events`，写入 `document_level_review_items`。
+* 如果只是 OCR 乱码、断行残片、空表头、页脚、分隔线或空白表格噪声，且没有影响交易、持仓、账户、日期、金额等关键业务字段，不要写入 `business_events`，也不要逐行写入 `document_level_review_items`。
 
 ## 五、账户类型与信用账户规则
 
@@ -395,10 +398,16 @@
 
 适用情形：
 
-* OCR 乱码、断行、遮挡、列错位；
+* 影响交易、持仓、账户、日期、金额等关键业务字段识别的 OCR 乱码、断行、遮挡、列错位；
 * 表头残片、页脚、空表；
 * 某一行只有日期/流水号/金额碎片，无法判断是否是证券事件；
 * 当前 batch 的 overlap 行不完整，无法独立确认业务。
+
+注意：
+
+* 纯空白表格、分隔线、页脚、装饰符被 OCR 识别成 `i i 1 ! 1 1`、`1 1 1 1`、`A 1 1 1` 等无业务含义的噪声时，不要写入 `document_level_review_items`。
+* 如果同一页存在多处同类 OCR 噪声，但不影响任何可见交易、持仓、账户、日期或金额字段，直接忽略。
+* 如果 OCR 噪声确实影响关键业务字段，只输出 1 条汇总级 `document_level_review_items`，不要逐行输出。例如：“第2页存在多处低置信度 OCR 噪声，可能影响部分业务字段识别。”
 
 结构：
 
@@ -421,7 +430,7 @@
 ## 九、字段规则
 
 1. 日期统一为 `YYYY-MM-DD`；如果只有期间，业务事件的“日期”优先使用期间结束日。
-2. 时间如 `095650` 优先写入 `source_evidence.event_time`；没有对应字段时可保留在 `source_evidence.raw_text`。
+2. `business_events` 的时间、流水号、委托编号优先写入 `source_evidence`；`source_evidence.raw_text` 只摘录本行或相邻断行，不超过 120 个中文字符。
 3. `收付金额` 表示本次变动对应金额；如果材料已有正负号，保留材料原始方向。
 4. 如果材料明确表示资金增加，金额为正；明确表示资金减少，金额为负。
 5. 如果无法判断金额方向，保留原值并标记人工复核。
@@ -432,7 +441,18 @@
 
 ## 十、source_evidence 要求
 
-每条 `business_events`、`holding_records`、`negative_proofs` 尽量保留：
+每条 `business_events` 尽量保留：
+
+* `page`
+* `row_no`
+* 发生时间 / 交易时间
+* `serial_no`
+* `order_no`
+* `raw_text`，不超过 120 个中文字符
+
+不要复制整页原文；只摘录本行或相邻断行。
+
+每条 `holding_records`、`negative_proofs` 尽量保留：
 
 * `page`
 * `row_no`

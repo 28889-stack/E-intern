@@ -317,6 +317,10 @@ def _is_non_business_document_review_item(item: dict) -> bool:
         item.get("review_reason"),
         item.get("raw_summary"),
     )
+    evidence = item.get("source_evidence") or {}
+    if not isinstance(evidence, dict):
+        evidence = {}
+    raw_text = _first_text(evidence.get("raw_text"), item.get("raw_text"))
     text = f"{issue_type} {message}"
     non_business_issue_types = (
         "表头残片",
@@ -325,6 +329,8 @@ def _is_non_business_document_review_item(item: dict) -> bool:
         "页脚/非业务文本",
     )
     if any(issue in issue_type for issue in non_business_issue_types):
+        return True
+    if "乱码" in issue_type and _is_ignorable_ocr_noise_item(message, raw_text):
         return True
     return any(
         keyword in text
@@ -345,6 +351,53 @@ def _is_non_business_document_review_item(item: dict) -> bool:
             '表内全为"/"',
         )
     )
+
+
+def _is_pure_ocr_noise_text(value: str) -> bool:
+    text = re.sub(r"\s+", "", str(value or ""))
+    if not text:
+        return False
+    if _has_business_review_anchor(text):
+        return False
+    noise_chars = sum(1 for char in text if char in "1iI!|lLA心")
+    return noise_chars / max(len(text), 1) >= 0.75
+
+
+def _is_ignorable_ocr_noise_item(message: str, raw_text: str) -> bool:
+    text = re.sub(r"\s+", "", str(raw_text or ""))
+    if not text:
+        return False
+    if _is_pure_ocr_noise_text(text):
+        return True
+    if "无法形成业务事实" not in str(message or ""):
+        return False
+    return not _has_business_review_anchor(text)
+
+
+def _has_business_review_anchor(text: str) -> bool:
+    if any(
+        keyword in text
+        for keyword in (
+            "证券",
+            "账号",
+            "股东",
+            "资金",
+            "成交",
+            "买入",
+            "卖出",
+            "申购",
+            "配号",
+            "入账",
+            "股息",
+            "红利",
+            "持仓",
+            "日期",
+        )
+    ):
+        return True
+    if re.search(r"20\d{2}[-/.年]\d{1,2}", text):
+        return True
+    return False
 
 
 def _dedupe_same_source_event_rows(rows: list[dict]) -> list[dict]:

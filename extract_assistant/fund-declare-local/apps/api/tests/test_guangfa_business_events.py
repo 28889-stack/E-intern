@@ -146,6 +146,61 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         self.assertEqual(len(normalized["review_items"]), 1)
         self.assertIn("疑似业务行断裂", normalized["review_items"][0]["message"])
 
+    def test_normalizer_suppresses_pure_ocr_noise_review_items(self):
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "document_level_review_items": [
+                    {
+                        "issue_type": "ocr乱码",
+                        "page": "2",
+                        "row_no": "i",
+                        "message": "行内容为乱码，无法形成业务事实",
+                        "source_evidence": {"raw_text": "i i 1 ! 1 1 1 1 1"},
+                    },
+                    {
+                        "issue_type": "ocr乱码",
+                        "page": "2",
+                        "row_no": "1",
+                        "message": "行内容为乱码，无法形成业务事实",
+                        "source_evidence": {"raw_text": "1 1 1 1 1 心 i"},
+                    },
+                    {
+                        "issue_type": "ocr乱码",
+                        "page": "2",
+                        "row_no": "1",
+                        "message": "行内容为乱码，无法形成业务事实",
+                        "source_evidence": {"raw_text": "1 1 1 1 1 1 1 1 1"},
+                    },
+                    {
+                        "issue_type": "ocr乱码",
+                        "page": "2",
+                        "row_no": "约定购回、简约通当前合约",
+                        "message": "行内容为乱码，无法形成业务事实",
+                        "source_evidence": {
+                            "raw_text": "约定购回、简约通当前合约 1 1 1 1 i i 1 1 1 ! i 1"
+                        },
+                    },
+                    {
+                        "issue_type": "ocr_anomaly",
+                        "page": "1",
+                        "row_no": "2022-01-05",
+                        "message": "疑似交易行遮挡，证券代码或成交数量无法确认",
+                        "source_evidence": {
+                            "raw_text": "2022-01-05 111111 某证券 买入 ***"
+                        },
+                    },
+                ],
+            },
+            self.file_record,
+        )
+
+        self.assertEqual(len(normalized["review_items"]), 1)
+        self.assertIn("疑似交易行遮挡", normalized["review_items"][0]["message"])
+        self.assertNotIn("i i 1", normalized["review_items"][0]["message"])
+
     def test_normalizer_treats_llm_final_flags_as_non_control_hints(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
