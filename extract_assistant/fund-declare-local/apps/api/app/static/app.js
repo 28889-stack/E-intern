@@ -20,7 +20,9 @@ const state = {
   assistantDrag: null,
   analysisProgressTimer: null,
   analysisProgressHoldTimer: null,
+  analysisProgressHoldIndex: 0,
   analysisProgressValue: 0,
+  analysisRunning: false,
   stagedUploadSeq: 0,
 };
 
@@ -48,6 +50,11 @@ const reviewTableDescriptions = {
 const identityColumns = ["姓名", "电话", "关系类型", "身份证姓名", "身份证号码", "地址", "有效期起", "有效期止"];
 const checklistColumns = ["checklist条件", "状态", "说明"];
 const problemColumns = ["序号", "待复核原因", "问题描述", "对应材料"];
+const API_ORIGIN = window.location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
+
+if (window.location.protocol === "file:") {
+  window.location.replace(`${API_ORIGIN}/`);
+}
 
 const els = {
   statusText: document.getElementById("status-text"),
@@ -102,7 +109,7 @@ function setServiceState(kind, message) {
 
 async function checkApiHealth() {
   try {
-    const response = await fetch("/api/health", { headers: { Accept: "application/json" } });
+    const response = await fetch(apiUrl("/api/health"), { headers: { Accept: "application/json" } });
     if (!response.ok) {
       throw new Error("health check failed");
     }
@@ -294,7 +301,7 @@ function replaceStagedFile(localId, serverFile) {
 async function uploadSingleFile(endpoint, file) {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await fetch(`/api/cases/${encodeURIComponent(state.caseId)}/${endpoint}`, {
+  const response = await fetch(apiUrl(`/api/cases/${encodeURIComponent(state.caseId)}/${endpoint}`), {
     method: "POST",
     body: formData,
   });
@@ -337,7 +344,7 @@ function renderMaterials() {
   updateStepButtons();
   const activeUploads = state.files.some((file) => file.local_only && ["queued", "uploading"].includes(file.upload_state));
   const uploadedFiles = state.files.filter((file) => !file.local_only && file.upload_state !== "failed");
-  els.startAnalysisButton.disabled = !state.caseId || uploadedFiles.length === 0 || activeUploads;
+  els.startAnalysisButton.disabled = !state.caseId || uploadedFiles.length === 0 || activeUploads || state.analysisRunning;
   if (activeUploads) {
     els.uploadReadyMessage.textContent = "材料正在进入缓存区，完成后可以开始系统分析。";
   } else if (uploadedFiles.length) {
@@ -367,6 +374,10 @@ function renderMaterials() {
 }
 
 async function startAnalysis() {
+  if (state.analysisRunning) {
+    showNotice(els.analysisMessage, "info", "系统仍在分析当前材料，请保持页面打开。");
+    return;
+  }
   if (!state.caseId) {
     showStep("create");
     return;
@@ -384,6 +395,9 @@ async function startAnalysis() {
   }
 
   showStep("analysis");
+  state.analysisRunning = true;
+  els.startAnalysisButton.disabled = true;
+  els.analysisProgressBar.classList.add("is-busy");
   renderAnalysisSteps(0);
   setAnalysisProgress(8, "准备分析材料");
   showNotice(els.analysisMessage, "info", "系统正在读取材料并生成复核结果，请稍候。");
@@ -391,7 +405,11 @@ async function startAnalysis() {
   try {
     renderAnalysisSteps(1);
     beginAnalysisProgress("读取材料与识别内容", 16, 88, {
-      holdLabel: "材料较多，正在继续抽取和校验",
+      holdLabels: [
+        "智能抽取仍在进行，请保持页面打开",
+        "材料较多，正在继续抽取和校验",
+        "正在整理结构化事件和追溯信息",
+      ],
     });
     const analyzePayload = await requestJson(`/api/cases/${encodeURIComponent(state.caseId)}/files/analyze`, {
       method: "POST",
@@ -405,7 +423,7 @@ async function startAnalysis() {
     advanceAnalysisProgress(88, "材料内容识别完成");
     renderAnalysisSteps(5);
     beginAnalysisProgress("生成复核结果", 88, 97, {
-      holdLabel: "正在整理复核表格",
+      holdLabels: ["正在整理复核表格", "正在汇总完整表和最终申报表"],
     });
     const finalizePayload = await requestJson(`/api/cases/${encodeURIComponent(state.caseId)}/finalize`, {
       method: "POST",
@@ -427,12 +445,17 @@ async function startAnalysis() {
     renderAnalysisSteps(5, true);
     setAnalysisProgress(state.analysisProgressValue || 0, "分析未完成");
     handleFriendlyError(error, els.analysisMessage, "生成复核结果失败。部分材料可能未能完成识别，请稍后重试或在待复核清单中人工复核。");
+  } finally {
+    state.analysisRunning = false;
+    els.analysisProgressBar.classList.remove("is-busy");
+    renderMaterials();
   }
 }
 
 function beginAnalysisProgress(label, start, cap, options = {}) {
   stopAnalysisProgress();
   const intervalMs = options.intervalMs || 420;
+  state.analysisProgressHoldIndex = 0;
   advanceAnalysisProgress(start, label);
   state.analysisProgressTimer = window.setInterval(() => {
     if (state.analysisProgressValue >= cap) {
@@ -441,12 +464,15 @@ function beginAnalysisProgress(label, start, cap, options = {}) {
     const step = state.analysisProgressValue < 55 ? 2 : 1;
     advanceAnalysisProgress(Math.min(cap, state.analysisProgressValue + step), label);
   }, intervalMs);
-  if (options.holdLabel) {
-    state.analysisProgressHoldTimer = window.setTimeout(() => {
+  const holdLabels = options.holdLabels || (options.holdLabel ? [options.holdLabel] : []);
+  if (holdLabels.length) {
+    state.analysisProgressHoldTimer = window.setInterval(() => {
       if (state.analysisProgressTimer && state.analysisProgressValue >= cap) {
-        setAnalysisProgress(cap, options.holdLabel);
+        const holdLabel = holdLabels[state.analysisProgressHoldIndex % holdLabels.length];
+        state.analysisProgressHoldIndex += 1;
+        setAnalysisProgress(cap, holdLabel);
       }
-    }, options.holdAfterMs || 14000);
+    }, options.holdEveryMs || 4000);
   }
 }
 
@@ -456,7 +482,7 @@ function stopAnalysisProgress() {
     state.analysisProgressTimer = null;
   }
   if (state.analysisProgressHoldTimer) {
-    window.clearTimeout(state.analysisProgressHoldTimer);
+    window.clearInterval(state.analysisProgressHoldTimer);
     state.analysisProgressHoldTimer = null;
   }
 }
@@ -802,7 +828,7 @@ async function exportExcel() {
   els.exportExcelButton.disabled = true;
   els.exportMessage.textContent = "正在准备 Excel。";
   try {
-    const response = await fetch(`/api/cases/${encodeURIComponent(state.caseId)}/export/excel`);
+    const response = await fetch(apiUrl(`/api/cases/${encodeURIComponent(state.caseId)}/export/excel`));
     if (!response.ok) {
       const payload = await safeJson(response);
       if (response.status === 409) {
@@ -983,12 +1009,19 @@ function friendlyErrorMessage(error, fallback) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(apiUrl(url), options);
   const payload = await safeJson(response);
   if (!response.ok) {
     throw makeRequestError(response, payload, payload.detail || "请求失败，请稍后重试。");
   }
   return payload;
+}
+
+function apiUrl(path) {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+  return `${API_ORIGIN}${path}`;
 }
 
 async function safeJson(response) {

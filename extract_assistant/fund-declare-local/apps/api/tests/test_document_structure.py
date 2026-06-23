@@ -84,6 +84,47 @@ class DocumentStructureTest(unittest.TestCase):
             self.assertIn("row_id=p001_t001_r002", payload["input_text"])
             self.assertIn("2025-04-14", payload["input_text"])
 
+    def test_extraction_input_includes_compact_graph_rag_context(self):
+        from app.pipeline.extraction_input_builder import build_extraction_input
+        from app.services.local_store import save_json
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "processed" / "file_001"
+            save_json(
+                output_dir / "raw_text.json",
+                {
+                    "pages": [
+                        {
+                            "page": 1,
+                            "text": "2022-01-05 688262 国芯科技 新股入账 500",
+                        }
+                    ]
+                },
+            )
+            save_json(
+                output_dir / "graph_rag/retrieval_result.json",
+                {
+                    "query": "抽取交易类事件",
+                    "matched_entities": ["security:688262"],
+                    "context_blocks": [
+                        {
+                            "page_no": 1,
+                            "row_no": "18",
+                            "source_text": "2022-01-05 688262 国芯科技 新股入账 500",
+                            "related_entities": ["688262", "国芯科技"],
+                            "reason": "same security",
+                        }
+                    ],
+                },
+            )
+
+            payload = build_extraction_input(output_dir)
+
+        self.assertIn("graph_rag_retrieval_path", payload["sources"])
+        self.assertIn("graph_rag_context", payload)
+        self.assertIn("security:688262", payload["graph_rag_context"])
+        self.assertIn("国芯科技", payload["graph_rag_context"])
+
     def test_table_payload_preserves_row_and_cell_trace_metadata(self):
         from app.pipeline.document_structure import (
             build_document_structure,

@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     multimodal_timeout_seconds: int = 180
     multimodal_max_img_bytes: int = 3500000
     multimodal_max_tokens: int = 2048
+    graph_rag_embedding_enabled: bool = False
+    graph_rag_embedding_model: str = "BAAI/bge-small-zh-v1.5"
+    graph_rag_vector_top_k: int = 8
 
     model_config = SettingsConfigDict(
         env_file=str(API_ROOT / ".env"),
@@ -49,3 +52,6 @@ MULTIMODAL_MODEL = settings.multimodal_model
 MULTIMODAL_TIMEOUT_SECONDS = settings.multimodal_timeout_seconds
 MULTIMODAL_MAX_IMG_BYTES = settings.multimodal_max_img_bytes
 MULTIMODAL_MAX_TOKENS = settings.multimodal_max_tokens
+GRAPH_RAG_EMBEDDING_ENABLED = settings.graph_rag_embedding_enabled
+GRAPH_RAG_EMBEDDING_MODEL = settings.graph_rag_embedding_model
+GRAPH_RAG_VECTOR_TOP_K = settings.graph_rag_vector_top_k

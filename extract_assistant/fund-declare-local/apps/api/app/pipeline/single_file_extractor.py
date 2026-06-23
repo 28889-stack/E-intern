@@ -3,6 +3,7 @@ from pathlib import Path
 from app.core.config import ENABLE_MULTIMODAL_REVIEW
 from app.pipeline.chinaclear_extractor import ChinaclearExtractor
 from app.pipeline.guangfa_extractor import GuangfaExtractor
+from app.pipeline.graph_rag_sidecar import run_graph_rag_sidecar
 from app.pipeline.multimodal_review_sidecar import run_multimodal_review_sidecar
 from app.services import local_store
 
@@ -12,6 +13,11 @@ def extract_single_file(case_id: str, file_record: dict) -> dict:
     extract_result_path = output_dir / "extract_result.json"
     content_type = file_record.get("content_type") or "unknown"
     multimodal_review = _run_optional_multimodal_review(file_record, output_dir)
+    graph_rag_trace = _run_graph_rag_for_account_material(
+        content_type,
+        file_record,
+        output_dir,
+    )
 
     if content_type == "chinaclear":
         extract_result = ChinaclearExtractor().extract(case_id, file_record, output_dir)
@@ -34,6 +40,8 @@ def extract_single_file(case_id: str, file_record: dict) -> dict:
 
     if multimodal_review:
         extract_result["multimodal_review"] = multimodal_review
+    if graph_rag_trace:
+        extract_result["graph_rag_trace"] = graph_rag_trace
 
     local_store.save_json(extract_result_path, extract_result)
     _update_file_index(case_id, file_record, extract_result, extract_result_path)
@@ -57,6 +65,16 @@ def _run_optional_multimodal_review(file_record: dict, output_dir: Path) -> dict
     if not ENABLE_MULTIMODAL_REVIEW:
         return None
     return run_multimodal_review_sidecar(file_record, output_dir)
+
+
+def _run_graph_rag_for_account_material(
+    content_type: str,
+    file_record: dict,
+    output_dir: Path,
+) -> dict | None:
+    if content_type not in {"chinaclear", "guangfa"}:
+        return None
+    return run_graph_rag_sidecar(file_record, output_dir)
 
 
 def _skipped_result(

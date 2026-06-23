@@ -47,6 +47,7 @@ class ChinaclearExtractor:
         extract_result_path = output_dir / "extract_result.json"
         extract_batches_path = output_dir / "extract_batches.json"
         input_payload = build_extraction_input(output_dir)
+        graph_rag_context = input_payload.get("graph_rag_context", "")
         document_context = build_document_context(output_dir)
 
         if not input_payload["input_text"].strip():
@@ -80,6 +81,7 @@ class ChinaclearExtractor:
                 file_record,
                 batches,
                 document_context,
+                graph_rag_context,
             )
             local_store.save_json(extract_batches_path, {"batches": batch_results})
         else:
@@ -88,6 +90,7 @@ class ChinaclearExtractor:
                 file_record,
                 input_payload["input_text"],
                 document_context,
+                graph_rag_context,
             )
             llm_result = self.llm_client.extract_json(final_prompt)
 
@@ -112,6 +115,7 @@ class ChinaclearExtractor:
         file_record: dict,
         input_text: str,
         document_context: dict | None = None,
+        graph_rag_context: str = "",
     ) -> str:
         return "\n\n".join(
             [
@@ -123,9 +127,22 @@ class ChinaclearExtractor:
                 "document_context:",
                 format_document_context(document_context or {}),
                 "材料级上下文使用规则：如果 document_context 中有持有人、证券子账户/证券账号、账户类型或查询期限，后续交易/持仓/负向证明默认继承这些同一份材料的全局要素；一码通账号不是证券账号。",
+                self._graph_rag_prompt_section(graph_rag_context),
                 "input_text:",
                 input_text,
                 self._compact_output_contract(),
+            ]
+        )
+
+    def _graph_rag_prompt_section(self, graph_rag_context: str = "") -> str:
+        context = str(graph_rag_context or "").strip()
+        if not context:
+            return "graph_rag_context: 无"
+        return "\n".join(
+            [
+                "graph_rag_context:",
+                "以下是抽取前规则图谱检索得到的辅助证据上下文，只能用于补全同一文件内的账户、证券、页码、行号和原文证据；不得编造上下文中不存在的信息。",
+                context,
             ]
         )
 
@@ -295,6 +312,7 @@ class ChinaclearExtractor:
         file_record: dict,
         batches: list[dict],
         document_context: dict | None = None,
+        graph_rag_context: str = "",
     ) -> tuple[dict, list[dict]]:
         batch_results: list[dict] = []
         max_workers = min(CHINACLEAR_BATCH_MAX_WORKERS, len(batches))
@@ -307,6 +325,7 @@ class ChinaclearExtractor:
                     file_record,
                     batch,
                     document_context or {},
+                    graph_rag_context,
                 ): batch
                 for batch in batches
             }
@@ -334,12 +353,14 @@ class ChinaclearExtractor:
         file_record: dict,
         batch: dict,
         document_context: dict | None = None,
+        graph_rag_context: str = "",
     ) -> dict:
         final_prompt = self._build_batch_prompt(
             prompt,
             file_record,
             batch,
             document_context,
+            graph_rag_context,
         )
         result = self.llm_client.extract_json(final_prompt)
         result["batch_id"] = batch["batch_id"]
@@ -356,6 +377,7 @@ class ChinaclearExtractor:
         file_record: dict,
         batch: dict,
         document_context: dict | None = None,
+        graph_rag_context: str = "",
     ) -> str:
         return "\n\n".join(
             [
@@ -367,6 +389,7 @@ class ChinaclearExtractor:
                 "document_context:",
                 format_document_context(document_context or {}),
                 "材料级上下文使用规则：如果 document_context 中有持有人、证券子账户/证券账号、账户类型或查询期限，当前 batch 的交易/持仓/负向证明默认继承这些同一份材料的全局要素；一码通账号不是证券账号。",
+                self._graph_rag_prompt_section(graph_rag_context),
                 f"batch_id: {batch['batch_id']}",
                 f"primary_row_range: {batch['row_start']} - {batch['row_end']}",
                 "注意：输入中包含前后 overlap 行。overlap 行可以抽取，后端会按 row_no 去重。",

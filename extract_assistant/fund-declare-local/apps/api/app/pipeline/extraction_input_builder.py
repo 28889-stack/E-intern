@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+from app.pipeline.graph_rag_sidecar import format_graph_rag_context
 from app.services.local_store import read_json
 
 
@@ -12,6 +13,7 @@ def build_extraction_input(process_output_dir: str | Path) -> dict:
         "raw_text_path": None,
         "tables_path": None,
         "ocr_result_path": None,
+        "graph_rag_retrieval_path": None,
     }
 
     document_structure_path = output_dir / "document_structure.json"
@@ -26,10 +28,12 @@ def build_extraction_input(process_output_dir: str | Path) -> dict:
 
     if input_sections:
         input_text = _sections_to_text(input_sections)
+        graph_rag_context = _load_graph_rag_context(output_dir, sources)
         return {
             "input_text": input_text,
             "sources": sources,
             "input_sections": input_sections,
+            "graph_rag_context": graph_rag_context,
             "manual_review_required": False,
             "review_reasons": [],
         }
@@ -81,14 +85,23 @@ def build_extraction_input(process_output_dir: str | Path) -> dict:
 
     input_text = _sections_to_text(input_sections)
     review_reasons = [] if input_text else ["抽取输入文本为空"]
+    graph_rag_context = _load_graph_rag_context(output_dir, sources)
 
     return {
         "input_text": input_text,
         "sources": sources,
         "input_sections": input_sections,
+        "graph_rag_context": graph_rag_context,
         "manual_review_required": bool(review_reasons),
         "review_reasons": review_reasons,
     }
+
+
+def _load_graph_rag_context(output_dir: Path, sources: dict) -> str:
+    retrieval_path = output_dir / "graph_rag" / "retrieval_result.json"
+    if retrieval_path.exists():
+        sources["graph_rag_retrieval_path"] = str(retrieval_path)
+    return format_graph_rag_context(output_dir)
 
 
 def _sections_from_document_structure(document_structure: dict[str, Any]) -> list[dict]:

@@ -135,3 +135,50 @@ class SingleFileExtractorTest(unittest.TestCase):
                         result["multimodal_review"]["multimodal_review_status"],
                         "no_difficult_blocks",
                     )
+
+    def test_graph_rag_sidecar_runs_for_account_material_and_trace_is_saved(self):
+        from app.pipeline.single_file_extractor import extract_single_file
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            case_id = "case_test"
+            output_dir = project_root / "data/cases/case_test/account_info/processed/file_001"
+            file_record = {
+                "file_id": "file_001",
+                "file_no": "001",
+                "case_id": case_id,
+                "original_file_name": "statement.pdf",
+                "output_dir": "data/cases/case_test/account_info/processed/file_001",
+                "content_type": "guangfa",
+                "route_type": "direct_pdf",
+            }
+
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    project_root / "data/cases/case_test/files_index.json",
+                    {"files": [dict(file_record)]},
+                )
+                with patch(
+                    "app.pipeline.single_file_extractor.run_graph_rag_sidecar",
+                    return_value={
+                        "graph_rag_status": "success",
+                        "graph_path": "data/cases/case_test/account_info/processed/file_001/graph_rag/graph.json",
+                        "retrieval_result_path": "data/cases/case_test/account_info/processed/file_001/graph_rag/retrieval_result.json",
+                    },
+                ) as sidecar:
+                    with patch(
+                        "app.pipeline.single_file_extractor.GuangfaExtractor.extract",
+                        return_value={
+                            "extract_status": "success",
+                            "manual_review_required": False,
+                            "review_reasons": [],
+                        },
+                    ):
+                        result = extract_single_file(case_id, file_record)
+
+                sidecar.assert_called_once()
+                saved = local_store.read_json(output_dir / "extract_result.json")
+
+        self.assertEqual(result["graph_rag_trace"]["graph_rag_status"], "success")
+        self.assertEqual(saved["graph_rag_trace"]["graph_rag_status"], "success")
