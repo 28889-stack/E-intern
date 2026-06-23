@@ -11,6 +11,71 @@ if str(API_ROOT) not in sys.path:
 
 
 class FinalProblemEventsTest(unittest.TestCase):
+    def test_final_result_keeps_multimodal_review_trace_in_source_summary(self):
+        from app.pipeline.final_result_builder import build_final_result
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            case_id = "case_test"
+            case_dir = project_root / "data/cases/case_test"
+            output_dir = case_dir / "account_info/processed/file_001"
+            file_record = {
+                "file_id": "file_001",
+                "file_no": "001",
+                "case_id": case_id,
+                "original_file_name": "statement.pdf",
+                "output_dir": "data/cases/case_test/account_info/processed/file_001",
+                "content_type": "identity",
+            }
+
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.ensure_case_structure(case_id)
+                local_store.save_json(
+                    case_dir / "case.json",
+                    {
+                        "case_id": case_id,
+                        "name": "张三",
+                        "phone": "13800000000",
+                        "relation_type": "self",
+                        "relation_type_label": "本人",
+                    },
+                )
+                local_store.save_json(case_dir / "files_index.json", {"files": [file_record]})
+                local_store.save_json(
+                    output_dir / "extract_result.json",
+                    {
+                        "schema_version": "placeholder_extract_v1",
+                        "file_id": "file_001",
+                        "content_type": "identity",
+                        "extract_status": "skipped",
+                        "multimodal_review": {
+                            "multimodal_review_status": "no_difficult_blocks",
+                            "document_blocks_path": "data/cases/case_test/account_info/processed/file_001/document_blocks.json",
+                            "multimodal_review_hints_path": "data/cases/case_test/account_info/processed/file_001/multimodal_review_hints.json",
+                            "uncertainty_reasons": ["第 1 页表格列数不稳定"],
+                        },
+                    },
+                )
+
+                final_result = build_final_result(case_id)
+
+        source = final_result["source_extract_results"][0]
+        self.assertEqual(source["multimodal_review_status"], "no_difficult_blocks")
+        self.assertTrue(source["document_blocks_path"].endswith("document_blocks.json"))
+        self.assertTrue(
+            source["multimodal_review_hints_path"].endswith(
+                "multimodal_review_hints.json"
+            )
+        )
+        self.assertTrue(
+            any(
+                item["field"] == "multimodal_review"
+                and "第 1 页表格列数不稳定" in item["message"]
+                for item in final_result["review_items"]
+            )
+        )
+
     def test_document_context_extracts_chinaclear_split_holding_header(self):
         from app.pipeline.document_context import build_document_context
         from app.services import local_store
@@ -191,6 +256,51 @@ class FinalProblemEventsTest(unittest.TestCase):
             {item["source_row_id"] for item in evidence},
             {"event_001", "event_002"},
         )
+
+    def test_resolver_does_not_handle_source_overlap_duplicates(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        base_row = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "statement.pdf",
+            "account_type": "沪A",
+            "securities_account": "A315570738",
+            "event_type": "security_registration",
+            "event_date": "2022-01-05",
+            "security_code": "688262",
+            "security_name": "国芯科技",
+            "direction": "registration_in",
+            "quantity_raw": "500.0000",
+            "price_raw": "41.9800",
+            "amount_raw": "0.0000",
+            "balance_after_raw": "",
+            "transfer_type_raw": "新股入账",
+        }
+        resolved = resolve_case_events(
+            [
+                {
+                    **base_row,
+                    "event_id": "802777974",
+                    "event_time": "160000",
+                    "serial_no": "802777974",
+                    "order_no": "34301",
+                    "row_nos": "297",
+                    "source_evidence": [{"source_row_id": "802777974", "row_no": "297"}],
+                },
+                {
+                    **base_row,
+                    "event_id": "9800",
+                    "serial_no": "",
+                    "order_no": "",
+                    "row_nos": "303",
+                    "source_evidence": [{"source_row_id": "9800", "row_no": "303"}],
+                },
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 2)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 2)
 
     def test_cross_file_trade_rows_are_merged_when_one_to_one_and_complementary(self):
         from app.pipeline.case_event_resolver import resolve_case_events
@@ -791,6 +901,123 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(resolved["full_transaction_rows"][0]["event_type"], "cash_dividend")
         self.assertEqual(resolved["final_declaration_rows"], [])
 
+    def test_full_only_events_with_sparse_fields_do_not_require_review(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        resolved = resolve_case_events(
+            [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "沪A",
+                    "securities_account": "A123456789",
+                    "event_id": "dividend_001",
+                    "event_type": "cash_dividend",
+                    "event_date": "2025-06-26",
+                    "security_code": "600036",
+                    "security_name": "招商银行",
+                    "direction": "cash_income",
+                    "quantity_raw": "",
+                    "price_raw": "",
+                    "amount_raw": "",
+                    "transfer_type_raw": "股息入账",
+                },
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "",
+                    "securities_account": "",
+                    "event_id": "allotment_001",
+                    "event_type": "subscription_allotment",
+                    "event_date": "2025-01-24",
+                    "security_code": "",
+                    "security_name": "亚信配号",
+                    "direction": "subscribe",
+                    "quantity_raw": "13.0000",
+                    "price_raw": "",
+                    "amount_raw": "",
+                    "transfer_type_raw": "申购配号",
+                },
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "深A",
+                    "securities_account": "0002220266",
+                    "event_id": "trade_group_allotment_001",
+                    "event_type": "ordinary_trade",
+                    "event_date": "2025-01-24",
+                    "security_code": "789225",
+                    "security_name": "亚信配号",
+                    "direction": "buy",
+                    "quantity_raw": "13.0000",
+                    "price_raw": "0.0000",
+                    "amount_raw": "0.0000",
+                    "transfer_type_raw": "中购配号",
+                },
+            ]
+        )
+
+        self.assertEqual(len(resolved["full_transaction_rows"]), 3)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_event_security_name_is_filled_from_same_file_holding_code_reference(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        resolved = resolve_case_events(
+            [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "沪A",
+                    "securities_account": "A315570738",
+                    "event_id": "registration_001",
+                    "event_type": "security_registration",
+                    "event_date": "2025-01-05",
+                    "security_code": "688262",
+                    "security_name": "",
+                    "direction": "registration_in",
+                    "quantity_raw": "500.0000",
+                    "price_raw": "41.9800",
+                    "amount_raw": "0.0000",
+                    "transfer_type_raw": "新股入账",
+                }
+            ],
+            holding_rows=[
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "account_type": "沪A",
+                    "securities_account": "A315570738",
+                    "holding_date": "2025-12-31",
+                    "security_code": "688262",
+                    "security_name": "国芯科技",
+                    "quantity_raw": "500.0000",
+                    "market_value": "20905.0000",
+                }
+            ],
+            review_items=[
+                {
+                    "severity": "warning",
+                    "item_type": "event",
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "statement.pdf",
+                    "event_id": "registration_001",
+                    "field": "final_field_candidates",
+                    "message": "最终申报关键字段缺失：证券名称",
+                }
+            ],
+        )
+
+        self.assertEqual(resolved["review_issue_rows"], [])
+        self.assertEqual(resolved["final_declaration_rows"][0]["security_name"], "国芯科技")
+
     def test_review_item_reasons_do_not_expose_internal_field_names(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 
@@ -857,7 +1084,8 @@ class FinalProblemEventsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(resolved["review_issue_rows"]), 1)
-        self.assertEqual(resolved["full_transaction_rows"], [])
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertTrue(resolved["full_transaction_rows"][0]["manual_review_required"])
         self.assertIn("无法判断事件类型", resolved["review_issue_rows"][0]["待复核原因"])
         self.assertIn("未知事件", resolved["review_issue_rows"][0]["问题描述"])
         self.assertIn("600000 浦发银行", resolved["review_issue_rows"][0]["问题描述"])
@@ -1140,7 +1368,7 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(row["event_date"], "2024-12-20")
         self.assertEqual(row["security_code"], "0")
         self.assertEqual(row["quantity_raw"], "0")
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
         self.assertEqual(normalized["review_items"], [])
 
         resolved = resolve_case_events(
@@ -1182,7 +1410,7 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(row["event_date"], "2024-12-31")
         self.assertEqual(row["security_code"], "0")
         self.assertEqual(row["quantity_raw"], "0")
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
 
         resolved = resolve_case_events(normalized["full_transaction_rows"])
         self.assertEqual(len(resolved["final_declaration_rows"]), 1)
@@ -1453,6 +1681,96 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(merged["negative_proofs"]), 1)
         self.assertEqual(len(merged["document_level_review_items"]), 1)
 
+    def test_chinaclear_batch_result_writes_compact_source_trace_without_llm_trace_output(self):
+        from app.pipeline.chinaclear_extractor import ChinaclearExtractor
+
+        class FakeLLMClient:
+            def extract_json(self, prompt):
+                return {
+                    "schema_version": "chinaclear_event_understanding_v2",
+                    "trade_group": {
+                        "trade_columns": [
+                            "trade_id",
+                            "market",
+                            "trade_date",
+                            "security_code",
+                            "security_name",
+                            "direction",
+                            "quantity_raw",
+                            "price_raw",
+                            "balance_after_raw",
+                            "transfer_type_raw",
+                            "source_page",
+                            "row_no",
+                        ],
+                        "trades": [
+                            [
+                                "t1",
+                                "沪A",
+                                "2025-01-02",
+                                "600000",
+                                "浦发银行",
+                                "buy",
+                                "100",
+                                "10.00",
+                                "100",
+                                "买入",
+                                "1",
+                                "88",
+                            ]
+                        ],
+                    },
+                    "other_events": [
+                        {
+                            "event_type": "cash_dividend",
+                            "security_code": "600000",
+                            "security_name": "浦发银行",
+                            "source_evidence": {
+                                "page": "1",
+                                "row_no": "88",
+                                "raw_text": "现金红利 浦发银行",
+                            },
+                        }
+                    ],
+                }
+
+        extractor = ChinaclearExtractor.__new__(ChinaclearExtractor)
+        extractor.llm_client = FakeLLMClient()
+        batch = {
+            "batch_id": "batch_001",
+            "row_start": "88",
+            "row_end": "88",
+            "input_text": "rows:\n[page=1 row_no=88] 现金红利 浦发银行",
+            "source_traces": [
+                {
+                    "page": "1",
+                    "table": "2",
+                    "row_no": "88",
+                    "row_id": "p001_ocr_row_088",
+                    "bbox": [15, 80, 310, 96],
+                    "line_ids": ["p001_ocr_l201", "p001_ocr_l202"],
+                }
+            ],
+        }
+
+        result = extractor._extract_one_batch(
+            "prompt",
+            {"file_id": "file_001", "original_file_name": "chinaclear.pdf"},
+            batch,
+            document_context={},
+        )
+
+        expected_trace = {
+            "page": "1",
+            "table": "2",
+            "row_no": "88",
+            "row_id": "p001_ocr_row_088",
+            "bbox": [15, 80, 310, 96],
+            "line_ids": ["p001_ocr_l201", "p001_ocr_l202"],
+        }
+        self.assertEqual(result["other_events"][0]["source_trace"], expected_trace)
+        self.assertEqual(result["source_traces"], [expected_trace])
+
     def test_chinaclear_normalize_result_applies_document_context(self):
         from app.pipeline.chinaclear_extractor import ChinaclearExtractor
 
@@ -1670,7 +1988,7 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(row["person_name"], "张三")
         self.assertEqual(row["security_code"], "")
         self.assertEqual(row["quantity_raw"], "")
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
 
         resolved = resolve_case_events(normalized["full_transaction_rows"])
         self.assertEqual(len(resolved["final_declaration_rows"]), 1)
@@ -1941,7 +2259,7 @@ class FinalProblemEventsTest(unittest.TestCase):
         for key in ("待复核原因", "问题描述"):
             self.assertNotRegex(issue[key], r"[A-Za-z_]{2,}")
 
-    def test_pending_review_events_are_not_duplicated_in_complete_table(self):
+    def test_pending_review_events_stay_in_complete_table_but_not_final_table(self):
         from app.pipeline.case_event_resolver import resolve_case_events
 
         resolved = resolve_case_events(
@@ -1973,7 +2291,8 @@ class FinalProblemEventsTest(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(resolved["full_transaction_rows"], [])
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertTrue(resolved["full_transaction_rows"][0]["manual_review_required"])
         self.assertEqual(resolved["final_declaration_rows"], [])
         self.assertEqual(len(resolved["review_issue_rows"]), 1)
         issue = resolved["review_issue_rows"][0]

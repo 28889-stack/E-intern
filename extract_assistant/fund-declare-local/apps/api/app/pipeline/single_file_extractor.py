@@ -1,7 +1,9 @@
 from pathlib import Path
 
+from app.core.config import ENABLE_MULTIMODAL_REVIEW
 from app.pipeline.chinaclear_extractor import ChinaclearExtractor
 from app.pipeline.guangfa_extractor import GuangfaExtractor
+from app.pipeline.multimodal_review_sidecar import run_multimodal_review_sidecar
 from app.services import local_store
 
 
@@ -9,6 +11,7 @@ def extract_single_file(case_id: str, file_record: dict) -> dict:
     output_dir = _get_output_dir(file_record)
     extract_result_path = output_dir / "extract_result.json"
     content_type = file_record.get("content_type") or "unknown"
+    multimodal_review = _run_optional_multimodal_review(file_record, output_dir)
 
     if content_type == "chinaclear":
         extract_result = ChinaclearExtractor().extract(case_id, file_record, output_dir)
@@ -29,6 +32,9 @@ def extract_single_file(case_id: str, file_record: dict) -> dict:
             manual_review_required=True,
         )
 
+    if multimodal_review:
+        extract_result["multimodal_review"] = multimodal_review
+
     local_store.save_json(extract_result_path, extract_result)
     _update_file_index(case_id, file_record, extract_result, extract_result_path)
     return extract_result
@@ -45,6 +51,12 @@ def _get_output_dir(file_record: dict) -> Path:
     return local_store.ensure_dir(
         local_store.get_module_processed_dir(case_id, module) / file_id
     )
+
+
+def _run_optional_multimodal_review(file_record: dict, output_dir: Path) -> dict | None:
+    if not ENABLE_MULTIMODAL_REVIEW:
+        return None
+    return run_multimodal_review_sidecar(file_record, output_dir)
 
 
 def _skipped_result(

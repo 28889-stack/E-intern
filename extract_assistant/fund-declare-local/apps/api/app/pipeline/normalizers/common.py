@@ -53,6 +53,9 @@ EXCLUDED_FINAL_EVENT_TYPES = {
     "interest",
 }
 EXCLUDED_TRANSFER_KEYWORDS = (
+    "申购配号",
+    "中购配号",
+    "配号",
     "红利",
     "分红",
     "股息",
@@ -129,29 +132,13 @@ def build_normalized_result(
     holding_rows: list[dict] | None = None,
     review_items: list[dict] | None = None,
 ) -> dict:
-    final_rows = []
-    normalized_review_items = list(review_items or [])
-
-    for row in full_transaction_rows:
-        if is_final_declaration_row(row):
-            final_rows.append(row)
-        elif needs_uncertain_type_review(row):
-            normalized_review_items.append(
-                review_item(
-                    "warning",
-                    "event",
-                    str(row.get("file_id") or ""),
-                    str(row.get("event_id") or ""),
-                    "event_type",
-                    "无法判断该变动类型是否影响持仓，已保留在完整表并排除出最终申报表",
-                )
-            )
-
+    # Keep this key for older callers, but official final-table routing belongs to
+    # case_event_resolver so field mapping and business filtering stay decoupled.
     return {
         "full_transaction_rows": full_transaction_rows,
-        "final_declaration_rows": final_rows,
+        "final_declaration_rows": [],
         "holding_rows": holding_rows or [],
-        "review_items": normalized_review_items,
+        "review_items": list(review_items or []),
     }
 
 
@@ -288,8 +275,6 @@ def build_event_row(
         }
     )
     for control_field in (
-        "include_in_final_declaration",
-        "allow_full_table_with_review",
         "manual_review_required",
         "review_issue_types",
         "missing_fields",
@@ -570,9 +555,6 @@ def is_security_registration_text(value: Any) -> bool:
 
 
 def is_final_declaration_row(row: dict) -> bool:
-    if row.get("include_in_final_declaration") is False:
-        return False
-
     event_type = str(row.get("event_type") or "")
     direction = str(row.get("direction") or "")
     transfer_type = str(row.get("transfer_type_raw") or "")
@@ -583,21 +565,9 @@ def is_final_declaration_row(row: dict) -> bool:
         return False
     if event_type == "ordinary_trade" and _is_zero_number(row.get("quantity_raw")):
         return False
-    if row.get("include_in_final_declaration") is True:
-        return True
     if event_type in FINAL_DECLARATION_EVENT_TYPES:
         return True
     return direction in FINAL_DECLARATION_DIRECTIONS
-
-
-def needs_uncertain_type_review(row: dict) -> bool:
-    event_type = str(row.get("event_type") or "")
-    transfer_type = str(row.get("transfer_type_raw") or "")
-    if event_type in EXCLUDED_FINAL_EVENT_TYPES:
-        return False
-    if any(keyword in transfer_type for keyword in EXCLUDED_TRANSFER_KEYWORDS):
-        return False
-    return event_type in {"", "unknown_event"}
 
 
 def _is_zero_number(value: Any) -> bool:

@@ -51,6 +51,31 @@ WEAK_RECORD_IDS = {
     "历史成交",
     "交易流水",
 }
+FULL_ONLY_EVENT_TYPES = {
+    "subscription_allotment",
+    "cash_dividend",
+    "bond_interest",
+    "cash_flow",
+    "bank_transfer",
+    "fund_transfer",
+    "interest",
+}
+FULL_ONLY_TRANSFER_KEYWORDS = (
+    "申购配号",
+    "中购配号",
+    "配号",
+    "股息",
+    "派息",
+    "现金分红",
+    "分红",
+    "红利",
+    "兑息",
+    "利息",
+    "银证转账",
+    "银行转账",
+    "资金流水",
+    "资金存取",
+)
 
 REVIEW_ISSUE_COLUMNS = [
     "序号",
@@ -137,6 +162,7 @@ def resolve_case_events(
     events = _drop_zero_quantity_ordinary_trade_artifacts(events, merge_audit)
     _mark_event_conflicts(events, merge_audit)
 
+    full_events: list[dict] = []
     verified_events: list[dict] = []
     pending_review_events: list[dict] = []
     review_issues: list[dict] = []
@@ -144,12 +170,10 @@ def resolve_case_events(
     for row in events:
         event_row = dict(row)
         _validate_event_row(event_row)
+        full_events.append(event_row)
         if event_row.get("manual_review_required"):
             review_issues.append(_review_issue_from_row(event_row, "transaction"))
-            if event_row.get("allow_full_table_with_review"):
-                verified_events.append(event_row)
-            else:
-                pending_review_events.append(event_row)
+            pending_review_events.append(event_row)
         else:
             verified_events.append(event_row)
 
@@ -163,10 +187,15 @@ def resolve_case_events(
         else:
             verified_holdings.append(row)
 
-    review_issues.extend(_review_issues_from_review_items(review_items or [], review_issues))
+    review_issues.extend(
+        _review_issues_from_review_items(
+            _filter_stale_review_items(review_items or [], verified_events),
+            review_issues,
+        )
+    )
     review_issues = _assign_review_issue_ids(review_issues)
 
-    full_transaction_rows = verified_events
+    full_transaction_rows = full_events
     final_declaration_rows = [
         row for row in verified_events if is_final_declaration_row(row)
     ]
@@ -193,6 +222,8 @@ def _apply_intra_file_security_references(*row_groups: list[dict]) -> None:
 
     holding_references, holding_ambiguous_keys = _collect_security_references(holding_rows)
     _apply_security_references(rows, holding_references, holding_ambiguous_keys)
+    holding_code_references, holding_code_ambiguous_keys = _collect_code_references(holding_rows)
+    _apply_code_references(rows, holding_code_references, holding_code_ambiguous_keys)
     holding_market_references, holding_market_ambiguous_keys = _collect_market_references(holding_rows)
     _apply_market_references(rows, holding_market_references, holding_market_ambiguous_keys)
 
@@ -227,6 +258,9 @@ def _apply_intra_file_security_references(*row_groups: list[dict]) -> None:
         for field in ("security_code", "account_type", "securities_account"):
             if not _clean_text(row.get(field)) and reference.get(field):
                 row[field] = reference[field]
+
+    code_references, code_ambiguous_keys = _collect_code_references(rows)
+    _apply_code_references(rows, code_references, code_ambiguous_keys)
 
 
 def _collect_security_references(rows: list[dict]) -> tuple[dict[tuple[str, str], dict[str, str]], set[tuple[str, str]]]:
@@ -270,6 +304,57 @@ def _apply_security_references(
         for field in ("security_code", "account_type", "securities_account"):
             if not _clean_text(row.get(field)) and reference.get(field):
                 row[field] = reference[field]
+
+
+def _collect_code_references(rows: list[dict]) -> tuple[dict[tuple[str, str], dict[str, str]], set[tuple[str, str]]]:
+    references: dict[tuple[str, str], dict[str, str]] = {}
+    ambiguous_keys: set[tuple[str, str]] = set()
+    for row in rows:
+        security_code = _clean_text(row.get("security_code"))
+        security_name = _clean_text(row.get("security_name"))
+        if not security_code or not security_name or security_name == security_code:
+            continue
+        key = (_file_reference_key(row), security_code)
+        candidate = {
+            "security_name": security_name,
+            "account_type": _clean_text(row.get("account_type")),
+            "securities_account": _clean_text(row.get("securities_account")),
+        }
+        existing = references.setdefault(key, {})
+        for field, value in candidate.items():
+            if not value:
+                continue
+            if existing.get(field) and existing[field] != value:
+                ambiguous_keys.add(key)
+            else:
+                existing[field] = value
+    return references, ambiguous_keys
+
+
+def _apply_code_references(
+    rows: list[dict],
+    references: dict[tuple[str, str], dict[str, str]],
+    ambiguous_keys: set[tuple[str, str]],
+) -> None:
+    for row in rows:
+        security_code = _clean_text(row.get("security_code"))
+        if not security_code:
+            continue
+        key = (_file_reference_key(row), security_code)
+        if key in ambiguous_keys:
+            continue
+        reference = references.get(key) or {}
+        if _security_name_needs_reference(row) and reference.get("security_name"):
+            row["security_name"] = reference["security_name"]
+        for field in ("account_type", "securities_account"):
+            if not _clean_text(row.get(field)) and reference.get(field):
+                row[field] = reference[field]
+
+
+def _security_name_needs_reference(row: dict) -> bool:
+    security_name = _clean_text(row.get("security_name"))
+    security_code = _clean_text(row.get("security_code"))
+    return not security_name or (security_code and security_name == security_code)
 
 
 def _collect_market_references(rows: list[dict]) -> tuple[dict[tuple[str, str], dict[str, str]], set[tuple[str, str]]]:
@@ -579,6 +664,8 @@ def _validate_event_row(row: dict) -> None:
     if row.get("event_type") in {"no_trade_record", "no_holding_record", "no_account_record"}:
         _validate_empty_record_row(row)
         return
+    if _is_full_only_event_row(row):
+        return
 
     required_fields = EVENT_REQUIRED_FIELDS
     if row.get("event_type") == "subscription_allotment":
@@ -602,6 +689,14 @@ def _validate_event_row(row: dict) -> None:
 
     if issue_types:
         _mark_review_issue(row, issue_types, missing_fields=missing_fields)
+
+
+def _is_full_only_event_row(row: dict) -> bool:
+    event_type = str(row.get("event_type") or "").strip()
+    transfer_type = str(row.get("transfer_type_raw") or "").strip()
+    if event_type in FULL_ONLY_EVENT_TYPES:
+        return True
+    return any(keyword in transfer_type for keyword in FULL_ONLY_TRANSFER_KEYWORDS)
 
 
 def _validate_empty_record_row(row: dict) -> None:
@@ -730,6 +825,42 @@ def _review_issues_from_review_items(
         seen_signatures.update(signatures)
         issues.append(issue)
     return issues
+
+
+def _filter_stale_review_items(
+    review_items: list[dict],
+    verified_events: list[dict],
+) -> list[dict]:
+    events_by_id = {
+        str(row.get("event_id") or ""): row
+        for row in verified_events
+        if row.get("event_id")
+    }
+    filtered = []
+    for item in review_items:
+        if not isinstance(item, dict):
+            continue
+        if _is_resolved_final_field_review_item(item, events_by_id):
+            continue
+        filtered.append(item)
+    return filtered
+
+
+def _is_resolved_final_field_review_item(
+    item: dict,
+    events_by_id: dict[str, dict],
+) -> bool:
+    if item.get("item_type") != "event":
+        return False
+    if item.get("field") != "final_field_candidates":
+        return False
+    event_id = str(item.get("event_id") or "")
+    row = events_by_id.get(event_id)
+    if not row:
+        return False
+    if row.get("manual_review_required"):
+        return False
+    return not _missing_fields(row, EVENT_REQUIRED_FIELDS)
 
 
 def _review_item_record_category(item_type: str) -> str:

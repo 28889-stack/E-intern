@@ -19,6 +19,472 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
             "content_type": "guangfa",
         }
 
+    def test_normalizer_does_not_build_official_final_rows(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "document_info": {"securities_accounts": {"深A": "0268832573"}},
+                "business_events": [
+                    {
+                        "raw_business_type": "证券买入",
+                        "inferred_event_type": "买入",
+                        "final_field_candidates": {
+                            "证券账号": "0268832573",
+                            "证券代码": "000001",
+                            "证券名称": "平安银行",
+                            "变动类型": "买入",
+                            "日期": "2025-01-02",
+                            "成交数量": "100",
+                            "成交单价": "10.00",
+                            "收付金额": "-1000.00",
+                        },
+                    }
+                ],
+            },
+            self.file_record,
+        )
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+
+    def test_output_contract_preserves_review_channel_without_verbose_event_fields(self):
+        from app.pipeline.guangfa_extractor import GuangfaExtractor
+
+        contract = GuangfaExtractor()._output_contract()
+
+        self.assertIn("business_events 只保留", contract)
+        self.assertIn("document_level_review_items", contract)
+        self.assertIn("不要输出 missing_fields", contract)
+        self.assertIn("不要输出 classification_reason", contract)
+        self.assertIn("raw_text 不超过 120 个中文字符", contract)
+
+    def test_normalizer_maps_document_level_review_items_to_review_items(self):
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "document_level_review_items": [
+                    {
+                        "issue_type": "broken_ocr_row",
+                        "page": "2",
+                        "row_no": "p002_ocr_row_015",
+                        "message": "第 2 页存在断行，无法形成完整业务事件",
+                        "source_evidence": {
+                            "raw_text": "2022-08-11 194239 100891461 ..."
+                        },
+                    }
+                ]
+            },
+            self.file_record,
+        )
+
+        self.assertEqual(normalized["full_transaction_rows"], [])
+        self.assertEqual(len(normalized["review_items"]), 1)
+        item = normalized["review_items"][0]
+        self.assertEqual(item["item_type"], "extract_result")
+        self.assertEqual(item["field"], "document_level_review_items")
+        self.assertIn("第 2 页存在断行", item["message"])
+
+    def test_normalizer_treats_llm_final_flags_as_non_control_hints(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        extract_result = {
+            "document_info": {
+                "holder_name": "张三",
+                "securities_accounts": {"沪A": "A315570738"},
+            },
+            "business_events": [
+                {
+                    "raw_business_type": "股息入账",
+                    "inferred_event_type": "现金分红",
+                    "include_in_full_table": True,
+                    "include_in_final_declaration": True,
+                    "affects_holding": True,
+                    "final_field_candidates": {
+                        "证券账号": "A315570738",
+                        "证券代码": "600036",
+                        "证券名称": "招商银行",
+                        "变动类型": "股息入账",
+                        "日期": "2022-07-14",
+                        "成交数量": "0.0000",
+                        "成交单价": "36.4800",
+                        "收付金额": "1217.6000",
+                    },
+                    "source_evidence": {
+                        "page": 2,
+                        "row_no": "p002_ocr_row_003",
+                        "raw_text": "2022-07-14 600036 招商银行 股息入账 1217.6000",
+                    },
+                }
+            ],
+        }
+
+        normalized = normalize_guangfa(self.case_id, extract_result, self.file_record)
+        row = normalized["full_transaction_rows"][0]
+
+        self.assertEqual(row["event_type"], "cash_dividend")
+        self.assertNotIn("include_in_final_declaration", row)
+        self.assertNotIn("affects_holding", row)
+        self.assertEqual(normalized["review_items"], [])
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_resolver_is_final_policy_owner_even_when_llm_excludes_real_trade(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        extract_result = {
+            "document_info": {
+                "holder_name": "张三",
+                "securities_accounts": {"深A": "0268832573"},
+            },
+            "business_events": [
+                {
+                    "raw_business_type": "证券买入",
+                    "inferred_event_type": "买入",
+                    "include_in_full_table": True,
+                    "include_in_final_declaration": False,
+                    "affects_holding": False,
+                    "final_field_candidates": {
+                        "证券账号": "0268832573",
+                        "证券代码": "000837",
+                        "证券名称": "秦川机床",
+                        "变动类型": "证券买入",
+                        "日期": "2025-02-05",
+                        "成交数量": "100",
+                        "成交单价": "10.00",
+                        "收付金额": "-1000.00",
+                    },
+                    "source_evidence": {
+                        "page": 1,
+                        "row_no": "p001_ocr_row_010",
+                        "raw_text": "2025-02-05 000837 秦川机床 证券买入 100 10.00",
+                    },
+                }
+            ],
+        }
+
+        normalized = normalize_guangfa(self.case_id, extract_result, self.file_record)
+        row = normalized["full_transaction_rows"][0]
+
+        self.assertEqual(row["event_type"], "ordinary_trade")
+        self.assertEqual(row["direction"], "buy")
+        self.assertNotIn("include_in_final_declaration", row)
+        self.assertNotIn("affects_holding", row)
+        self.assertEqual(normalized["review_items"], [])
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"][0]["security_code"], "000837")
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_normalizer_dedupes_same_source_event_from_trade_group_and_business_events(self):
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        extract_result = {
+            "document_info": {
+                "holder_name": "张三",
+                "securities_accounts": {"沪A": "A315570738"},
+            },
+            "trade_group": {
+                "trade_columns": [
+                    "trade_id",
+                    "account_type",
+                    "securities_account",
+                    "trade_date",
+                    "trade_time",
+                    "serial_no",
+                    "capital_account",
+                    "security_code",
+                    "security_name",
+                    "direction",
+                    "quantity_raw",
+                    "price_raw",
+                    "amount_raw",
+                    "transfer_type_raw",
+                    "source_page",
+                    "row_no",
+                    "order_no",
+                ],
+                "trades": [
+                    [
+                        "gf_003",
+                        "沪A",
+                        "A315570738",
+                        "2022-01-05",
+                        "160000",
+                        "802777974",
+                        "15685657",
+                        "688262",
+                        "688262",
+                        "buy",
+                        "500.0000",
+                        "41.9800",
+                        "0.0000",
+                        "新股入账",
+                        "1",
+                        "297",
+                        "",
+                    ]
+                ],
+            },
+            "business_events": [
+                {
+                    "raw_business_type": "新股入账",
+                    "inferred_event_type": "新股申购中签入账",
+                    "include_in_full_table": True,
+                    "include_in_final_declaration": True,
+                    "final_field_candidates": {
+                        "账户类型": "沪A",
+                        "证券账号": "A315570738",
+                        "证券代码": "688262",
+                        "证券名称": "国芯科技",
+                        "变动类型": "新股入账",
+                        "日期": "2022-01-05",
+                        "成交数量": "500.0000",
+                        "成交单价": "41.9800",
+                        "收付金额": "0.0000",
+                    },
+                    "source_evidence": {
+                        "page": "1",
+                        "row_no": "303",
+                        "event_time": "160000",
+                        "serial_no": "802777974",
+                        "raw_text": "新股入账 500.0000 41.9800",
+                    },
+                }
+            ],
+        }
+
+        normalized = normalize_guangfa(self.case_id, extract_result, self.file_record)
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        row = normalized["full_transaction_rows"][0]
+        self.assertEqual(row["event_type"], "security_registration")
+        self.assertEqual(row["security_code"], "688262")
+        self.assertEqual(row["security_name"], "国芯科技")
+        evidence_ids = {
+            item.get("source_row_id") for item in row.get("source_evidence", [])
+        }
+        self.assertEqual(evidence_ids, {"802777974", "9800"})
+
+    def test_normalizer_merges_new_share_registration_when_trade_group_account_differs(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        extract_result = {
+            "document_info": {
+                "holder_name": "张三",
+                "securities_accounts": {
+                    "深A": "0002220266",
+                    "沪A": "A315570738",
+                },
+            },
+            "trade_group": {
+                "trade_columns": [
+                    "trade_id",
+                    "account_type",
+                    "securities_account",
+                    "trade_date",
+                    "trade_time",
+                    "serial_no",
+                    "capital_account",
+                    "security_code",
+                    "security_name",
+                    "direction",
+                    "quantity_raw",
+                    "price_raw",
+                    "amount_raw",
+                    "transfer_type_raw",
+                    "source_page",
+                    "row_no",
+                    "order_no",
+                ],
+                "trades": [
+                    [
+                        "gf_001",
+                        "深A",
+                        "0002220266",
+                        "2022-01-05",
+                        "160000",
+                        "802777974",
+                        "15685657",
+                        "688262",
+                        "688262",
+                        "buy",
+                        "500.0000",
+                        "41.9800",
+                        "",
+                        "新股入账",
+                        "1",
+                        "301",
+                        "22763",
+                    ]
+                ],
+            },
+            "business_events": [
+                {
+                    "raw_business_type": "新股入账",
+                    "inferred_event_type": "新股申购中签入账",
+                    "event_category": "证券登记入账",
+                    "final_field_candidates": {
+                        "账户类型": "沪A",
+                        "证券账号": "A315570738",
+                        "证券代码": "688262",
+                        "证券名称": "国芯科技",
+                        "变动类型": "新股入账",
+                        "日期": "2022-01-05",
+                        "成交数量": "500.0000",
+                        "成交单价": "41.9800",
+                        "收付金额": "0.0000",
+                    },
+                    "source_evidence": {
+                        "page": "1",
+                        "row_no": "301-306",
+                        "serial_no": "802777974",
+                        "raw_text": "2022-01-05 688262 国芯科技 新股入账 500.0000 41.9800",
+                    },
+                }
+            ],
+        }
+
+        normalized = normalize_guangfa(self.case_id, extract_result, self.file_record)
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        row = normalized["full_transaction_rows"][0]
+        self.assertEqual(row["event_type"], "security_registration")
+        self.assertEqual(row["account_type"], "沪A")
+        self.assertEqual(row["securities_account"], "A315570738")
+        self.assertEqual(row["security_code"], "688262")
+        self.assertEqual(row["security_name"], "国芯科技")
+        self.assertEqual(row["amount_raw"], "0.0000")
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_batch_result_writes_compact_source_trace_without_llm_trace_output(self):
+        from app.pipeline.guangfa_extractor import GuangfaExtractor
+
+        class FakeLLMClient:
+            def extract_json(self, prompt):
+                return {
+                    "schema_version": "guangfa_business_event_understanding_v1",
+                    "trade_group": {
+                        "trade_columns": [
+                            "trade_id",
+                            "account_type",
+                            "securities_account",
+                            "trade_date",
+                            "trade_time",
+                            "serial_no",
+                            "capital_account",
+                            "security_code",
+                            "security_name",
+                            "direction",
+                            "quantity_raw",
+                            "price_raw",
+                            "amount_raw",
+                            "transfer_type_raw",
+                            "source_page",
+                            "row_no",
+                            "order_no",
+                        ],
+                        "trades": [
+                            [
+                                "t1",
+                                "深A",
+                                "0268832573",
+                                "2025-01-02",
+                                "",
+                                "s1",
+                                "",
+                                "000001",
+                                "平安银行",
+                                "buy",
+                                "100",
+                                "10.00",
+                                "-1000.00",
+                                "证券买入",
+                                "1",
+                                "42",
+                                "",
+                            ]
+                        ],
+                    },
+                    "business_events": [
+                        {
+                            "raw_business_type": "证券买入",
+                            "inferred_event_type": "买入",
+                            "source_evidence": {
+                                "page": "1",
+                                "row_no": "42",
+                                "raw_text": "证券买入 平安银行",
+                            },
+                        }
+                    ],
+                }
+
+        extractor = GuangfaExtractor.__new__(GuangfaExtractor)
+        extractor.llm_client = FakeLLMClient()
+        batch = {
+            "batch_id": "batch_001",
+            "batch_type": "pdf_table_rows",
+            "row_start": "42",
+            "row_end": "42",
+            "input_text": "rows:\n[page=1 row_no=42] 证券买入 平安银行",
+            "source_traces": [
+                {
+                    "page": "1",
+                    "table": "1",
+                    "row_no": "42",
+                    "row_id": "p001_ocr_row_042",
+                    "bbox": [10, 40, 300, 54],
+                    "line_ids": ["p001_ocr_l101", "p001_ocr_l102"],
+                }
+            ],
+        }
+
+        result = extractor._extract_one_batch(
+            "prompt",
+            self.file_record,
+            batch,
+            document_context={},
+        )
+
+        expected_trace = {
+            "page": "1",
+            "table": "1",
+            "row_no": "42",
+            "row_id": "p001_ocr_row_042",
+            "bbox": [10, 40, 300, 54],
+            "line_ids": ["p001_ocr_l101", "p001_ocr_l102"],
+        }
+        self.assertEqual(result["business_events"][0]["source_trace"], expected_trace)
+        self.assertEqual(result["source_traces"], [expected_trace])
+
     def test_extractor_batches_long_guangfa_tables_and_saves_batch_results(self):
         from app.pipeline.guangfa_extractor import GuangfaExtractor
         from app.services import local_store
@@ -596,7 +1062,7 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(normalized["full_transaction_rows"]), 1)
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
         row = normalized["full_transaction_rows"][0]
         self.assertEqual(row["account_type"], "深圳信用账户")
         self.assertEqual(row["securities_account"], "0612345678")
@@ -653,7 +1119,7 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
 
         self.assertEqual(normalized["review_items"], [])
         self.assertEqual(len(normalized["full_transaction_rows"]), 1)
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
         row = normalized["full_transaction_rows"][0]
         self.assertEqual(row["event_type"], "security_registration")
         self.assertEqual(row["direction"], "registration_in")
@@ -734,7 +1200,7 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(normalized["full_transaction_rows"]), 1)
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
         row = normalized["full_transaction_rows"][0]
         self.assertEqual(row["securities_account"], "0268832573")
         self.assertEqual(row["account_type"], "深A")
@@ -747,6 +1213,98 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         self.assertEqual(row["order_no"], "23046")
         self.assertEqual(row["amount_raw"], "79907.0946")
         self.assertEqual(normalized["review_items"], [])
+
+    def test_trade_group_allotment_and_registration_are_reclassified_by_business_type(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        columns = [
+            "trade_id",
+            "account_type",
+            "securities_account",
+            "trade_date",
+            "trade_time",
+            "serial_no",
+            "capital_account",
+            "security_code",
+            "security_name",
+            "direction",
+            "quantity_raw",
+            "price_raw",
+            "amount_raw",
+            "transfer_type_raw",
+            "source_page",
+            "row_no",
+            "order_no",
+        ]
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "schema_version": "guangfa_business_event_understanding_v1",
+                "source_type": "guangfa",
+                "trade_group": {
+                    "event_type": "ordinary_trade_group",
+                    "trade_columns": columns,
+                    "trades": [
+                        [
+                            "gf_allotment",
+                            "深A",
+                            "0002220266",
+                            "2025-01-24",
+                            "195926",
+                            "100203914",
+                            "15685657",
+                            "789225",
+                            "亚信配号",
+                            "buy",
+                            "13.0000",
+                            "0.0000",
+                            "0.0000",
+                            "中购配号",
+                            "1",
+                            "401",
+                            "30645",
+                        ],
+                        [
+                            "gf_registration",
+                            "沪A",
+                            "A315570738",
+                            "2025-01-05",
+                            "160000",
+                            "802777974",
+                            "15685657",
+                            "688262",
+                            "688262",
+                            "buy",
+                            "500.0000",
+                            "41.9800",
+                            "0.0000",
+                            "新股入账",
+                            "1",
+                            "297",
+                            "34301",
+                        ],
+                    ],
+                },
+            },
+            self.file_record,
+        )
+
+        rows_by_id = {
+            row["event_id"]: row for row in normalized["full_transaction_rows"]
+        }
+        self.assertEqual(rows_by_id["100203914"]["event_type"], "subscription_allotment")
+        self.assertEqual(rows_by_id["100203914"]["direction"], "subscribe")
+        self.assertNotIn("include_in_final_declaration", rows_by_id["100203914"])
+        self.assertEqual(rows_by_id["802777974"]["event_type"], "security_registration")
+        self.assertEqual(rows_by_id["802777974"]["direction"], "registration_in")
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["final_declaration_rows"]), 1)
+        self.assertEqual(resolved["final_declaration_rows"][0]["event_id"], "802777974")
 
     def test_batch_merge_preserves_compact_guangfa_trade_group(self):
         from app.pipeline.guangfa_extractor import GuangfaExtractor
@@ -908,7 +1466,7 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         )
 
         self.assertEqual(normalized["full_transaction_rows"][0]["account_type"], "上海信用账户")
-        self.assertEqual(len(normalized["final_declaration_rows"]), 1)
+        self.assertEqual(normalized["final_declaration_rows"], [])
 
     def test_fund_account_starting_with_06_is_not_treated_as_securities_account(self):
         from app.pipeline.case_event_resolver import resolve_case_events
@@ -994,6 +1552,103 @@ class GuangfaBusinessEventsTest(unittest.TestCase):
         self.assertEqual(row["quantity_raw"], "")
         self.assertEqual(row["price_raw"], "")
         self.assertEqual(normalized["review_items"], [])
+
+    def test_cash_dividend_missing_amount_reason_does_not_create_unrelated_review(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "schema_version": "guangfa_business_event_understanding_v1",
+                "source_type": "guangfa",
+                "business_events": [
+                    {
+                        "raw_business_type": "股息入账",
+                        "inferred_event_type": "股息入账",
+                        "affects_holding": False,
+                        "include_in_full_table": True,
+                        "include_in_final_declaration": False,
+                        "final_field_candidates": {
+                            "账户类型": "沪A",
+                            "证券账号": "A123456789",
+                            "证券代码": "600036",
+                            "证券名称": "招商银行",
+                            "变动类型": "股息入账",
+                            "日期": "2025-06-30",
+                            "成交数量": "",
+                            "成交单价": "",
+                            "收付金额": "",
+                        },
+                        "manual_review_required": True,
+                        "review_reasons": ["股息入账记录不完整，缺少单价和金额"],
+                    }
+                ],
+            },
+            self.file_record,
+        )
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        self.assertEqual(len(normalized["final_declaration_rows"]), 0)
+        self.assertEqual(normalized["full_transaction_rows"][0]["event_type"], "cash_dividend")
+        self.assertEqual(normalized["review_items"], [])
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(resolved["review_issue_rows"], [])
+
+    def test_subscription_allotment_is_full_only_without_missing_or_classification_review(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+
+        normalized = normalize_guangfa(
+            self.case_id,
+            {
+                "schema_version": "guangfa_business_event_understanding_v1",
+                "source_type": "guangfa",
+                "business_events": [
+                    {
+                        "raw_business_type": "中购配号",
+                        "raw_summary": "亚信配号 中购配号 13.0000",
+                        "inferred_event_type": "新股申购配号",
+                        "affects_holding": False,
+                        "include_in_full_table": True,
+                        "include_in_final_declaration": False,
+                        "final_field_candidates": {
+                            "账户类型": "深A",
+                            "证券账号": "0002220266",
+                            "证券代码": "",
+                            "证券名称": "亚信配号",
+                            "变动类型": "新股申购配号",
+                            "日期": "2025-01-24",
+                            "成交数量": "13.0000",
+                            "成交单价": "",
+                            "收付金额": "",
+                        },
+                        "source_evidence": {
+                            "page": "1",
+                            "row_no": "401-408",
+                            "raw_text": "亚信配号 中购配号 13.0000",
+                        },
+                    }
+                ],
+            },
+            self.file_record,
+        )
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        self.assertEqual(len(normalized["final_declaration_rows"]), 0)
+        self.assertEqual(normalized["full_transaction_rows"][0]["event_type"], "subscription_allotment")
+        self.assertEqual(normalized["review_items"], [])
+
+        resolved = resolve_case_events(
+            normalized["full_transaction_rows"],
+            review_items=normalized["review_items"],
+        )
+        self.assertEqual(len(resolved["full_transaction_rows"]), 1)
+        self.assertEqual(len(resolved["final_declaration_rows"]), 0)
+        self.assertEqual(resolved["review_issue_rows"], [])
 
     def test_bank_to_securities_transfer_is_ignored(self):
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa

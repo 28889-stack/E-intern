@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.pipeline import file_router, pdf_table_extractor, pdf_text_extractor
+from app.pipeline.document_structure import build_document_structure
 from app.pipeline.ocr_quality_checker import inspect_ocr_quality
 from app.services.local_store import ensure_dir, save_json
 from app.services.ocr_client import OcrClient
@@ -23,6 +24,7 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
         "raw_text_path": None,
         "tables_path": None,
         "ocr_result_path": None,
+        "document_structure_path": None,
         "process_result_path": str(process_result_path),
         "manual_review_required": route_result["manual_review_required"],
         "review_reasons": list(route_result["review_reasons"]),
@@ -43,6 +45,8 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
             *raw_text.get("review_reasons", []),
             *tables.get("review_reasons", []),
         ]
+        document_structure_result = _build_document_structure_safely(output_path)
+        review_reasons.extend(document_structure_result.get("review_reasons", []))
 
         process_result = {
             **result,
@@ -51,10 +55,16 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
             "table_extract_status": tables.get("table_extract_status", "partial_failed"),
             "raw_text_path": str(raw_text_path),
             "tables_path": str(tables_path),
+            "document_structure_path": str(output_path / "document_structure.json"),
+            "document_structure_status": document_structure_result.get(
+                "document_structure_status",
+                "failed",
+            ),
             "manual_review_required": (
                 route_result.get("manual_review_required", False)
                 or raw_text.get("manual_review_required", False)
                 or tables.get("manual_review_required", False)
+                or document_structure_result.get("document_structure_status") == "failed"
             ),
             "review_reasons": review_reasons,
         }
@@ -83,6 +93,7 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
         }
         ocr_result_path = output_path / "ocr_result.json"
         save_json(ocr_result_path, ocr_result)
+        document_structure_result = _build_document_structure_safely(output_path)
 
         process_result = {
             **result,
@@ -92,13 +103,20 @@ def process_document(file_path: str | Path, output_dir: str | Path) -> dict:
             "ocr_status": ocr_result.get("ocr_status", "failed"),
             "ocr_quality_status": quality_result.get("quality_status", "normal"),
             "ocr_result_path": str(ocr_result_path),
+            "document_structure_path": str(output_path / "document_structure.json"),
+            "document_structure_status": document_structure_result.get(
+                "document_structure_status",
+                "failed",
+            ),
             "manual_review_required": (
                 route_result.get("manual_review_required", False)
                 or ocr_result.get("manual_review_required", False)
+                or document_structure_result.get("document_structure_status") == "failed"
             ),
             "review_reasons": [
                 *route_result.get("review_reasons", []),
                 *ocr_result.get("review_reasons", []),
+                *document_structure_result.get("review_reasons", []),
             ],
         }
         save_json(process_result_path, process_result)
@@ -117,3 +135,13 @@ def _unique(values: list) -> list:
         seen.add(value)
         result.append(value)
     return result
+
+
+def _build_document_structure_safely(output_path: Path) -> dict:
+    try:
+        return build_document_structure(output_path)
+    except Exception as exc:
+        return {
+            "document_structure_status": "failed",
+            "review_reasons": [f"生成结构化文档信息失败：{exc}"],
+        }

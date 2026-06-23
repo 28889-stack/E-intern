@@ -77,3 +77,61 @@ class SingleFileExtractorTest(unittest.TestCase):
         self.assertEqual(updated["extract_status"], "success")
         self.assertFalse(updated["manual_review_required"])
         self.assertEqual(updated["review_reasons"], [])
+
+    def test_multimodal_review_sidecar_runs_only_when_enabled(self):
+        from app.pipeline.single_file_extractor import extract_single_file
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            case_id = "case_test"
+            output_dir = project_root / "data/cases/case_test/account_info/processed/file_001"
+            raw_dir = project_root / "data/cases/case_test/account_info/raw"
+            raw_dir.mkdir(parents=True)
+            stored_path = raw_dir / "001_statement.pdf"
+            stored_path.write_bytes(b"%PDF-1.4")
+            file_record = {
+                "file_id": "file_001",
+                "file_no": "001",
+                "case_id": case_id,
+                "original_file_name": "statement.pdf",
+                "storage_path": "data/cases/case_test/account_info/raw/001_statement.pdf",
+                "output_dir": "data/cases/case_test/account_info/processed/file_001",
+                "content_type": "identity",
+                "route_type": "direct_pdf",
+            }
+
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    project_root / "data/cases/case_test/files_index.json",
+                    {"files": [dict(file_record)]},
+                )
+                with patch(
+                    "app.pipeline.single_file_extractor.run_multimodal_review_sidecar"
+                ) as sidecar:
+                    sidecar.return_value = {"multimodal_review_status": "skipped"}
+                    with patch(
+                        "app.pipeline.single_file_extractor.ENABLE_MULTIMODAL_REVIEW",
+                        False,
+                    ):
+                        result = extract_single_file(case_id, file_record)
+                    sidecar.assert_not_called()
+                    self.assertNotIn("multimodal_review", result)
+
+                with patch(
+                    "app.pipeline.single_file_extractor.run_multimodal_review_sidecar"
+                ) as sidecar:
+                    sidecar.return_value = {
+                        "multimodal_review_status": "no_difficult_blocks",
+                        "multimodal_review_hints_path": "hint.json",
+                    }
+                    with patch(
+                        "app.pipeline.single_file_extractor.ENABLE_MULTIMODAL_REVIEW",
+                        True,
+                    ):
+                        result = extract_single_file(case_id, file_record)
+                    sidecar.assert_called_once()
+                    self.assertEqual(
+                        result["multimodal_review"]["multimodal_review_status"],
+                        "no_difficult_blocks",
+                    )

@@ -1,5 +1,8 @@
 import json
 import re
+import base64
+import mimetypes
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -23,6 +26,7 @@ class LLMClient:
         model: str = LLM_MODEL,
         timeout_seconds: int = LLM_TIMEOUT_SECONDS,
         max_tokens: int = LLM_MAX_TOKENS,
+        max_image_bytes: int | None = None,
     ) -> None:
         self.provider = provider or "mock"
         self.api_key = api_key or ""
@@ -30,6 +34,7 @@ class LLMClient:
         self.model = model or ""
         self.timeout_seconds = timeout_seconds
         self.max_tokens = max_tokens
+        self.max_image_bytes = max_image_bytes
         self.session = requests.Session()
         self.session.trust_env = False
 
@@ -40,6 +45,30 @@ class LLMClient:
         if self.provider == "openai_compatible":
             user_content = (
                 f"{final_prompt}\n\n{input_text}" if input_text else final_prompt
+            )
+            return self._call_openai_compatible(user_content)
+
+        return {
+            "extract_status": "failed",
+            "raw_llm_output": None,
+            "manual_review_required": True,
+            "review_reasons": [f"不支持的 LLM_PROVIDER：{self.provider}"],
+        }
+
+    def extract_json_with_images(
+        self,
+        final_prompt: str,
+        input_text: str = "",
+        image_paths: list[str | Path] | None = None,
+    ) -> dict:
+        if self.provider == "mock":
+            return self._mock_response()
+
+        if self.provider == "openai_compatible":
+            user_content = self._build_multimodal_user_content(
+                final_prompt,
+                input_text,
+                image_paths or [],
             )
             return self._call_openai_compatible(user_content)
 
@@ -63,7 +92,7 @@ class LLMClient:
             "review_reasons": ["当前为 mock 模式，未调用真实 LLM"],
         }
 
-    def _call_openai_compatible(self, final_prompt: str) -> dict:
+    def _call_openai_compatible(self, user_content: str | list[dict[str, Any]]) -> dict:
         missing_configs = []
         if not self.base_url:
             missing_configs.append("LLM_BASE_URL")
@@ -91,7 +120,7 @@ class LLMClient:
                 },
                 {
                     "role": "user",
-                    "content": final_prompt,
+                    "content": user_content,
                 },
             ],
             "thinking": {"type": "disabled"},
@@ -107,7 +136,7 @@ class LLMClient:
 
         try:
             response = self.session.post(
-                f"{self.base_url}/chat/completions",
+                self._chat_completions_url(),
                 json=payload,
                 headers=headers,
                 timeout=self.timeout_seconds,
@@ -171,6 +200,41 @@ class LLMClient:
 
         parsed_output.setdefault("llm_response_metadata", response_metadata)
         return parsed_output
+
+    def _build_multimodal_user_content(
+        self,
+        final_prompt: str,
+        input_text: str,
+        image_paths: list[str | Path],
+    ) -> list[dict[str, Any]]:
+        text = f"{final_prompt}\n\n{input_text}" if input_text else final_prompt
+        content: list[dict[str, Any]] = [{"type": "text", "text": text}]
+
+        for image_path in image_paths:
+            data_url = self._image_data_url(Path(image_path))
+            if data_url:
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": data_url},
+                    }
+                )
+
+        return content
+
+    def _image_data_url(self, image_path: Path) -> str:
+        if not image_path.exists() or not image_path.is_file():
+            return ""
+        if self.max_image_bytes and image_path.stat().st_size > self.max_image_bytes:
+            return ""
+        mime_type = mimetypes.guess_type(str(image_path))[0] or "image/png"
+        encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+
+    def _chat_completions_url(self) -> str:
+        if self.base_url.endswith("/chat/completions"):
+            return self.base_url
+        return f"{self.base_url}/chat/completions"
 
     def _extract_choice(self, response_json: dict[str, Any]) -> dict[str, Any]:
         return response_json["choices"][0]

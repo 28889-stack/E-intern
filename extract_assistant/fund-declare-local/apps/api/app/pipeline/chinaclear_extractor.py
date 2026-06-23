@@ -7,6 +7,7 @@ from app.pipeline.document_context import (
     format_document_context,
     merge_document_info,
 )
+from app.pipeline.document_structure import document_structure_to_tables_payload
 from app.pipeline.extraction_input_builder import build_extraction_input
 from app.services import local_store
 from app.services.llm_client import LLMClient
@@ -145,7 +146,7 @@ class ChinaclearExtractor:
         )
 
     def _build_table_batches(self, output_dir: Path) -> list[dict]:
-        tables_payload = local_store.read_json(output_dir / "tables.json", {})
+        tables_payload = self._load_tables_payload(output_dir)
         if not isinstance(tables_payload, dict):
             return []
 
@@ -172,6 +173,9 @@ class ChinaclearExtractor:
                         self._row_unique_key(row) for row in primary_rows
                     ],
                     "input_text": self._batch_rows_to_text(batch_rows),
+                    "source_traces": [
+                        self._source_trace_from_row(row) for row in batch_rows
+                    ],
                 }
             )
 
@@ -179,6 +183,17 @@ class ChinaclearExtractor:
             batch_number += 1
 
         return batches
+
+    def _load_tables_payload(self, output_dir: Path) -> dict:
+        document_structure = local_store.read_json(
+            output_dir / "document_structure.json",
+            {},
+        )
+        if isinstance(document_structure, dict):
+            structured_payload = document_structure_to_tables_payload(document_structure)
+            if structured_payload.get("tables"):
+                return structured_payload
+        return local_store.read_json(output_dir / "tables.json", {})
 
     def _flatten_table_rows(self, tables_payload: dict) -> list[dict]:
         flattened_rows = []
@@ -190,21 +205,42 @@ class ChinaclearExtractor:
             if len(rows) < 2:
                 continue
 
+            row_metadata = self._as_list(table.get("row_metadata"))
+            cell_metadata = self._as_list(table.get("cell_metadata"))
             first_row = rows[0] if isinstance(rows[0], list) else []
             header = first_row if self._looks_like_table_header(first_row) else []
-            data_rows = rows[1:] if header else rows
+            header_offset = 1 if header else 0
+            data_rows = rows[header_offset:]
+            data_row_metadata = row_metadata[header_offset:] if row_metadata else []
+            data_cell_metadata = cell_metadata[header_offset:] if cell_metadata else []
             for row_index, row in enumerate(data_rows, start=1):
                 if not isinstance(row, list) or not any(str(cell).strip() for cell in row):
                     continue
+                source_row_index = row_index - 1
+                row_meta = (
+                    data_row_metadata[source_row_index]
+                    if source_row_index < len(data_row_metadata)
+                    and isinstance(data_row_metadata[source_row_index], dict)
+                    else {}
+                )
+                cell_meta = (
+                    data_cell_metadata[source_row_index]
+                    if source_row_index < len(data_cell_metadata)
+                    and isinstance(data_cell_metadata[source_row_index], list)
+                    else []
+                )
 
                 flattened_rows.append(
                     {
                         "page": table.get("page"),
                         "table_index": table.get("table_index"),
-                        "row_index": row_index,
+                        "row_index": row_meta.get("row_index") or row_index,
+                        "row_id": row_meta.get("row_id", ""),
+                        "row_bbox": row_meta.get("bbox"),
                         "row_no": str(row[0]).strip() if row else "",
                         "header": header,
                         "cells": row,
+                        "cell_metadata": cell_meta,
                     }
                 )
 
@@ -245,7 +281,8 @@ class ChinaclearExtractor:
             parts.append(
                 (
                     f"[page={row.get('page')} table={row.get('table_index')} "
-                    f"row_no={row.get('row_no')} row_index={row.get('row_index')}] "
+                    f"row_no={row.get('row_no')} row_index={row.get('row_index')}"
+                    f"{self._row_trace_text(row)}] "
                     f"{cells_text}"
                 )
             )
@@ -310,6 +347,7 @@ class ChinaclearExtractor:
             "row_start": batch["row_start"],
             "row_end": batch["row_end"],
         }
+        self._attach_compact_source_traces(result, batch.get("source_traces"))
         return result
 
     def _build_batch_prompt(
@@ -355,6 +393,7 @@ class ChinaclearExtractor:
             "holding_records": [],
             "negative_proofs": [],
             "document_level_review_items": [],
+            "source_traces": [],
             "quality": {"warnings": []},
             "extract_status": "success",
             "manual_review_required": False,
@@ -375,6 +414,7 @@ class ChinaclearExtractor:
         holdings_by_key: dict[str, dict] = {}
         proofs_by_key: dict[str, dict] = {}
         review_items_by_key: dict[str, dict] = {}
+        source_traces_by_key: dict[str, dict] = {}
 
         for result in batch_results:
             batch_id = result.get("batch_id")
@@ -407,6 +447,7 @@ class ChinaclearExtractor:
                 result.get("document_level_review_items"),
                 self._review_item_key,
             )
+            self._merge_source_traces(source_traces_by_key, result.get("source_traces"))
             self._merge_warnings(merged, result)
 
             metadata = result.get("llm_response_metadata")
@@ -431,6 +472,7 @@ class ChinaclearExtractor:
         merged["holding_records"] = list(holdings_by_key.values())
         merged["negative_proofs"] = list(proofs_by_key.values())
         merged["document_level_review_items"] = list(review_items_by_key.values())
+        merged["source_traces"] = list(source_traces_by_key.values())
         self._apply_document_context(merged, document_context or {})
         merged["review_reasons"] = self._dedupe_list(merged["review_reasons"])
         return merged
@@ -647,8 +689,156 @@ class ChinaclearExtractor:
     def _row_unique_key(self, row: dict) -> str:
         return "|".join(
             str(row.get(key, ""))
-            for key in ("page", "table_index", "row_no", "row_index")
+            for key in ("page", "table_index", "row_id", "row_no", "row_index")
         )
+
+    def _source_trace_from_row(self, row: dict) -> dict:
+        return {
+            "page": str(row.get("page") or ""),
+            "table": str(row.get("table_index") or ""),
+            "row_no": str(row.get("row_no") or ""),
+            "row_id": str(row.get("row_id") or ""),
+            "bbox": row.get("row_bbox"),
+            "line_ids": [
+                str(cell.get("source_line_id"))
+                for cell in self._as_list(row.get("cell_metadata"))
+                if isinstance(cell, dict) and cell.get("source_line_id")
+            ],
+        }
+
+    def _attach_compact_source_traces(self, result: dict, source_traces: Any) -> None:
+        trace_index = self._source_trace_index(source_traces)
+        if not trace_index:
+            return
+
+        matched_traces: dict[str, dict] = {}
+        for records_key in (
+            "other_events",
+            "holding_records",
+            "negative_proofs",
+            "document_level_review_items",
+        ):
+            for record in self._as_list(result.get(records_key)):
+                if not isinstance(record, dict):
+                    continue
+                trace = self._find_source_trace(record, trace_index)
+                if trace:
+                    record["source_trace"] = trace
+                    matched_traces[self._source_trace_key(trace)] = trace
+
+        trade_group = result.get("trade_group")
+        if isinstance(trade_group, dict):
+            columns = trade_group.get("trade_columns") or trade_group.get("columns") or TRADE_COLUMNS
+            for trade in self._as_list(trade_group.get("trades")):
+                if not isinstance(trade, list):
+                    continue
+                trace = self._find_source_trace(
+                    self._row_to_record(columns, trade),
+                    trace_index,
+                )
+                if trace:
+                    matched_traces[self._source_trace_key(trace)] = trace
+
+        if matched_traces:
+            result["source_traces"] = list(matched_traces.values())
+
+    def _source_trace_index(self, source_traces: Any) -> dict[tuple[str, str], dict]:
+        trace_index: dict[tuple[str, str], dict] = {}
+        for trace in self._as_list(source_traces):
+            if not isinstance(trace, dict):
+                continue
+            compact_trace = self._compact_source_trace(trace)
+            page = self._first_text(compact_trace.get("page"))
+            for key_value in (
+                compact_trace.get("row_no"),
+                compact_trace.get("row_id"),
+            ):
+                value = self._first_text(key_value)
+                if value:
+                    trace_index[(page, value)] = compact_trace
+                    trace_index[("", value)] = compact_trace
+        return trace_index
+
+    def _find_source_trace(
+        self,
+        record: dict,
+        trace_index: dict[tuple[str, str], dict],
+    ) -> dict | None:
+        evidence = record.get("source_evidence")
+        if not isinstance(evidence, dict):
+            evidence = {}
+        page = self._first_text(
+            record.get("source_page"),
+            record.get("page"),
+            evidence.get("page"),
+        )
+        row_values = [
+            record.get("row_no"),
+            evidence.get("row_no"),
+            record.get("row_id"),
+            evidence.get("row_id"),
+        ]
+        for value in row_values:
+            row_value = self._first_text(value)
+            if not row_value:
+                continue
+            trace = trace_index.get((page, row_value)) or trace_index.get(("", row_value))
+            if trace:
+                return trace
+        return None
+
+    def _compact_source_trace(self, trace: dict) -> dict:
+        compact = {
+            "page": self._first_text(trace.get("page")),
+            "table": self._first_text(trace.get("table")),
+            "row_no": self._first_text(trace.get("row_no")),
+            "row_id": self._first_text(trace.get("row_id")),
+            "bbox": trace.get("bbox"),
+            "line_ids": self._dedupe_list(
+                [
+                    str(line_id)
+                    for line_id in self._as_list(trace.get("line_ids"))
+                    if line_id not in (None, "")
+                ]
+            ),
+        }
+        return {key: value for key, value in compact.items() if value not in ("", [], None)}
+
+    def _merge_source_traces(
+        self,
+        traces_by_key: dict[str, dict],
+        source_traces: Any,
+    ) -> None:
+        for trace in self._as_list(source_traces):
+            if not isinstance(trace, dict):
+                continue
+            compact_trace = self._compact_source_trace(trace)
+            if compact_trace:
+                traces_by_key.setdefault(
+                    self._source_trace_key(compact_trace),
+                    compact_trace,
+                )
+
+    def _source_trace_key(self, trace: dict) -> str:
+        return "|".join(
+            self._first_text(trace.get(key))
+            for key in ("page", "table", "row_id", "row_no")
+        )
+
+    def _row_trace_text(self, row: dict) -> str:
+        parts = []
+        if row.get("row_id"):
+            parts.append(f"row_id={row.get('row_id')}")
+        if row.get("row_bbox") is not None:
+            parts.append(f"bbox={row.get('row_bbox')}")
+        source_line_ids = [
+            str(cell.get("source_line_id"))
+            for cell in self._as_list(row.get("cell_metadata"))
+            if isinstance(cell, dict) and cell.get("source_line_id")
+        ]
+        if source_line_ids:
+            parts.append(f"source_line_ids={','.join(source_line_ids)}")
+        return (" " + " ".join(parts)) if parts else ""
 
     def _filled_count(self, values: list[Any]) -> int:
         return sum(1 for value in values if value not in ("", None, []))

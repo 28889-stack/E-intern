@@ -73,6 +73,11 @@ FULL_ONLY_EVENT_KEYWORDS = (
     "结息",
 )
 
+SOURCE_DEDUPE_EVENT_TYPES = {
+    "security_registration",
+    "bonus_share",
+}
+
 IGNORED_NON_HOLDING_EVENT_KEYWORDS = (
     "银行转证券",
     "证券转银行",
@@ -112,6 +117,12 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         for proof in as_list(extract_result.get("negative_proofs"))
         if isinstance(proof, dict)
     ]
+    review_items.extend(
+        _map_document_level_review_items(
+            extract_result.get("document_level_review_items"),
+            file_record,
+        )
+    )
 
     for index, trade in enumerate(
         _rows_from_group(extract_result.get("trade_group"), "trades")
@@ -171,6 +182,7 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
                 build_holding_row(case_id, file_record, document_info, mapped_holding)
             )
 
+        full_rows = _dedupe_same_source_event_rows(full_rows)
         return build_normalized_result(full_rows, holding_rows, review_items)
 
     for index, transaction in enumerate(as_list(extract_result.get("transactions"))):
@@ -234,7 +246,12 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         if isinstance(holding, dict)
     ] + holding_rows
 
-    if not full_rows and not holding_rows and ignored_non_holding_count == 0:
+    if (
+        not full_rows
+        and not holding_rows
+        and not review_items
+        and ignored_non_holding_count == 0
+    ):
         empty_record_event = empty_record_event_from_semantics(
             case_id,
             file_record,
@@ -256,7 +273,152 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
             item["original_file_name"] = file_record.get("original_file_name", "")
             review_items.append(item)
 
+    full_rows = _dedupe_same_source_event_rows(full_rows)
     return build_normalized_result(full_rows, holding_rows, review_items)
+
+
+def _map_document_level_review_items(items, file_record: dict) -> list[dict]:
+    mapped_items: list[dict] = []
+    file_id = file_record.get("file_id") or ""
+    for index, item in enumerate(as_list(items), start=1):
+        if not isinstance(item, dict):
+            continue
+        message = _first_text(
+            item.get("message"),
+            item.get("reason"),
+            item.get("review_reason"),
+            item.get("issue_type"),
+            item.get("raw_summary"),
+        )
+        if not message:
+            continue
+        page = _first_text(item.get("page"), item.get("source_page"))
+        row_no = _first_text(item.get("row_no"), item.get("source_row_no"))
+        issue_type = _first_text(item.get("issue_type"), item.get("field"))
+        location = " ".join(
+            part
+            for part in [
+                f"page={page}" if page else "",
+                f"row_no={row_no}" if row_no else "",
+                issue_type,
+            ]
+            if part
+        )
+        review_message = f"{location}：{message}" if location else message
+        mapped = review_item(
+            "warning",
+            "extract_result",
+            file_id,
+            f"document_level_review_{index}",
+            "document_level_review_items",
+            review_message,
+        )
+        mapped["file_no"] = file_record.get("file_no", "")
+        mapped["original_file_name"] = file_record.get("original_file_name", "")
+        mapped_items.append(mapped)
+    return mapped_items
+
+
+def _dedupe_same_source_event_rows(rows: list[dict]) -> list[dict]:
+    deduped = []
+    rows_by_key: dict[tuple, dict] = {}
+    for row in rows:
+        key = _same_source_event_key(row)
+        if key and key in rows_by_key:
+            _merge_same_source_event_row(rows_by_key[key], row)
+            continue
+        if key:
+            rows_by_key[key] = row
+        deduped.append(row)
+    return deduped
+
+
+def _same_source_event_key(row: dict) -> tuple:
+    event_type = _first_text(row.get("event_type"))
+    if event_type not in SOURCE_DEDUPE_EVENT_TYPES:
+        return ()
+    file_id = _first_text(row.get("file_id"), row.get("file_no"))
+    event_date = _first_text(row.get("event_date"))
+    security_code = _first_text(row.get("security_code"))
+    quantity = _first_text(row.get("quantity_raw"))
+    if not (file_id and event_date and security_code and quantity):
+        return ()
+    return (
+        file_id,
+        event_type,
+        event_date,
+        security_code,
+        _first_text(row.get("direction")),
+        quantity,
+        _first_text(row.get("price_raw")),
+    )
+
+
+def _merge_same_source_event_row(target: dict, source: dict) -> None:
+    for field, value in source.items():
+        if field == "source_evidence":
+            target[field] = _merge_evidence_rows(
+                target.get("source_evidence"),
+                source.get("source_evidence"),
+            )
+            continue
+        if field in {"row_nos", "source_pages"}:
+            target[field] = _merge_delimited_values(target.get(field), value)
+            continue
+        if field == "security_name" and _security_name_needs_source(target, source):
+            target[field] = value
+            continue
+        if field in {
+            "account_type",
+            "securities_account",
+        } and _source_account_is_better_for_security(target, source):
+            target[field] = value
+            continue
+        if not _first_text(target.get(field)) and _first_text(value):
+            target[field] = value
+
+
+def _source_account_is_better_for_security(target: dict, source: dict) -> bool:
+    security_code = _first_text(target.get("security_code"), source.get("security_code"))
+    if not security_code:
+        return False
+    target_market = _account_market(_first_text(target.get("account_type")))
+    source_market = _account_market(_first_text(source.get("account_type")))
+    code_market = _account_market(_account_type_from_security_code(security_code))
+    return bool(code_market and source_market == code_market and target_market != code_market)
+
+
+def _security_name_needs_source(target: dict, source: dict) -> bool:
+    target_name = _first_text(target.get("security_name"))
+    source_name = _first_text(source.get("security_name"))
+    security_code = _first_text(target.get("security_code"), source.get("security_code"))
+    return bool(source_name and (not target_name or target_name == security_code))
+
+
+def _merge_evidence_rows(left, right) -> list[dict]:
+    merged = []
+    seen = set()
+    for item in [*as_list(left), *as_list(right)]:
+        if not isinstance(item, dict):
+            continue
+        signature = tuple(sorted((str(key), str(value)) for key, value in item.items()))
+        if signature in seen:
+            continue
+        seen.add(signature)
+        merged.append(dict(item))
+    return merged
+
+
+def _merge_delimited_values(left, right) -> str:
+    values = []
+    seen = set()
+    for value in [*str(left or "").split(","), *str(right or "").split(",")]:
+        text = value.strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        values.append(text)
+    return ",".join(values)
 
 
 def _map_business_event(
@@ -277,6 +439,7 @@ def _map_business_event(
         event.get("event_category"),
     )
     event_type, direction = _classify_business_event(raw_movement)
+    full_only = _is_full_only_event(raw_movement, event_type)
 
     securities_account = _first_text(
         candidates.get("证券账号"),
@@ -300,6 +463,11 @@ def _map_business_event(
         security_code,
         review_reasons,
     )
+    blocking_review_reasons = [
+        reason
+        for reason in review_reasons
+        if not (full_only and _is_full_only_non_blocking_review_reason(reason))
+    ]
 
     event_id = _business_event_id(event, index, auxiliary)
     payload = {
@@ -329,95 +497,18 @@ def _map_business_event(
         "source_page": _source_value(event, "page"),
         "row_no": _source_value(event, "row_no"),
         "raw_text": raw_text,
-        "review_reason": "；".join(review_reasons),
+        "review_reason": "；".join(blocking_review_reasons),
     }
 
-    explicit_include = event.get("include_in_final_declaration")
-    rule_should_final = _business_rule_should_be_final(event_type, raw_movement)
-    full_only = _is_full_only_event(raw_movement, event_type)
-    if full_only:
-        payload["include_in_final_declaration"] = False
-    elif explicit_include is True:
-        payload["include_in_final_declaration"] = True
-    elif explicit_include is False:
-        payload["include_in_final_declaration"] = False
-
     mapped_review_items: list[dict] = []
-    missing_fields = (
-        []
-        if event_type == "no_account_info"
-        else _missing_final_payload_fields(payload, full_only)
-    )
-    if missing_fields and payload.get("include_in_final_declaration") is True:
-        payload["include_in_final_declaration"] = False
-        payload["allow_full_table_with_review"] = True
-        mapped_review_items.append(
-            _event_review_item(
-                file_record,
-                event_id,
-                "final_field_candidates",
-                f"最终申报关键字段缺失：{'、'.join(missing_fields)}",
-            )
-        )
 
-    if explicit_include is True and not rule_should_final:
-        payload["include_in_final_declaration"] = False
-        mapped_review_items.append(
-            _event_review_item(
-                file_record,
-                event_id,
-                "include_in_final_declaration",
-                "LLM 判断进入最终申报表，但脚本规则判断为完整表记录，需人工复核",
-            )
-        )
-    elif explicit_include is False and rule_should_final:
-        mapped_review_items.append(
-            _event_review_item(
-                file_record,
-                event_id,
-                "include_in_final_declaration",
-                "LLM 判断不进入最终申报表，但脚本规则判断可能影响持仓，需人工复核",
-            )
-        )
-
-    affects_holding = event.get("affects_holding")
-    if (
-        event_type != "no_account_info"
-        and isinstance(affects_holding, bool)
-        and affects_holding != rule_should_final
-    ):
-        mapped_review_items.append(
-            _event_review_item(
-                file_record,
-                event_id,
-                "affects_holding",
-                "affects_holding 与变动类型判断不一致，需人工复核",
-            )
-        )
-
-    if event_type == "unknown_event":
-        payload["include_in_final_declaration"] = False
-        payload["allow_full_table_with_review"] = True
-        mapped_review_items.append(
-            _event_review_item(
-                file_record,
-                event_id,
-                "event_type",
-                "无法判断该变动类型是否影响持仓，需人工复核",
-            )
-        )
-
-    if event_type == "ordinary_trade" and _is_fund_flow_source(event):
-        payload["include_in_final_declaration"] = False
-
-    for reason in review_reasons:
+    for reason in blocking_review_reasons:
         mapped_review_items.append(
             _event_review_item(file_record, event_id, "review_reasons", reason)
         )
 
-    if event.get("manual_review_required") is True:
+    if event.get("manual_review_required") is True and blocking_review_reasons:
         payload["manual_review_required"] = True
-        payload["include_in_final_declaration"] = False
         payload["allow_full_table_with_review"] = True
 
     return payload, mapped_review_items
@@ -616,6 +707,8 @@ def _classify_business_event(raw_movement: str) -> tuple[str, str]:
 
 
 def _business_rule_should_be_final(event_type: str, raw_movement: str) -> bool:
+    if _is_full_only_event(raw_movement, event_type):
+        return False
     if event_type in {
         "ordinary_trade",
         "security_registration",
@@ -634,6 +727,28 @@ def _is_full_only_event(raw_movement: str, event_type: str) -> bool:
     if event_type in {"subscription_allotment", "cash_dividend", "bond_interest", "cash_flow", "bank_transfer", "fund_transfer", "interest"}:
         return True
     return any(keyword in raw_movement for keyword in FULL_ONLY_EVENT_KEYWORDS)
+
+
+def _is_full_only_non_blocking_review_reason(reason: str) -> bool:
+    text = str(reason or "")
+    if not text:
+        return True
+    if not any(keyword in text for keyword in ("缺少", "缺失", "不完整")):
+        return False
+    return any(
+        field in text
+        for field in (
+            "证券代码",
+            "证券名称",
+            "账户类型",
+            "证券账号",
+            "成交数量",
+            "成交单价",
+            "单价",
+            "收付金额",
+            "金额",
+        )
+    )
 
 
 def _should_ignore_non_holding_event(event: dict) -> bool:
@@ -931,7 +1046,25 @@ def _map_group_event(event: dict) -> dict:
     payload.setdefault("price_raw", payload.get("price") or "")
     payload.setdefault("amount_raw", payload.get("amount") or payload.get("settlement_amount") or "")
     payload.setdefault("security_category_raw", payload.get("instrument_type") or "")
+    _reclassify_group_event_by_business_type(payload)
     return payload
+
+
+def _reclassify_group_event_by_business_type(payload: dict) -> None:
+    raw_type = _first_text(
+        payload.get("transfer_type_raw"),
+        payload.get("transaction_type_raw"),
+        payload.get("business_type_raw"),
+        payload.get("event_type_raw"),
+    )
+    if _is_full_only_event(raw_type, _classify_business_event(raw_type)[0]):
+        event_type, direction = _classify_business_event(raw_type)
+        payload["event_type"] = event_type
+        payload["direction"] = direction
+        return
+    if is_security_registration_text(raw_type):
+        payload["event_type"] = "security_registration"
+        payload["direction"] = "registration_in"
 
 
 def _map_group_holding(holding: dict) -> dict:

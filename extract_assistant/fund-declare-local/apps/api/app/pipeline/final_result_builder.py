@@ -181,6 +181,7 @@ def build_final_result(case_id: str) -> dict:
                 "schema_version": extract_result.get("schema_version", ""),
                 "extract_status": extract_result.get("extract_status", ""),
                 "extract_result_path": _relative_to_project(extract_path),
+                **_multimodal_review_source_summary(extract_result),
             }
         )
 
@@ -214,6 +215,11 @@ def build_final_result(case_id: str) -> dict:
                         file_record,
                     )
                 )
+
+        review_items.extend(
+            _with_file_metadata(item, file_record)
+            for item in _multimodal_review_items(extract_result, file_id)
+        )
 
         normalized = _normalize_source_extract_result(
             case_id,
@@ -433,6 +439,47 @@ def _normalize_source_extract_result(
             )
         ]
     )
+
+
+def _multimodal_review_source_summary(extract_result: dict) -> dict:
+    multimodal_review = extract_result.get("multimodal_review")
+    if not isinstance(multimodal_review, dict) or not multimodal_review:
+        return {}
+
+    return {
+        "multimodal_review_status": multimodal_review.get(
+            "multimodal_review_status",
+            "",
+        ),
+        "document_blocks_path": multimodal_review.get("document_blocks_path", ""),
+        "difficult_blocks_path": multimodal_review.get("difficult_blocks_path", ""),
+        "multimodal_review_hints_path": multimodal_review.get(
+            "multimodal_review_hints_path",
+            "",
+        ),
+    }
+
+
+def _multimodal_review_items(extract_result: dict, file_id: str) -> list[dict]:
+    multimodal_review = extract_result.get("multimodal_review")
+    if not isinstance(multimodal_review, dict):
+        return []
+
+    items = []
+    for reason in _as_list(multimodal_review.get("uncertainty_reasons")):
+        if not reason:
+            continue
+        items.append(
+            _review_item(
+                "warning",
+                "multimodal_review",
+                file_id,
+                "",
+                "multimodal_review",
+                f"多模态疑难块提示：{reason}",
+            )
+        )
+    return items
 
 
 def _build_identity_rows(case: dict) -> list[dict]:
