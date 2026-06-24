@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     graph_rag_embedding_enabled: bool = False
     graph_rag_embedding_model: str = "BAAI/bge-small-zh-v1.5"
     graph_rag_vector_top_k: int = 8
+    ocr_text_detection_model_name: str = "PP-OCRv5_mobile_det"
+    ocr_text_recognition_model_name: str = "PP-OCRv5_mobile_rec"
+    ocr_device: str = "cpu"
 
     model_config = SettingsConfigDict(
         env_file=str(API_ROOT / ".env"),
@@ -35,9 +38,9 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-OCR_BASE_URL = "http://127.0.0.1:8010"
-OCR_ENDPOINT = "/ocr"
-OCR_TIMEOUT_SECONDS = 120
+OCR_TEXT_DETECTION_MODEL_NAME = settings.ocr_text_detection_model_name
+OCR_TEXT_RECOGNITION_MODEL_NAME = settings.ocr_text_recognition_model_name
+OCR_DEVICE = settings.ocr_device
 
 LLM_PROVIDER = settings.llm_provider
 LLM_API_KEY = settings.llm_api_key

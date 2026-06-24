@@ -32,6 +32,7 @@ ISSUE_TYPE_LABELS = {
     "unknown_event_type": "事件类型无法判断",
     "conflict_between_sources": "来源字段冲突",
     "file_review_reason": "文件处理提示",
+    "no_trade_query_proof_incomplete": "无交易证明归属要素待确认",
 }
 
 
@@ -45,9 +46,10 @@ def summarize_file_issues(
     if not file_issues:
         return _fallback_summary(file_issues)
 
+    display_file_issues = _display_file_issues(file_issues)
     if llm_client is not None:
         llm_result = _try_llm_summary(
-            file_issues,
+            display_file_issues,
             problem_events or [],
             files_index,
             llm_client,
@@ -55,7 +57,7 @@ def summarize_file_issues(
         if llm_result is not None:
             return llm_result
 
-    return _fallback_summary(file_issues)
+    return _fallback_summary(display_file_issues)
 
 
 def _try_llm_summary(
@@ -159,6 +161,28 @@ def _fallback_file_summary(issue: dict) -> dict:
         "issue_types": list(issue.get("issue_types", [])),
         "suggested_action": issue.get("suggested_action") or "请核对该文件的处理和抽取结果。",
     }
+
+
+def _display_file_issues(file_issues: list[dict]) -> list[dict]:
+    display_issues = []
+    for issue in file_issues:
+        if not isinstance(issue, dict):
+            continue
+        next_issue = dict(issue)
+        issue_types = [
+            str(issue_type)
+            for issue_type in next_issue.get("issue_types", [])
+            if issue_type not in (None, "")
+        ]
+        if "no_trade_query_proof_incomplete" in issue_types:
+            issue_types = [
+                issue_type
+                for issue_type in issue_types
+                if issue_type not in {"extract_failed", "manual_review_required", "file_review_reason"}
+            ]
+        next_issue["issue_types"] = issue_types
+        display_issues.append(next_issue)
+    return display_issues
 
 
 def _status_from_severity(severity: str) -> str:

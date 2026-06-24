@@ -302,6 +302,10 @@ def build_final_result(case_id: str) -> dict:
         pending_review_holdings=resolved.get("pending_review_holdings", []),
         material_issues=material_issues,
     )
+    review_issue_rows = _without_file_level_rows_covered_by_file_issues(
+        review_issue_rows,
+        file_issues,
+    )
     review_issue_rows = [
         *review_issue_rows,
         *_review_issue_rows_from_file_issues(
@@ -309,6 +313,7 @@ def build_final_result(case_id: str) -> dict:
             start_index=len(review_issue_rows) + 1,
         ),
     ]
+    review_issue_rows = _renumber_review_issue_rows(review_issue_rows)
     file_issue_result = summarize_file_issues(
         file_issues,
         review_issue_rows,
@@ -534,6 +539,7 @@ MATERIAL_REVIEW_ISSUE_TYPES = {
     "material_missing_period",
     "material_missing_market",
     "empty_record_proof_incomplete",
+    "no_trade_query_proof_incomplete",
 }
 
 
@@ -545,48 +551,100 @@ def _review_issue_rows_from_file_issues(
     next_index = start_index
     for issue in file_issues:
         issue_types = set(normalizer_as_list(issue.get("issue_types")))
-        for reason, type_set in (
-            ("OCR问题", OCR_REVIEW_ISSUE_TYPES),
-            ("抽取问题", EXTRACT_REVIEW_ISSUE_TYPES),
-            ("材料有效性问题", MATERIAL_REVIEW_ISSUE_TYPES),
-        ):
-            matched_types = sorted(issue_types & type_set)
-            if not matched_types:
-                continue
-            rows.append(
-                {
-                    "序号": str(next_index),
-                    "待复核原因": reason,
-                    "问题描述": _file_issue_review_description(issue, matched_types, reason),
-                    "对应材料": _file_issue_source_label(issue),
-                    "_meta": {
-                        "file_id": issue.get("file_id", ""),
-                        "source_row_id": f"file_issue_{next_index}",
-                        "original_row": issue,
-                    },
-                }
-            )
-            next_index += 1
+        matched_types = sorted(
+            issue_types
+            & (OCR_REVIEW_ISSUE_TYPES | EXTRACT_REVIEW_ISSUE_TYPES | MATERIAL_REVIEW_ISSUE_TYPES)
+        )
+        if not matched_types:
+            matched_types = sorted(issue_types)
+        rows.append(
+            {
+                "序号": str(next_index),
+                "待复核原因": "文件级问题",
+                "问题描述": _file_issue_review_description(issue, matched_types),
+                "对应材料": _file_issue_source_label(issue),
+                "_meta": {
+                    "file_id": issue.get("file_id", ""),
+                    "source_row_id": f"file_issue_{next_index}",
+                    "original_row": issue,
+                },
+            }
+        )
+        next_index += 1
     return rows
 
 
-def _file_issue_review_description(issue: dict, issue_types: list[str], reason: str) -> str:
+def _without_file_level_rows_covered_by_file_issues(
+    rows: list[dict],
+    file_issues: list[dict],
+) -> list[dict]:
+    covered_file_ids = {
+        str(issue.get("file_id") or "")
+        for issue in file_issues
+        if issue.get("file_id")
+    }
+    if not covered_file_ids:
+        return rows
+
+    kept_rows = []
+    for row in rows:
+        meta = row.get("_meta") if isinstance(row, dict) else {}
+        if not isinstance(meta, dict):
+            kept_rows.append(row)
+            continue
+        original_row = meta.get("original_row")
+        if not isinstance(original_row, dict):
+            kept_rows.append(row)
+            continue
+        if original_row.get("record_category") != "file":
+            kept_rows.append(row)
+            continue
+        row_file_ids = {
+            str(item)
+            for item in normalizer_as_list(original_row.get("related_file_ids"))
+            if item not in (None, "")
+        }
+        if not row_file_ids or row_file_ids.isdisjoint(covered_file_ids):
+            kept_rows.append(row)
+    return kept_rows
+
+
+def _renumber_review_issue_rows(rows: list[dict]) -> list[dict]:
+    renumbered = []
+    for index, row in enumerate(rows, start=1):
+        next_row = dict(row)
+        next_row["序号"] = str(index)
+        renumbered.append(next_row)
+    return renumbered
+
+
+def _file_issue_review_description(issue: dict, issue_types: list[str]) -> str:
+    issue_type_set = set(issue_types)
+    if "no_trade_query_proof_incomplete" in issue_type_set:
+        issue_types = [
+            issue_type
+            for issue_type in issue_types
+            if issue_type != "extract_failed"
+        ]
+        issue_type_set = set(issue_types)
     labels = [_file_issue_type_label(issue_type) for issue_type in issue_types]
     evidence = [
         str(item)
         for item in normalizer_as_list(issue.get("evidence"))
         if _evidence_matches_issue_types(str(item), issue_types)
     ][:3]
-    if reason == "OCR问题":
-        action = "请核对原文件与 OCR 识别结果；如存在遮挡或涂抹，请重新上传无遮挡材料。"
-    elif reason == "材料有效性问题":
+    if "no_trade_query_proof_incomplete" in issue_type_set:
+        action = "该截图可作为无交易证明候选，请确认证券账号、市场和查询期间；如归属信息不完整，请补充完整历史成交查询材料。"
+    elif issue_type_set & MATERIAL_REVIEW_ISSUE_TYPES:
         action = "请核对原始材料是否包含证券账号、查询时间和市场/账户类型；如缺失，请补充有效材料。"
+    elif issue_type_set & OCR_REVIEW_ISSUE_TYPES:
+        action = "请核对原文件与 OCR 识别结果；如存在遮挡或涂抹，请重新上传无遮挡材料。"
     else:
         action = "请核对抽取结果，必要时重新抽取或在人工复核页补充缺失内容。"
     details = "、".join(label for label in labels if label)
     if evidence:
         details = f"{details}（{'；'.join(evidence)}）" if details else "；".join(evidence)
-    return f"该材料存在{reason}：{details or '需人工复核'}。{action}"
+    return f"该材料存在文件级待复核问题：{details or '需人工复核'}。{action}"
 
 
 def _file_issue_source_label(issue: dict) -> str:
@@ -613,6 +671,7 @@ def _file_issue_type_label(issue_type: str) -> str:
         "material_missing_period": "缺少交易/持仓对应时间",
         "material_missing_market": "缺少市场或账户类型",
         "empty_record_proof_incomplete": "空交易/空持仓证明不完整",
+        "no_trade_query_proof_incomplete": "无交易证明归属要素待确认",
     }.get(issue_type, issue_type)
 
 
@@ -625,6 +684,11 @@ def _evidence_matches_issue_types(evidence: str, issue_types: list[str]) -> bool
         return "置信度" in evidence or "confidence" in evidence
     if "suspected_occlusion" in issue_types:
         return "遮挡" in evidence or "涂抹" in evidence
+    if "no_trade_query_proof_incomplete" in issue_types:
+        return any(
+            keyword in evidence
+            for keyword in ("历史成交", "成交查询", "无交易证明", "空结果", "查询")
+        )
     if any(issue_type in MATERIAL_REVIEW_ISSUE_TYPES for issue_type in issue_types):
         return any(
             keyword in evidence

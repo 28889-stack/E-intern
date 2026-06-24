@@ -30,20 +30,19 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 启动 PaddleOCR 服务
+## OCR 配置
 
-PaddleOCR 服务独立于主 FastAPI 后端。需要先按 PaddleX 官方服务化方式安装并启动 OCR 服务：
+OCR 现在在主 FastAPI 进程内直接调用 PaddleOCR Python API，不再需要单独启动 PaddleOCR 服务。
 
-```bash
-paddlex --install serving
-paddlex --serve --pipeline OCR --host 127.0.0.1 --port 8010
-```
-
-主后端会调用：
+默认模型兼顾速度和准确率：
 
 ```text
-http://127.0.0.1:8010/ocr
+OCR_TEXT_DETECTION_MODEL_NAME=PP-OCRv5_mobile_det
+OCR_TEXT_RECOGNITION_MODEL_NAME=PP-OCRv5_mobile_rec
+OCR_DEVICE=cpu
 ```
+
+如果后续更看重准确率，可以只改 `.env` 中的模型名，例如切换到 `PP-OCRv5_server_det`。
 
 ## 启动主后端
 
@@ -86,6 +85,9 @@ LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-flash
 LLM_TIMEOUT_SECONDS=120
 LLM_MAX_TOKENS=8192
+OCR_TEXT_DETECTION_MODEL_NAME=PP-OCRv5_mobile_det
+OCR_TEXT_RECOGNITION_MODEL_NAME=PP-OCRv5_mobile_rec
+OCR_DEVICE=cpu
 ```
 
 `.env` 只用于本地配置，不会提交到 git。

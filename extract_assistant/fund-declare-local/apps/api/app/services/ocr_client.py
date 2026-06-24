@@ -1,11 +1,11 @@
-import base64
 from pathlib import Path
 from typing import Any
 
-import requests
-from requests import Response
-
-from app.core.config import OCR_BASE_URL, OCR_ENDPOINT, OCR_TIMEOUT_SECONDS
+from app.core.config import (
+    OCR_DEVICE,
+    OCR_TEXT_DETECTION_MODEL_NAME,
+    OCR_TEXT_RECOGNITION_MODEL_NAME,
+)
 
 
 OCR_REQUEST_OPTIONS = {
@@ -16,53 +16,22 @@ OCR_REQUEST_OPTIONS = {
     "textDetLimitSideLen": 960,
     "textDetLimitType": "max",
     "returnWordBox": False,
+    "textDetectionModelName": OCR_TEXT_DETECTION_MODEL_NAME,
+    "textRecognitionModelName": OCR_TEXT_RECOGNITION_MODEL_NAME,
+    "device": OCR_DEVICE,
 }
+
+_PADDLE_OCR_ENGINE: Any | None = None
 
 
 class OcrClient:
-    def __init__(
-        self,
-        base_url: str = OCR_BASE_URL,
-        endpoint: str = OCR_ENDPOINT,
-        timeout_seconds: int = OCR_TIMEOUT_SECONDS,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.endpoint = endpoint
-        self.timeout_seconds = timeout_seconds
-        self.session = requests.Session()
-        self.session.trust_env = False
-
-    def read_file_as_base64(self, file_path: str | Path) -> str:
-        return base64.b64encode(Path(file_path).read_bytes()).decode("utf-8")
+    def __init__(self, engine: Any | None = None) -> None:
+        self.engine = engine
 
     def infer(self, file_path: str | Path, file_type: int) -> dict:
         try:
-            base64_file = self.read_file_as_base64(file_path)
-            payload = {
-                "file": base64_file,
-                "fileType": file_type,
-                **OCR_REQUEST_OPTIONS,
-            }
-            response = self.session.post(
-                f"{self.base_url}{self.endpoint}",
-                json=payload,
-                timeout=self.timeout_seconds,
-            )
-
-            if not response.ok:
-                return self._failed_result(
-                    f"OCR 服务调用失败：HTTP {response.status_code} {response.reason}"
-                    f"，响应内容：{self._response_text(response)}",
-                    raw_response=self._safe_response_json(response),
-                )
-
-            try:
-                raw_response = response.json()
-            except ValueError:
-                return self._failed_result(
-                    f"OCR 服务返回非 JSON 响应：{self._response_text(response)}"
-                )
-
+            input_path = str(Path(file_path))
+            raw_response = self._predict(input_path, file_type=file_type)
             page_results = self._parse_page_results(raw_response)
             failed_pages = [
                 page["page"]
@@ -72,6 +41,7 @@ class OcrClient:
 
             return {
                 "ocr_status": "success",
+                "ocr_backend": "local_paddleocr",
                 "request_options": dict(OCR_REQUEST_OPTIONS),
                 "raw_response": raw_response,
                 "page_results": page_results,
@@ -82,11 +52,50 @@ class OcrClient:
                 ),
             }
         except Exception as exc:
-            return self._failed_result(f"OCR 服务调用失败：{exc}")
+            return self._failed_result(f"本地 PaddleOCR 调用失败：{exc}")
+
+    def _predict(self, input_path: str, file_type: int) -> dict:
+        engine = self.engine or self._get_engine()
+        results = engine.predict(input=input_path)
+        serialized_results = [
+            self._serialize_ocr_result(item) for item in self._as_list(results)
+        ]
+        return {
+            "ocrResults": serialized_results,
+            "input": input_path,
+            "fileType": file_type,
+            "backend": "local_paddleocr",
+        }
+
+    def _get_engine(self) -> Any:
+        global _PADDLE_OCR_ENGINE
+        if _PADDLE_OCR_ENGINE is None:
+            _PADDLE_OCR_ENGINE = self._create_engine()
+        return _PADDLE_OCR_ENGINE
+
+    def _create_engine(self) -> Any:
+        try:
+            from paddleocr import PaddleOCR
+        except ImportError as exc:
+            raise RuntimeError(
+                "未安装 paddleocr，请先在 apps/api 虚拟环境中执行 pip install -r requirements.txt"
+            ) from exc
+
+        return PaddleOCR(
+            text_detection_model_name=OCR_TEXT_DETECTION_MODEL_NAME,
+            text_recognition_model_name=OCR_TEXT_RECOGNITION_MODEL_NAME,
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+            text_det_limit_side_len=OCR_REQUEST_OPTIONS["textDetLimitSideLen"],
+            text_det_limit_type=OCR_REQUEST_OPTIONS["textDetLimitType"],
+            device=OCR_DEVICE,
+        )
 
     def _failed_result(self, reason: str, raw_response: Any | None = None) -> dict:
         return {
             "ocr_status": "failed",
+            "ocr_backend": "local_paddleocr",
             "request_options": dict(OCR_REQUEST_OPTIONS),
             "raw_response": raw_response or {},
             "page_results": [],
@@ -94,18 +103,6 @@ class OcrClient:
             "manual_review_required": True,
             "review_reasons": [reason],
         }
-
-    def _safe_response_json(self, response: Response) -> Any:
-        try:
-            return response.json()
-        except ValueError:
-            return {}
-
-    def _response_text(self, response: Response) -> str:
-        text = response.text.strip()
-        if not text:
-            return "空响应"
-        return text
 
     def _parse_page_results(self, raw_response: dict) -> list[dict]:
         ocr_results = self._extract_ocr_results(raw_response)
@@ -130,7 +127,7 @@ class OcrClient:
                 if isinstance(score, (int, float))
             ]
             boxes = self._as_list(
-                pruned_result.get("rec_boxes") or pruned_result.get("rec_polys")
+                self._first_present(pruned_result, "rec_boxes", "rec_polys")
             )
             blocks = self._build_blocks(rec_texts, rec_scores, boxes)
             text = "\n".join(str(item) for item in rec_texts if item is not None)
@@ -169,8 +166,51 @@ class OcrClient:
             result = page_result["result"]
             if isinstance(result.get("prunedResult"), dict):
                 return result["prunedResult"]
+            if isinstance(result.get("res"), dict):
+                return result["res"]
+
+        if isinstance(page_result.get("res"), dict):
+            return page_result["res"]
 
         return page_result
+
+    def _serialize_ocr_result(self, result: Any) -> dict:
+        if isinstance(result, dict):
+            return self._to_jsonable(result)
+
+        for attr_name in ("json", "to_json"):
+            value = getattr(result, attr_name, None)
+            if value is None:
+                continue
+            serialized = value() if callable(value) else value
+            if isinstance(serialized, dict):
+                return self._to_jsonable(serialized)
+
+        if hasattr(result, "__dict__"):
+            return self._to_jsonable(dict(result.__dict__))
+
+        return {"value": str(result)}
+
+    def _first_present(self, mapping: dict, *keys: str) -> Any:
+        for key in keys:
+            if key in mapping and mapping[key] is not None:
+                return mapping[key]
+        return None
+
+    def _to_jsonable(self, value: Any) -> Any:
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, bytes):
+            return value.decode("utf-8", errors="replace")
+        if hasattr(value, "tolist") and not isinstance(value, (str, bytes)):
+            return value.tolist()
+        if isinstance(value, dict):
+            return {key: self._to_jsonable(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._to_jsonable(item) for item in value]
+        if isinstance(value, tuple):
+            return [self._to_jsonable(item) for item in value]
+        return repr(value)
 
     def _build_blocks(
         self,
@@ -191,6 +231,8 @@ class OcrClient:
     def _as_list(self, value: Any) -> list[Any]:
         if value is None:
             return []
+        if hasattr(value, "tolist") and not isinstance(value, (str, bytes)):
+            value = value.tolist()
         if isinstance(value, list):
             return value
         return [value]

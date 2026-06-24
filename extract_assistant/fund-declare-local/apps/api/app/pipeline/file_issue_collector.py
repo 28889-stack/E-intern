@@ -8,6 +8,7 @@ from app.services import local_store
 
 OCR_CONFIDENCE_THRESHOLD = 0.85
 MANY_PENDING_THRESHOLD = 5
+HISTORICAL_TRADE_QUERY_KEYWORDS = ("历史成交", "成交查询", "起始日期", "终止日期", "查询", "输出")
 
 FAILURE_STATUSES = {
     "failed",
@@ -83,7 +84,9 @@ def collect_file_issues(
 
     file_issues = []
     for state in states.values():
+        _collect_historical_trade_query_issue(state)
         pending_count = state.pop("_pending_count", 0)
+        state.pop("_historical_trade_query_no_rows", None)
         if pending_count >= MANY_PENDING_THRESHOLD:
             _add_issue(
                 state,
@@ -116,6 +119,7 @@ def _base_state(file_record: dict) -> dict:
         "related_problem_ids": [],
         "suggested_action": "",
         "_pending_count": 0,
+        "_historical_trade_query_no_rows": False,
     }
 
 
@@ -187,6 +191,11 @@ def _collect_from_processed_files(case_id: str, state: dict, file_record: dict) 
     extract_batches = local_store.read_json(output_dir / "extract_batches.json", {})
     if isinstance(extract_batches, dict):
         _collect_extract_batch_issues(state, extract_batches)
+
+    state["_historical_trade_query_no_rows"] = _has_historical_trade_query_without_business_rows(
+        output_dir,
+        extract_result,
+    )
 
 
 def _collect_from_review_issue(states: dict[str, dict], issue: dict) -> None:
@@ -390,6 +399,65 @@ def _collect_extract_batch_issues(state: dict, extract_batches: dict) -> None:
             )
 
 
+def _has_historical_trade_query_without_business_rows(
+    output_dir: Path,
+    extract_result: dict,
+) -> bool:
+    if _extract_has_business_rows(extract_result):
+        return False
+
+    text_parts = []
+    if isinstance(extract_result, dict):
+        text_parts.append(_json_text(extract_result))
+    for filename in ("raw_text.json", "ocr_result.json", "document_structure.json"):
+        data = local_store.read_json(output_dir / filename, {})
+        if isinstance(data, (dict, list)):
+            text_parts.append(_json_text(data))
+
+    text = "\n".join(text_parts)
+    if not text:
+        return False
+    keyword_count = sum(1 for keyword in HISTORICAL_TRADE_QUERY_KEYWORDS if keyword in text)
+    return keyword_count >= 2
+
+
+def _collect_historical_trade_query_issue(state: dict) -> None:
+    if not state.get("_historical_trade_query_no_rows"):
+        return
+    if not any(
+        issue_type in state["issue_types"]
+        for issue_type in (
+            "material_missing_securities_account",
+            "material_missing_market",
+            "material_missing_period",
+            "empty_record_proof_incomplete",
+        )
+    ):
+        return
+    if "no_trade_query_proof_incomplete" in state["issue_types"]:
+        return
+
+    _add_issue(
+        state,
+        "no_trade_query_proof_incomplete",
+        "warning",
+        "材料呈现历史成交查询空结果，可作为无交易证明候选，但缺少账户、市场或期间等归属要素。",
+        "请确认该截图对应的证券账号、市场和查询期间；如归属信息不完整，请补充完整历史成交查询材料。",
+    )
+
+
+def _extract_has_business_rows(extract_result: dict) -> bool:
+    if not isinstance(extract_result, dict):
+        return False
+    trade_group = extract_result.get("trade_group")
+    if isinstance(trade_group, dict) and _as_list(trade_group.get("trades")):
+        return True
+    for key in ("business_events", "holding_records", "events", "transactions", "holdings"):
+        if _as_list(extract_result.get(key)):
+            return True
+    return False
+
+
 def _add_issue(
     state: dict,
     issue_type: str,
@@ -485,6 +553,15 @@ def _has_finish_reason_length(metadata: Any) -> bool:
         if isinstance(batch, dict) and batch.get("finish_reason") == "length":
             return True
     return False
+
+
+def _json_text(value: Any) -> str:
+    try:
+        import json
+
+        return json.dumps(value, ensure_ascii=False)
+    except Exception:
+        return str(value)
 
 
 def _field_label(field: str) -> str:
