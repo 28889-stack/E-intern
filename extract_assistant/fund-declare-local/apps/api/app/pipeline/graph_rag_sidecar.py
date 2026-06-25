@@ -18,6 +18,9 @@ GRAPH_SCHEMA_VERSION = "graph_rag_v1"
 MAX_CONTEXT_BLOCKS = 20
 MAX_CONTEXT_TEXT_CHARS = 200
 MAX_PROMPT_CONTEXT_CHARS = 6000
+MAX_RECORD_CANDIDATES = 12
+MAX_RECORD_CONTEXT_CANDIDATES = 8
+MAX_RECORD_SOURCE_TEXT_CHARS = 160
 VECTOR_QUERIES = (
     "证券交易记录，买入，卖出，申购，送股，成交数量，成交金额",
     "股息，派息，现金分红，红利，兑息，利息，资金流水，银证转账",
@@ -54,6 +57,18 @@ CASH_EVENT_KEYWORDS = (
     "证券转银行",
     "资金流水",
 )
+NOISE_ROW_KEYWORDS = (
+    "自选",
+    "行情",
+    "资讯",
+    "理财",
+    "热门主题",
+    "新股日历",
+    "沪深新股新债申购",
+    "菜单",
+    "刷新",
+    "设置",
+)
 SECURITY_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
 DATE_RE = re.compile(r"(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})日?")
 ACCOUNT_RE = re.compile(r"\b([A-Za-z]\d{8,12}|\d{8,12})\b")
@@ -68,6 +83,7 @@ def run_graph_rag_sidecar(
     graph_dir = local_store.ensure_dir(output_path / "graph_rag")
     rows, source_priority = _load_source_rows(output_path)
     chunks = _build_chunks(rows, file_record)
+    record_candidates = _build_record_candidates(rows, file_record)
 
     nodes_by_id: dict[str, dict] = {}
     relationships_by_key: dict[tuple, dict] = {}
@@ -96,7 +112,7 @@ def run_graph_rag_sidecar(
         accounts = _account_entities(row, file_record)
         securities = _security_entities(row, file_record)
         holder = _holder_entity(row, file_record)
-        event = _event_entity(row, file_record)
+        event = None if _is_noise_row(row) else _event_entity(row, file_record)
 
         for account in accounts:
             _merge_node(nodes_by_id, account)
@@ -167,6 +183,45 @@ def run_graph_rag_sidecar(
                     0.55,
                 )
 
+    for candidate in record_candidates:
+        record_node = _record_candidate_node(candidate, file_record)
+        _merge_node(nodes_by_id, record_node)
+        page_no = candidate.get("page_no") or 1
+        page_id = f"page:{file_id}:{page_no}"
+        if page_id in nodes_by_id:
+            _add_relationship(
+                relationships_by_key,
+                page_id,
+                record_node["id"],
+                "CONTAINS",
+                0.9,
+            )
+            _add_relationship(
+                relationships_by_key,
+                record_node["id"],
+                page_id,
+                "HAS_SOURCE",
+                1.0,
+            )
+        account_number = str(candidate.get("fields", {}).get("account_number") or "")
+        security_code = str(candidate.get("fields", {}).get("security_code") or "")
+        if account_number and f"account:{account_number}" in nodes_by_id:
+            _add_relationship(
+                relationships_by_key,
+                record_node["id"],
+                f"account:{account_number}",
+                "BELONGS_TO_ACCOUNT",
+                0.85,
+            )
+        if security_code and f"security:{security_code}" in nodes_by_id:
+            _add_relationship(
+                relationships_by_key,
+                record_node["id"],
+                f"security:{security_code}",
+                "AFFECTS_SECURITY",
+                0.9,
+            )
+
     graph = {
         "schema_version": GRAPH_SCHEMA_VERSION,
         "file_id": file_id,
@@ -194,6 +249,7 @@ def run_graph_rag_sidecar(
         nodes_by_id,
         relationships_by_key,
         embedding_result.get("vector_context_blocks", []),
+        record_candidates,
     )
     build_debug = {
         "schema_version": GRAPH_SCHEMA_VERSION,
@@ -202,6 +258,7 @@ def run_graph_rag_sidecar(
         "source_priority": source_priority,
         "row_count": len(rows),
         "chunk_count": len(chunks),
+        "record_candidate_count": len(record_candidates),
         "entity_count": len(nodes_by_id),
         "relationship_count": len(relationships_by_key),
         "embedding_enabled": bool(GRAPH_RAG_EMBEDDING_ENABLED),
@@ -245,14 +302,49 @@ def run_graph_rag_sidecar(
 def format_graph_rag_context(output_dir: str | Path) -> str:
     retrieval_path = Path(output_dir) / "graph_rag" / "retrieval_result.json"
     retrieval = local_store.read_json(retrieval_path, {})
-    if not isinstance(retrieval, dict) or not retrieval.get("context_blocks"):
+    if not isinstance(retrieval, dict):
+        return ""
+    if not retrieval.get("record_candidates") and not retrieval.get("context_blocks"):
         return ""
 
     parts = [
         f"query: {retrieval.get('query', '')}",
         "matched_entities: " + ", ".join(_as_list(retrieval.get("matched_entities"))[:30]),
-        "context_blocks:",
     ]
+    record_candidates = _as_list(retrieval.get("record_candidates"))[:MAX_RECORD_CONTEXT_CANDIDATES]
+    if record_candidates:
+        parts.append("record_candidates:")
+        for candidate in record_candidates:
+            if not isinstance(candidate, dict):
+                continue
+            fields = candidate.get("fields") if isinstance(candidate.get("fields"), dict) else {}
+            compact_fields = []
+            for key in (
+                "event_date",
+                "account_number",
+                "security_code",
+                "security_name",
+                "movement_type",
+                "quantity_raw",
+                "price_raw",
+                "amount_raw",
+                "balance_after_raw",
+            ):
+                value = str(fields.get(key) or "").strip()
+                if value:
+                    compact_fields.append(f"{key}={value}")
+            parts.append(
+                "\n".join(
+                    [
+                        f"[record page={candidate.get('page_no', '')} row_no={candidate.get('row_no', '')}]",
+                        "fields: " + "; ".join(compact_fields),
+                        "source_text: "
+                        + _compact_text(candidate.get("source_text"), MAX_RECORD_SOURCE_TEXT_CHARS),
+                    ]
+                )
+            )
+    if retrieval.get("context_blocks"):
+        parts.append("context_blocks:")
     for block in _as_list(retrieval.get("context_blocks"))[:MAX_CONTEXT_BLOCKS]:
         if not isinstance(block, dict):
             continue
@@ -529,10 +621,152 @@ def _event_entity(row: dict, file_record: dict) -> dict | None:
     )
 
 
+def _build_record_candidates(rows: list[dict], file_record: dict) -> list[dict]:
+    candidates = []
+    seen = set()
+    for index, row in enumerate(rows, start=1):
+        candidate = _record_candidate_from_row(row, file_record, index)
+        if not candidate:
+            continue
+        signature = (
+            candidate.get("page_no"),
+            candidate.get("row_no"),
+            candidate.get("source_text"),
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        candidates.append(candidate)
+        if len(candidates) >= MAX_RECORD_CANDIDATES:
+            break
+    return candidates
+
+
+def _record_candidate_from_row(row: dict, file_record: dict, index: int) -> dict | None:
+    if _is_noise_row(row):
+        return None
+
+    text = str(row.get("text") or "")
+    event_type = _event_type(text)
+    fields = _record_fields(row)
+    has_business_signal = bool(fields.get("security_code") or fields.get("movement_type")) and any(
+        fields.get(key)
+        for key in ("event_date", "security_name", "quantity_raw", "amount_raw", "balance_after_raw")
+    )
+    if not event_type and not has_business_signal:
+        return None
+
+    if not fields.get("movement_type") and event_type:
+        fields["movement_type"] = event_type
+
+    file_id = str(file_record.get("file_id") or "file")
+    row_identity = row.get("row_id") or row.get("row_no") or index
+    return {
+        "record_id": f"record:{file_id}:page_{row.get('page_no')}:row_{row_identity}",
+        "record_type": "trade_or_event_candidate",
+        "page_no": row.get("page_no"),
+        "row_no": row.get("row_no"),
+        "row_id": row.get("row_id", ""),
+        "table_index": row.get("table_index"),
+        "source_type": row.get("source", ""),
+        "fields": fields,
+        "source_text": _compact_text(text, MAX_RECORD_SOURCE_TEXT_CHARS),
+    }
+
+
+def _record_fields(row: dict) -> dict[str, str]:
+    text = str(row.get("text") or "")
+    values = list(_header_values(row))
+    fields = {
+        "event_date": _date_from_text(text),
+        "account_number": "",
+        "security_code": "",
+        "security_name": "",
+        "movement_type": "",
+        "quantity_raw": "",
+        "price_raw": "",
+        "amount_raw": "",
+        "balance_after_raw": "",
+    }
+
+    for header, value in values:
+        value = str(value or "").strip()
+        if not value:
+            continue
+        if not fields["event_date"] and any(keyword in header for keyword in ("日期", "发生日期", "成交日期", "业务日期", "过户日期")):
+            fields["event_date"] = _date_from_text(value)
+        if not fields["account_number"] and _looks_like_account_header(header):
+            account = _first_account_number(value)
+            if account:
+                fields["account_number"] = account
+        if not fields["security_code"] and "证券代码" in header and not _looks_like_non_security_code_header(header):
+            code = _first_security_code(value)
+            if code:
+                fields["security_code"] = code
+        if not fields["security_name"] and any(keyword in header for keyword in ("证券名称", "证券简称")):
+            fields["security_name"] = value
+        if not fields["movement_type"] and any(keyword in header for keyword in ("业务标志", "业务名称", "变动类型", "过户类型", "摘要", "权益类别")):
+            fields["movement_type"] = _compact_text(value, 40)
+        if not fields["quantity_raw"] and any(keyword in header for keyword in ("成交数量", "发生数量", "过户数量", "股份数量", "持有数量")):
+            fields["quantity_raw"] = value
+        if not fields["price_raw"] and any(keyword in header for keyword in ("成交价格", "成交单价", "成交均价", "成交价")):
+            fields["price_raw"] = value
+        if not fields["amount_raw"] and any(keyword in header for keyword in ("清算金额", "发生金额", "成交金额", "收付金额", "金额")):
+            fields["amount_raw"] = value
+        if not fields["balance_after_raw"] and any(keyword in header for keyword in ("期末余额", "本次余额", "股份余额", "余额")):
+            fields["balance_after_raw"] = value
+
+    if not fields["account_number"]:
+        fields["account_number"] = _first_account_number(text)
+    if not fields["security_code"]:
+        fields["security_code"] = _first_security_code(text)
+    if fields["security_code"] and not fields["security_name"]:
+        fields["security_name"] = _security_name_near_code(text, fields["security_code"])
+    if not fields["movement_type"]:
+        fields["movement_type"] = _event_type(text)
+
+    return fields
+
+
+def _record_candidate_node(candidate: dict, file_record: dict) -> dict:
+    fields = candidate.get("fields") if isinstance(candidate.get("fields"), dict) else {}
+    name = " ".join(
+        item
+        for item in (
+            str(fields.get("event_date") or ""),
+            str(fields.get("security_code") or ""),
+            str(fields.get("security_name") or ""),
+            str(fields.get("movement_type") or ""),
+        )
+        if item
+    )
+    return _node(
+        str(candidate.get("record_id") or ""),
+        "RecordCandidate",
+        name or str(candidate.get("record_id") or ""),
+        aliases=[name] if name else [],
+        source_refs=[
+            {
+                "file_id": file_record.get("file_id", ""),
+                "chunk_id": "",
+                "page_no": candidate.get("page_no"),
+                "row_no": candidate.get("row_no"),
+                "row_id": candidate.get("row_id", ""),
+                "text": _compact_text(candidate.get("source_text"), MAX_CONTEXT_TEXT_CHARS),
+            }
+        ],
+        properties={
+            "record_type": candidate.get("record_type"),
+            "fields": fields,
+        },
+    )
+
+
 def _build_retrieval_result(
     nodes_by_id: dict[str, dict],
     relationships_by_key: dict[tuple, dict],
     vector_context_blocks: list[dict] | None = None,
+    record_candidates: list[dict] | None = None,
 ) -> dict:
     matched_entities = [
         node_id
@@ -572,6 +806,7 @@ def _build_retrieval_result(
         "rule_context_blocks": rule_context_blocks,
         "vector_context_blocks": vector_context_blocks,
         "context_blocks": context_blocks,
+        "record_candidates": record_candidates or [],
     }
 
 
@@ -850,6 +1085,20 @@ def _looks_like_header(cells: list[str]) -> bool:
     return any(keyword in text for keyword in ("证券代码", "证券名称", "业务日期", "成交数量", "证券账号"))
 
 
+def _is_noise_row(row: dict) -> bool:
+    text = str(row.get("text") or "")
+    if not text:
+        return True
+    has_business_anchor = bool(
+        DATE_RE.search(text)
+        or SECURITY_CODE_RE.search(text)
+        or any(header for header, _value in _header_values(row) if header)
+    )
+    if has_business_anchor:
+        return False
+    return sum(1 for keyword in NOISE_ROW_KEYWORDS if keyword in text) >= 2
+
+
 def _looks_like_account_header(header: str) -> bool:
     return any(keyword in header for keyword in ("证券账号", "证券账户", "股东卡号", "资金账号", "资金账户"))
 
@@ -867,6 +1116,25 @@ def _text_near_non_security_label(text: str, code: str) -> bool:
         return False
     window = text[max(0, position - 8): position + len(code) + 8]
     return any(keyword in window for keyword in ("流水", "委托", "时间", "日期", "资金账号"))
+
+
+def _first_account_number(text: str) -> str:
+    match = ACCOUNT_RE.search(str(text or ""))
+    return match.group(1) if match else ""
+
+
+def _first_security_code(text: str) -> str:
+    match = SECURITY_CODE_RE.search(str(text or ""))
+    return match.group(1) if match else ""
+
+
+def _security_name_near_code(text: str, code: str) -> str:
+    if not code:
+        return ""
+    match = re.search(rf"{re.escape(code)}\s+([\u4e00-\u9fffA-Za-z]{{2,16}})", text)
+    if not match:
+        return ""
+    return match.group(1)
 
 
 def _event_type(text: str) -> str:

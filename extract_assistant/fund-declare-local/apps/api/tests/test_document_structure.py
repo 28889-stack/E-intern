@@ -125,6 +125,46 @@ class DocumentStructureTest(unittest.TestCase):
         self.assertIn("security:688262", payload["graph_rag_context"])
         self.assertIn("国芯科技", payload["graph_rag_context"])
 
+    def test_extraction_input_includes_compact_multimodal_context(self):
+        from app.pipeline.extraction_input_builder import build_extraction_input
+        from app.services.local_store import save_json
+
+        with TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "processed" / "file_001"
+            save_json(
+                output_dir / "raw_text.json",
+                {
+                    "pages": [
+                        {
+                            "page": 1,
+                            "text": "起始日期：2024-01-01 终止日期：2024-12-20 没有相应的查询信息！",
+                        }
+                    ]
+                },
+            )
+            save_json(
+                output_dir / "multimodal_review_hints.json",
+                {
+                    "page_type": "历史成交查询",
+                    "query_condition_zone_visible": True,
+                    "result_table_zone_visible": True,
+                    "empty_result_visible": True,
+                    "noise_zones": ["行情列表", "菜单栏"],
+                    "visual_observations": [
+                        "历史成交查询结果区为空",
+                        "行情列表和菜单栏不应作为交易记录",
+                    ],
+                },
+            )
+
+            payload = build_extraction_input(output_dir)
+
+        self.assertIn("multimodal_review_hints_path", payload["sources"])
+        self.assertIn("multimodal_context", payload)
+        self.assertIn("page_type: 历史成交查询", payload["multimodal_context"])
+        self.assertIn("empty_result_visible: true", payload["multimodal_context"])
+        self.assertIn("noise_zones: 行情列表, 菜单栏", payload["multimodal_context"])
+
     def test_table_payload_preserves_row_and_cell_trace_metadata(self):
         from app.pipeline.document_structure import (
             build_document_structure,

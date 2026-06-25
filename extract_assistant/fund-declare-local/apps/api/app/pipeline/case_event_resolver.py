@@ -161,6 +161,7 @@ def resolve_case_events(
     raw_events = [dict(item) for item in transaction_rows]
     raw_holdings = [dict(item) for item in holding_rows or []]
     _apply_intra_file_security_references(raw_events, raw_holdings)
+    raw_holdings = _merge_duplicate_holding_candidates(raw_holdings, merge_audit)
 
     events = _merge_exact_event_duplicates(raw_events, merge_audit)
     events = _merge_same_file_partial_trade_duplicates(events, merge_audit)
@@ -579,6 +580,143 @@ def _merge_same_file_partial_trade_duplicates(
             continue
         merged_rows.append(replacements.get(index, row))
     return merged_rows
+
+
+def _merge_duplicate_holding_candidates(
+    rows: list[dict],
+    merge_audit: list[dict],
+) -> list[dict]:
+    groups: dict[tuple, list[int]] = {}
+    for index, row in enumerate(rows):
+        key = _duplicate_holding_key(row)
+        if key:
+            groups.setdefault(key, []).append(index)
+
+    replacements: dict[int, dict] = {}
+    skipped: set[int] = set()
+
+    for key, indices in groups.items():
+        if len(indices) <= 1:
+            continue
+
+        group = [rows[index] for index in indices]
+        if not _can_merge_duplicate_holding_group(group):
+            continue
+
+        target_index = max(indices, key=lambda index: _holding_detail_score(rows[index]))
+        merged = dict(rows[target_index])
+        for index in indices:
+            if index == target_index:
+                continue
+            merged = _merge_holding_candidate_rows(merged, rows[index])
+            skipped.add(index)
+        replacements[target_index] = merged
+        merge_audit.append(
+            {
+                "action": "merged_duplicate_holding_candidate",
+                "holding_key": "|".join(str(part) for part in key),
+                "kept_record_id": merged.get("holding_id", ""),
+                "merged_record_ids": unique_list(
+                    [
+                        rows[index].get("holding_id")
+                        or _first_evidence_value(rows[index], "source_row_id")
+                        or ""
+                        for index in indices
+                    ]
+                ),
+                "reason": "同一文件内疑似同一持仓被抽取为多个候选，已保留字段更完整的持仓记录",
+            }
+        )
+
+    merged_rows = []
+    for index, row in enumerate(rows):
+        if index in skipped:
+            continue
+        merged_rows.append(replacements.get(index, row))
+    return merged_rows
+
+
+def _duplicate_holding_key(row: dict) -> tuple:
+    file_key = _file_reference_key(row)
+    holding_date = _clean_text(row.get("holding_date"))
+    security_code = _clean_text(row.get("security_code"))
+    if not (file_key and holding_date and security_code):
+        return ()
+
+    market_value = _normalized_decimal_text(row.get("market_value"))
+    if market_value:
+        return (file_key, holding_date, security_code, "market_value", market_value)
+
+    security_name = _clean_text(row.get("security_name"))
+    if security_name:
+        return (file_key, holding_date, security_code, "security_name", security_name)
+    return ()
+
+
+def _can_merge_duplicate_holding_group(group: list[dict]) -> bool:
+    for field in ("securities_account", "account_type"):
+        values = {
+            _clean_text(row.get(field))
+            for row in group
+            if _clean_text(row.get(field))
+        }
+        if len(values) > 1:
+            return False
+    return True
+
+
+def _merge_holding_candidate_rows(first: dict, second: dict) -> dict:
+    target, other = (
+        (first, second)
+        if _holding_detail_score(first) >= _holding_detail_score(second)
+        else (second, first)
+    )
+    merged = dict(target)
+    for field in (
+        "case_id",
+        "account_type",
+        "document_type",
+        "document_title",
+        "period_start",
+        "period_end",
+        "holder_name",
+        "one_code_account",
+        "securities_account",
+        "holding_id",
+        "market",
+        "holding_date",
+        "security_code",
+        "security_name",
+        "quantity_raw",
+        "market_value",
+        "currency",
+        "review_reason",
+    ):
+        if merged.get(field) in (None, "") and other.get(field) not in (None, ""):
+            merged[field] = other.get(field)
+
+    merged["source_pages"] = _merge_joined_values(
+        first.get("source_pages"),
+        second.get("source_pages"),
+    )
+    merged["row_nos"] = _merge_joined_values(first.get("row_nos"), second.get("row_nos"))
+    merged["source_evidence"] = _merge_evidence(
+        _row_evidence(first),
+        _row_evidence(second),
+    )
+    merged["merged_file_ids"] = unique_list([first.get("file_id"), second.get("file_id")])
+    merged["merged_file_nos"] = unique_list([first.get("file_no"), second.get("file_no")])
+    return merged
+
+
+def _holding_detail_score(row: dict) -> int:
+    score = 0
+    for field in HOLDING_REQUIRED_FIELDS:
+        if row.get(field) not in (None, ""):
+            score += 2
+    if row.get("source_evidence"):
+        score += 1
+    return score
 
 
 def _mark_event_conflicts(rows: list[dict], merge_audit: list[dict]) -> None:

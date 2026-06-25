@@ -238,7 +238,6 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
     if (
         not full_rows
         and not holding_rows
-        and not review_items
     ):
         empty_record_event = empty_record_event_from_semantics(
             case_id,
@@ -248,7 +247,7 @@ def normalize_guangfa(case_id: str, extract_result: dict, file_record: dict) -> 
         )
         if empty_record_event:
             full_rows.append(empty_record_event)
-        else:
+        elif not review_items:
             item = review_item(
                 "warning",
                 "extract_result",

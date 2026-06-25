@@ -121,6 +121,7 @@ class GraphRagSidecarTest(unittest.TestCase):
             "input body",
             {},
             context,
+            "page_type: 历史成交查询\nempty_result_visible: true",
         )
         chinaclear_prompt = ChinaclearExtractor()._build_batch_prompt(
             "base prompt",
@@ -133,13 +134,18 @@ class GraphRagSidecarTest(unittest.TestCase):
             },
             {},
             context,
+            "page_type: 持仓查询\nresult_table_zone_visible: true",
         )
 
         self.assertIn("graph_rag_context:", guangfa_prompt)
         self.assertIn("security:688262", guangfa_prompt)
         self.assertIn("辅助证据上下文", guangfa_prompt)
+        self.assertIn("multimodal_context:", guangfa_prompt)
+        self.assertIn("empty_result_visible: true", guangfa_prompt)
         self.assertIn("graph_rag_context:", chinaclear_prompt)
         self.assertIn("国芯科技", chinaclear_prompt)
+        self.assertIn("multimodal_context:", chinaclear_prompt)
+        self.assertIn("result_table_zone_visible: true", chinaclear_prompt)
 
     def test_retrieves_chinaclear_rights_and_transfer_rows(self):
         from app.pipeline.graph_rag_sidecar import run_graph_rag_sidecar
@@ -313,6 +319,142 @@ class GraphRagSidecarTest(unittest.TestCase):
         self.assertTrue(chunks["chunks"])
         self.assertFalse(embeddings_exists)
 
+    def test_filters_obvious_market_screen_noise_from_record_candidates(self):
+        from app.pipeline.graph_rag_sidecar import run_graph_rag_sidecar
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            output_dir = project_root / "data/cases/case_test/account_info/processed/file_001"
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    output_dir / "document_structure.json",
+                    _noisy_market_screen_document_structure(),
+                )
+
+                with patch(
+                    "app.pipeline.graph_rag_sidecar.GRAPH_RAG_EMBEDDING_ENABLED",
+                    False,
+                ):
+                    run_graph_rag_sidecar(
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "case_id": "case_test",
+                            "original_file_name": "screen.png",
+                        },
+                        output_dir,
+                    )
+
+                retrieval = json.loads(
+                    (output_dir / "graph_rag/retrieval_result.json").read_text()
+                )
+
+        candidate_texts = "\n".join(
+            candidate.get("source_text", "")
+            for candidate in retrieval.get("record_candidates", [])
+        )
+
+        self.assertIn("2025-05-07", candidate_texts)
+        self.assertIn("600794", candidate_texts)
+        self.assertNotIn("沪深新股新债申购", candidate_texts)
+        self.assertNotIn("自选 股 行情", candidate_texts)
+
+    def test_writes_short_structured_record_candidates(self):
+        from app.pipeline.graph_rag_sidecar import run_graph_rag_sidecar
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            output_dir = project_root / "data/cases/case_test/account_info/processed/file_001"
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    output_dir / "document_structure.json",
+                    _document_structure(),
+                )
+
+                with patch(
+                    "app.pipeline.graph_rag_sidecar.GRAPH_RAG_EMBEDDING_ENABLED",
+                    False,
+                ):
+                    run_graph_rag_sidecar(
+                        {
+                            "file_id": "file_001",
+                            "file_no": "001",
+                            "case_id": "case_test",
+                            "original_file_name": "statement.pdf",
+                        },
+                        output_dir,
+                    )
+
+                retrieval = json.loads(
+                    (output_dir / "graph_rag/retrieval_result.json").read_text()
+                )
+
+        candidates = retrieval.get("record_candidates", [])
+
+        self.assertTrue(candidates)
+        candidate = candidates[0]
+        self.assertEqual(candidate["record_type"], "trade_or_event_candidate")
+        self.assertEqual(candidate["page_no"], 1)
+        self.assertEqual(candidate["fields"]["event_date"], "2022-01-05")
+        self.assertEqual(candidate["fields"]["account_number"], "A315570738")
+        self.assertEqual(candidate["fields"]["security_code"], "688262")
+        self.assertEqual(candidate["fields"]["security_name"], "国芯科技")
+        self.assertEqual(candidate["fields"]["movement_type"], "新股入账")
+        self.assertLessEqual(len(candidate["source_text"]), 160)
+
+    def test_formats_record_candidates_before_legacy_context(self):
+        from app.pipeline.graph_rag_sidecar import format_graph_rag_context
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            output_dir = project_root / "processed"
+            graph_dir = output_dir / "graph_rag"
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                local_store.save_json(
+                    graph_dir / "retrieval_result.json",
+                    {
+                        "query": "抽取交易类事件",
+                        "matched_entities": ["security:688262"],
+                        "record_candidates": [
+                            {
+                                "record_id": "record:file_001:1",
+                                "record_type": "trade_or_event_candidate",
+                                "page_no": 1,
+                                "row_no": "18",
+                                "fields": {
+                                    "event_date": "2022-01-05",
+                                    "security_code": "688262",
+                                    "security_name": "国芯科技",
+                                    "movement_type": "新股入账",
+                                    "quantity_raw": "500.0000",
+                                    "amount_raw": "0.0000",
+                                },
+                                "source_text": "2022-01-05 A315570738 688262 国芯科技 新股入账 500.0000 41.9800 0.0000",
+                            }
+                        ],
+                        "context_blocks": [
+                            {
+                                "page_no": 1,
+                                "row_no": "18",
+                                "source_text": "legacy context",
+                                "related_entities": ["688262"],
+                                "reason": "source row event candidate",
+                            }
+                        ],
+                    },
+                )
+
+                text = format_graph_rag_context(output_dir)
+
+        self.assertIn("record_candidates:", text)
+        self.assertLess(text.index("record_candidates:"), text.index("context_blocks:"))
+        self.assertIn("event_date=2022-01-05", text)
+        self.assertIn("security_code=688262", text)
+        self.assertIn("movement_type=新股入账", text)
+
 
 def _document_structure():
     return {
@@ -420,6 +562,35 @@ def _chinaclear_rights_document_structure():
             "23206",
             "广发证券公司客户",
         ],
+    ]
+    return {
+        "pages": [
+            {
+                "page_no": 1,
+                "tables": [
+                    {
+                        "table_index": 1,
+                        "rows": [
+                            {
+                                "row_id": f"p001_t001_r{index:03d}",
+                                "cells": [{"text": cell} for cell in row],
+                            }
+                            for index, row in enumerate(rows, start=1)
+                        ],
+                    }
+                ],
+            }
+        ],
+        "sources": {"document_structure_path": "document_structure.json"},
+    }
+
+
+def _noisy_market_screen_document_structure():
+    rows = [
+        ["自选", "股", "行情", "交易", "资讯", "理财"],
+        ["期货", "旺", "沪深新股新债申购", "新股日历", "热门主题"],
+        ["成交日期", "证券代码", "证券名称", "业务名称", "成交数量", "成交价格", "发生金额"],
+        ["2025-05-07", "600794", "保税科技", "证券卖出", "-8000", "5.86", "46880.00"],
     ]
     return {
         "pages": [

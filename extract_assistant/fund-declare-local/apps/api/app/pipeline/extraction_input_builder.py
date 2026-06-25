@@ -5,6 +5,11 @@ from app.pipeline.graph_rag_sidecar import format_graph_rag_context
 from app.services.local_store import read_json
 
 
+MAX_MULTIMODAL_OBSERVATIONS = 3
+MAX_MULTIMODAL_NOISE_ZONES = 5
+MAX_MULTIMODAL_CONTEXT_CHARS = 800
+
+
 def build_extraction_input(process_output_dir: str | Path) -> dict:
     output_dir = Path(process_output_dir)
     input_sections = []
@@ -14,6 +19,7 @@ def build_extraction_input(process_output_dir: str | Path) -> dict:
         "tables_path": None,
         "ocr_result_path": None,
         "graph_rag_retrieval_path": None,
+        "multimodal_review_hints_path": None,
     }
 
     document_structure_path = output_dir / "document_structure.json"
@@ -29,11 +35,13 @@ def build_extraction_input(process_output_dir: str | Path) -> dict:
     if input_sections:
         input_text = _sections_to_text(input_sections)
         graph_rag_context = _load_graph_rag_context(output_dir, sources)
+        multimodal_context = _load_multimodal_context(output_dir, sources)
         return {
             "input_text": input_text,
             "sources": sources,
             "input_sections": input_sections,
             "graph_rag_context": graph_rag_context,
+            "multimodal_context": multimodal_context,
             "manual_review_required": False,
             "review_reasons": [],
         }
@@ -86,12 +94,14 @@ def build_extraction_input(process_output_dir: str | Path) -> dict:
     input_text = _sections_to_text(input_sections)
     review_reasons = [] if input_text else ["抽取输入文本为空"]
     graph_rag_context = _load_graph_rag_context(output_dir, sources)
+    multimodal_context = _load_multimodal_context(output_dir, sources)
 
     return {
         "input_text": input_text,
         "sources": sources,
         "input_sections": input_sections,
         "graph_rag_context": graph_rag_context,
+        "multimodal_context": multimodal_context,
         "manual_review_required": bool(review_reasons),
         "review_reasons": review_reasons,
     }
@@ -102,6 +112,46 @@ def _load_graph_rag_context(output_dir: Path, sources: dict) -> str:
     if retrieval_path.exists():
         sources["graph_rag_retrieval_path"] = str(retrieval_path)
     return format_graph_rag_context(output_dir)
+
+
+def _load_multimodal_context(output_dir: Path, sources: dict) -> str:
+    hints_path = output_dir / "multimodal_review_hints.json"
+    hints = read_json(hints_path, None)
+    if not isinstance(hints, dict):
+        return ""
+    sources["multimodal_review_hints_path"] = str(hints_path)
+    return _format_multimodal_context(hints)
+
+
+def _format_multimodal_context(hints: dict[str, Any]) -> str:
+    parts = []
+    page_type = str(hints.get("page_type") or "").strip()
+    if page_type:
+        parts.append(f"page_type: {page_type}")
+    for key in (
+        "query_condition_zone_visible",
+        "result_table_zone_visible",
+        "empty_result_visible",
+        "key_field_occlusion_visible",
+    ):
+        if key in hints:
+            parts.append(f"{key}: {_json_bool(hints.get(key))}")
+    noise_zones = [
+        str(item).strip()
+        for item in _as_list(hints.get("noise_zones"))[:MAX_MULTIMODAL_NOISE_ZONES]
+        if str(item).strip()
+    ]
+    if noise_zones:
+        parts.append("noise_zones: " + ", ".join(noise_zones))
+    observations = [
+        str(item).strip()
+        for item in _as_list(hints.get("visual_observations"))[:MAX_MULTIMODAL_OBSERVATIONS]
+        if str(item).strip()
+    ]
+    if observations:
+        parts.append("visual_observations:")
+        parts.extend(f"- {item[:80]}" for item in observations)
+    return _compact_text("\n".join(parts), MAX_MULTIMODAL_CONTEXT_CHARS)
 
 
 def _sections_from_document_structure(document_structure: dict[str, Any]) -> list[dict]:
@@ -221,3 +271,14 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _json_bool(value: Any) -> str:
+    return "true" if value is True else "false" if value is False else str(value)
+
+
+def _compact_text(value: Any, limit: int) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"

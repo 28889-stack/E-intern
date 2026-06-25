@@ -1475,6 +1475,65 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["final_declaration_rows"]), 1)
         self.assertEqual(resolved["review_issue_rows"], [])
 
+    def test_guangfa_empty_trade_query_still_builds_event_with_document_review_items(self):
+        from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            ocr_path = Path(temp_dir) / "ocr_result.json"
+            local_store.save_json(
+                ocr_path,
+                {
+                    "page_results": [
+                        {
+                            "page": 1,
+                            "text": "历史成交\n起始日期：2024-01-01\n终止日期：2024-12-20\n没有相应的查询信息！",
+                        }
+                    ]
+                },
+            )
+            normalized = normalize_guangfa(
+                "case_test",
+                {
+                    "document_info": {"file_name": "申报2.jpg"},
+                    "trade_group": {"columns": [], "trades": []},
+                    "position_group": {"columns": [], "positions": []},
+                    "transactions": [],
+                    "events": [],
+                    "other_events": [],
+                    "cash_flows": [],
+                    "holdings": [],
+                    "document_level_review_items": [
+                        {
+                            "issue_type": "无交易记录",
+                            "page": "1",
+                            "row_no": "历史成交查询",
+                            "message": "历史成交查询结果为空，无交易记录。",
+                            "source_evidence": {
+                                "page": "1",
+                                "row_no": "历史成交查询",
+                                "raw_text": "没有相应的查询信息！",
+                            },
+                        }
+                    ],
+                    "input_sources": {"ocr_result_path": str(ocr_path)},
+                },
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "申报2.jpg",
+                },
+            )
+
+        self.assertEqual(len(normalized["full_transaction_rows"]), 1)
+        row = normalized["full_transaction_rows"][0]
+        self.assertEqual(row["event_type"], "no_trade_record")
+        self.assertEqual(row["period_start"], "2024-01-01")
+        self.assertEqual(row["period_end"], "2024-12-20")
+        self.assertEqual(row["event_date"], "2024-12-20")
+        self.assertEqual(row["securities_account"], "")
+        self.assertTrue(normalized["review_items"])
+
     def test_guangfa_empty_trade_query_rejects_invalid_securities_account_shape(self):
         from app.pipeline.case_event_resolver import resolve_case_events
         from app.pipeline.normalizers.guangfa_normalizer import normalize_guangfa
@@ -2534,6 +2593,60 @@ class FinalProblemEventsTest(unittest.TestCase):
         self.assertEqual(len(resolved["review_issue_rows"]), 1)
         self.assertIn("持仓记录", resolved["review_issue_rows"][0]["问题描述"])
         self.assertIn("浦发银行", resolved["review_issue_rows"][0]["问题描述"])
+
+    def test_duplicate_holding_candidate_prefers_complete_row(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        incomplete = {
+            "file_id": "file_001",
+            "file_no": "001",
+            "original_file_name": "holding.pdf",
+            "account_type": "深A",
+            "securities_account": "0002220266",
+            "holding_id": "hld_005",
+            "holding_date": "2022-12-30",
+            "security_code": "011822",
+            "security_name": "易方达产业升级混合A",
+            "quantity_raw": "",
+            "market_value": "245358.7229",
+            "source_evidence": [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "file_name": "holding.pdf",
+                    "source_row_id": "hld_005",
+                    "source_page": "1",
+                }
+            ],
+        }
+        complete = {
+            **incomplete,
+            "holding_id": "hld_003",
+            "quantity_raw": "296577.6900",
+            "source_evidence": [
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "file_name": "holding.pdf",
+                    "source_row_id": "hld_003",
+                    "source_page": "1",
+                }
+            ],
+        }
+
+        resolved = resolve_case_events([], holding_rows=[incomplete, complete])
+
+        self.assertEqual(len(resolved["holding_rows"]), 1)
+        self.assertEqual(resolved["holding_rows"][0]["quantity_raw"], "296577.6900")
+        self.assertEqual(resolved["pending_review_holdings"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
+        self.assertTrue(
+            [
+                item
+                for item in resolved["merge_audit"]
+                if item.get("action") == "merged_duplicate_holding_candidate"
+            ]
+        )
 
     def test_missing_securities_account_does_not_report_account_type_missing(self):
         from app.pipeline.case_event_resolver import resolve_case_events

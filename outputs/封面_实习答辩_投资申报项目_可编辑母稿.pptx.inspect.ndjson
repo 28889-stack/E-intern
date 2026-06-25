@@ -1,0 +1,35 @@
+{"kind":"deck","id":"pr/rtk1dt","name":"Deck"}
+{"kind":"layout","layoutId":"cf83752e-6fde-42f9-afd6-ebf89307dc8c","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"61c00e31-aa8b-45ad-b6cc-544aaa380870","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/adbbvs","slide":1,"title":"易方达基金","textShapes":17}
+{"kind":"shape","id":"sh/kzupwb2h","slide":1,"name":"topbar","bbox":[0,0,1280,44]}
+{"kind":"shape","id":"sh/re1w7mp0","slide":1,"name":"left-pale","bbox":[0,44,100,676]}
+{"kind":"shape","id":"sh/2t83itgf","slide":1,"name":"cyan-strip","bbox":[100,44,12,676]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":1,"name":"brand-dot","bbox":[150,13,19,19]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":1,"name":"brand","text":"易方达基金","textPreview":"易方达基金","textChars":5,"textLines":1,"bbox":[181,13,160,18]}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":1,"name":"cover-rule","bbox":[150,118,82,5]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":1,"name":"eyebrow","text":"易方达基金 · 实习答辩","textPreview":"易方达基金 · 实习答辩","textChars":12,"textLines":1,"bbox":[150,143,360,24]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":1,"name":"title1","text":"实习答辩","textPreview":"实习答辩","textChars":4,"textLines":1,"bbox":[150,195,430,62]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":1,"name":"title2","text":"证券投资申报材料智能处理项目","textPreview":"证券投资申报材料智能处理项目","textChars":14,"textLines":1,"bbox":[150,274,690,42]}
+{"kind":"textbox","id":"sh/mlkjm1cf","slide":1,"name":"subtitle","text":"材料结构化 · 证据链留痕 · 合规复核","textPreview":"材料结构化 · 证据链留痕 · 合规复核","textChars":20,"textLines":1,"bbox":[150,340,650,30]}
+{"kind":"shape","id":"sh/f6dcbulw","slide":1,"name":"info-line","bbox":[150,472,425,1]}
+{"kind":"textbox","id":"sh/4r65wjud","slide":1,"name":"date","text":"2026年6月","textPreview":"2026年6月","textChars":7,"textLines":1,"bbox":[150,494,180,22]}
+{"kind":"textbox","id":"sh/xc3ylc7u","slide":1,"name":"confidential","text":"内部交流，请勿外传","textPreview":"内部交流，请勿外传","textChars":9,"textLines":1,"bbox":[150,522,220,22]}
+{"kind":"shape","id":"sh/mtwra5gb","slide":1,"name":"visual-panel","bbox":[760,132,380,405]}
+{"kind":"shape","id":"sh/fepkzupw","slide":1,"name":"visual-accent","bbox":[760,132,7,405]}
+{"kind":"textbox","id":"sh/4zidonyd","slide":1,"name":"visual-title","text":"实习项目主线","textPreview":"实习项目主线","textChars":6,"textLines":1,"bbox":[802,168,260,24]}
+{"kind":"textbox","id":"sh/xkf6dcbu","slide":1,"name":"visual-note","text":"围绕投资申报材料处理与合规复核展开","textPreview":"围绕投资申报材料处理与合规复核展开","textChars":17,"textLines":1,"bbox":[802,202,270,22]}
+{"kind":"shape","id":"sh/qxs72x4n","slide":1,"name":"mini-券商材料","bbox":[812,268,112,48]}
+{"kind":"textbox","id":"sh/fil0rqd4","slide":1,"name":"mini-text-券商材料","text":"券商材料","textPreview":"券商材料","textChars":4,"textLines":1,"bbox":[822,283,92,14]}
+{"kind":"shape","id":"sh/7ed8bat4","slide":1,"name":"mini-中证登材料","bbox":[958,268,124,48]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":1,"name":"mini-text-中证登材料","text":"中证登材料","textPreview":"中证登材料","textChars":5,"textLines":1,"bbox":[968,283,104,14]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":1,"name":"arr1","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[928,326,28,24]}
+{"kind":"textbox","id":"sh/0z61032l","slide":1,"name":"arr2","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[1005,326,28,24]}
+{"kind":"shape","id":"sh/72x4nap4","slide":1,"name":"process","bbox":[840,363,216,58]}
+{"kind":"textbox","id":"sh/ih4byhgn","slide":1,"name":"process-text","text":"AI 结构化处理","textPreview":"AI 结构化处理","textChars":8,"textLines":1,"bbox":[850,381,196,18]}
+{"kind":"textbox","id":"sh/p8nqxs72","slide":1,"name":"arr3","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[934,432,28,24]}
+{"kind":"shape","id":"sh/0nuxc3yl","slide":1,"name":"mini-申报表 / 问题清单","bbox":[816,468,266,48]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":1,"name":"mini-text-申报表 / 问题清单","text":"申报表 / 问题清单","textPreview":"申报表 / 问题清单","textChars":10,"textLines":1,"bbox":[826,483,246,14]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":1,"name":"bottom-line","bbox":[150,646,990,1]}
+{"kind":"textbox","id":"sh/crmhk3q5","slide":1,"name":"footer","text":"实习答辩 · 证券投资申报材料智能处理项目","textPreview":"实习答辩 · 证券投资申报材料智能处理项目","textChars":21,"textLines":1,"bbox":[150,662,420,18]}
+{"kind":"notes","id":"nt/adbbvs","slide":1,"text":""}

@@ -105,6 +105,18 @@ def _extract_hints(
 
     return {
         "multimodal_review_status": "success",
+        "page_type": _compact_scalar(result.get("page_type"), 40),
+        "query_condition_zone_visible": _optional_bool(
+            result.get("query_condition_zone_visible")
+        ),
+        "result_table_zone_visible": _optional_bool(
+            result.get("result_table_zone_visible")
+        ),
+        "empty_result_visible": _optional_bool(result.get("empty_result_visible")),
+        "key_field_occlusion_visible": _optional_bool(
+            result.get("key_field_occlusion_visible")
+        ),
+        "noise_zones": compact_string_list(result.get("noise_zones"), 20)[:5],
         "visual_observations": compact_string_list(
             result.get("visual_observations") or result.get("uncertainty_reasons"),
             140,
@@ -193,6 +205,12 @@ def _relative(path: str | Path) -> str:
 def _empty_hint_payload() -> dict[str, Any]:
     return {
         "multimodal_review_status": "skipped",
+        "page_type": "",
+        "query_condition_zone_visible": None,
+        "result_table_zone_visible": None,
+        "empty_result_visible": None,
+        "key_field_occlusion_visible": None,
+        "noise_zones": [],
         "visual_observations": [],
         "event_candidates": [],
         "merge_suggestions": [],
@@ -227,3 +245,18 @@ def _compact_hint_item(value: Any) -> Any:
     if isinstance(value, str):
         return compact_string_list([value], 120)[0] if value.strip() else ""
     return value
+
+
+def _compact_scalar(value: Any, limit: int) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"
+
+
+def _optional_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return None

@@ -55,6 +55,7 @@ class GuangfaExtractor:
         extract_batches_path = output_dir / "extract_batches.json"
         input_payload = build_extraction_input(output_dir)
         graph_rag_context = input_payload.get("graph_rag_context", "")
+        multimodal_context = input_payload.get("multimodal_context", "")
         document_context = build_document_context(output_dir)
 
         if not input_payload["input_text"].strip():
@@ -89,6 +90,7 @@ class GuangfaExtractor:
                 batches,
                 document_context,
                 graph_rag_context,
+                multimodal_context,
             )
             local_store.save_json(extract_batches_path, {"batches": batch_results})
         else:
@@ -98,6 +100,7 @@ class GuangfaExtractor:
                 input_payload["input_text"],
                 document_context,
                 graph_rag_context,
+                multimodal_context,
             )
             llm_result = self.llm_client.extract_json(final_prompt)
 
@@ -122,6 +125,7 @@ class GuangfaExtractor:
         input_text: str,
         document_context: dict | None = None,
         graph_rag_context: str = "",
+        multimodal_context: str = "",
     ) -> str:
         return "\n\n".join(
             [
@@ -134,6 +138,7 @@ class GuangfaExtractor:
                 format_document_context(document_context or {}),
                 "材料级上下文使用规则：如果 document_context 中有姓名、证券账号、账户类型或查询期间，后续交易行默认继承这些同一份材料的全局要素；资金账号不能当作证券账号。",
                 self._graph_rag_prompt_section(graph_rag_context),
+                self._multimodal_prompt_section(multimodal_context),
                 "input_text:",
                 input_text,
                 self._output_contract(),
@@ -148,6 +153,18 @@ class GuangfaExtractor:
             [
                 "graph_rag_context:",
                 "以下是抽取前规则图谱检索得到的辅助证据上下文，只能用于补全同一文件内的账户、证券、页码、行号和原文证据；不得编造上下文中不存在的信息。",
+                context,
+            ]
+        )
+
+    def _multimodal_prompt_section(self, multimodal_context: str = "") -> str:
+        context = str(multimodal_context or "").strip()
+        if not context:
+            return "multimodal_context: 无"
+        return "\n".join(
+            [
+                "multimodal_context:",
+                "以下是多模态模型给出的短版面观察，只能辅助判断页面类型、查询条件区、结果表区、空结果和噪声区域；不得覆盖 OCR/表格文本。若与文本冲突，输出待复核项。",
                 context,
             ]
         )
@@ -433,6 +450,7 @@ class GuangfaExtractor:
         batches: list[dict],
         document_context: dict | None = None,
         graph_rag_context: str = "",
+        multimodal_context: str = "",
     ) -> tuple[dict, list[dict]]:
         batch_results: list[dict] = []
         max_workers = min(GUANGFA_BATCH_MAX_WORKERS, len(batches))
@@ -445,6 +463,7 @@ class GuangfaExtractor:
                     batch,
                     document_context or {},
                     graph_rag_context,
+                    multimodal_context,
                 ): batch
                 for batch in batches
             }
@@ -471,6 +490,7 @@ class GuangfaExtractor:
         batch: dict,
         document_context: dict | None = None,
         graph_rag_context: str = "",
+        multimodal_context: str = "",
     ) -> dict:
         final_prompt = self._build_batch_prompt(
             prompt,
@@ -478,6 +498,7 @@ class GuangfaExtractor:
             batch,
             document_context,
             graph_rag_context,
+            multimodal_context,
         )
         result = self.llm_client.extract_json(final_prompt)
         result["batch_id"] = batch["batch_id"]
@@ -496,6 +517,7 @@ class GuangfaExtractor:
         batch: dict,
         document_context: dict | None = None,
         graph_rag_context: str = "",
+        multimodal_context: str = "",
     ) -> str:
         return "\n\n".join(
             [
@@ -509,6 +531,7 @@ class GuangfaExtractor:
                 format_document_context(document_context or {}),
                 "材料级上下文使用规则：如果 document_context 中有姓名、证券账号、账户类型或查询期间，当前 batch 的交易/持仓行默认继承这些同一份材料的全局要素；资金账号不能当作证券账号。",
                 self._graph_rag_prompt_section(graph_rag_context),
+                self._multimodal_prompt_section(multimodal_context),
                 f"batch_id: {batch['batch_id']}",
                 f"batch_type: {batch.get('batch_type', '')}",
                 f"primary_row_range: {batch['row_start']} - {batch['row_end']}",

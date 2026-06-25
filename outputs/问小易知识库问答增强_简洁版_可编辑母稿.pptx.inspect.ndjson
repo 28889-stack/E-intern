@@ -1,0 +1,40 @@
+{"kind":"deck","id":"pr/wiai42","name":"Deck"}
+{"kind":"layout","layoutId":"dbc7603a-f359-4a20-af4e-b75c67981bfd","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"88fef34d-2d49-4711-a29f-6d32f8f9faab","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/4ta2fy","slide":1,"title":"项目可拓展性","textShapes":19}
+{"kind":"shape","id":"sh/8nqxs72x","slide":1,"name":"topbar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/j2t83itg","slide":1,"name":"left-pale","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/qh0fepkz","slide":1,"name":"cyan-strip","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/1w7mp0bi","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/8bat47y1","slide":1,"name":"eyebrow","text":"项目可拓展性","textPreview":"项目可拓展性","textChars":6,"textLines":1,"bbox":[150,76,220,24]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":1,"name":"title","text":"问小易增强：知识库问答助手","textPreview":"问小易增强：知识库问答助手","textChars":13,"textLines":1,"bbox":[150,105,760,42]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":1,"name":"title-rule","bbox":[150,151,1052,3]}
+{"kind":"shape","id":"sh/1kre1w7m","slide":1,"name":"badge","bbox":[1034,100,168,38]}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":1,"name":"badge-accent","bbox":[1034,100,5,38]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":1,"name":"badge-text","text":"知识库问答","textPreview":"知识库问答","textChars":5,"textLines":1,"bbox":[1050,110,135,20]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":1,"name":"lead","text":"把制度、规则和材料口径沉淀成知识库，让复核人员更快找到可信答案。","textPreview":"把制度、规则和材料口径沉淀成知识库，让复核人员更快找到可信答案。","textChars":32,"textLines":1,"bbox":[150,184,900,28]}
+{"kind":"shape","id":"sh/s36hcrmh","slide":1,"name":"pillar-1","bbox":[150,274,320,238]}
+{"kind":"shape","id":"sh/hoza1gvy","slide":1,"name":"pillar-head-1","bbox":[150,274,320,54]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":1,"name":"pillar-no-1","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[172,291,36,16]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":1,"name":"pillar-title-1","text":"知识来源","textPreview":"知识来源","textChars":4,"textLines":1,"bbox":[222,289,220,18]}
+{"kind":"textbox","id":"sh/svu9knih","slide":1,"name":"pillar-main-1","text":"制度 / 规则 / 口径","textPreview":"制度 / 规则 / 口径","textChars":12,"textLines":1,"bbox":[178,365,264,44]}
+{"kind":"textbox","id":"sh/hgn29gr2","slide":1,"name":"pillar-sub-1","text":"法规制度、项目规则、材料样例","textPreview":"法规制度、项目规则、材料样例","textChars":14,"textLines":1,"bbox":[184,440,252,34]}
+{"kind":"shape","id":"sh/adsji5sn","slide":1,"name":"pillar-2","bbox":[492,274,320,238]}
+{"kind":"shape","id":"sh/3ylc7u54","slide":1,"name":"pillar-head-2","bbox":[492,274,320,54]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":1,"name":"pillar-no-2","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[514,291,36,16]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":1,"name":"pillar-title-2","text":"问答能力","textPreview":"问答能力","textChars":4,"textLines":1,"bbox":[564,289,220,18]}
+{"kind":"textbox","id":"sh/d0z61032","slide":1,"name":"pillar-main-2","text":"问规则 / 查材料 / 找依据","textPreview":"问规则 / 查材料 / 找依据","textChars":15,"textLines":1,"bbox":[520,365,264,44]}
+{"kind":"textbox","id":"sh/kf6dcbul","slide":1,"name":"pillar-sub-2","text":"围绕申报复核场景回答问题","textPreview":"围绕申报复核场景回答问题","textChars":12,"textLines":1,"bbox":[526,440,252,34]}
+{"kind":"shape","id":"sh/v6psfil0","slide":1,"name":"pillar-3","bbox":[834,274,368,238]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":1,"name":"pillar-head-3","bbox":[834,274,368,54]}
+{"kind":"textbox","id":"sh/d8bat47y","slide":1,"name":"pillar-no-3","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[856,291,36,16]}
+{"kind":"textbox","id":"sh/knih4byh","slide":1,"name":"pillar-title-3","text":"回答要求","textPreview":"回答要求","textChars":4,"textLines":1,"bbox":[906,289,268,18]}
+{"kind":"textbox","id":"sh/val87ed8","slide":1,"name":"pillar-main-3","text":"简明 / 有依据 / 可追溯","textPreview":"简明 / 有依据 / 可追溯","textChars":14,"textLines":1,"bbox":[862,365,312,44]}
+{"kind":"textbox","id":"sh/6psfil0r","slide":1,"name":"pillar-sub-3","text":"答案附来源，口径可维护","textPreview":"答案附来源，口径可维护","textChars":11,"textLines":1,"bbox":[868,440,300,34]}
+{"kind":"shape","id":"sh/gn29gr2p","slide":1,"name":"bottom-callout","bbox":[150,582,1052,64]}
+{"kind":"shape","id":"sh/58z25kb6","slide":1,"name":"bottom-accent","bbox":[150,582,5,64]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":1,"name":"bottom-text","text":"目标：少翻制度，少问口径，快速得到可核验的回答。","textPreview":"目标：少翻制度，少问口径，快速得到可核验的回答。","textChars":24,"textLines":1,"bbox":[185,601,950,24]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":1,"name":"footer-line","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":1,"name":"footer-left","text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,340,18]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":1,"name":"footer-right","text":"问小易增强 / 简洁版","textPreview":"问小易增强 / 简洁版","textChars":11,"textLines":1,"bbox":[1030,681,172,18]}
+{"kind":"notes","id":"nt/4ta2fy","slide":1,"text":""}

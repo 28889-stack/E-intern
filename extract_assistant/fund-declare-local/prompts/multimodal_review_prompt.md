@@ -7,6 +7,12 @@
 输出必须是 JSON 对象，字段固定如下：
 
 {
+  "page_type": "",
+  "query_condition_zone_visible": null,
+  "result_table_zone_visible": null,
+  "empty_result_visible": null,
+  "key_field_occlusion_visible": null,
+  "noise_zones": [],
   "visual_observations": [],
   "event_candidates": [],
   "merge_suggestions": [],
@@ -15,6 +21,15 @@
 }
 
 字段说明：
+
+0. page_type / 版面结构字段
+   page_type 只输出一个短页面类型，例如：历史成交查询、持仓查询、资金流水、行情界面、未知。
+   query_condition_zone_visible 表示是否能看到查询条件区。
+   result_table_zone_visible 表示是否能看到结果表区域。
+   empty_result_visible 表示是否能看到“没有相应查询信息、暂无记录、共0条”等空结果。
+   key_field_occlusion_visible 表示证券账号、日期、表头、结果区等关键区域是否有遮挡/模糊。
+   noise_zones 只列出 0-5 个不应作为交易记录抽取的区域，例如：行情列表、菜单栏、新闻区、广告区。
+   以上字段只用于辅助下一步抽取，不要输出长文本。
 
 0. visual_observations
    只输出 1-3 条简短视觉观察，每条不超过 60 个中文字符。
