@@ -895,7 +895,7 @@ def _row_has_raw_text_evidence(row: dict) -> bool:
 
 
 def _validate_holding_row(row: dict) -> None:
-    missing_fields = _missing_fields(row, HOLDING_REQUIRED_FIELDS)
+    missing_fields = _missing_fields(row, _holding_required_fields(row))
     issue_types = []
     if missing_fields:
         issue_types.append("missing_required_fields")
@@ -908,6 +908,18 @@ def _validate_holding_row(row: dict) -> None:
 
     if issue_types:
         _mark_review_issue(row, issue_types, missing_fields=missing_fields)
+
+
+def _holding_required_fields(row: dict) -> list[str]:
+    if _is_chinaclear_holding(row):
+        return [field for field in HOLDING_REQUIRED_FIELDS if field != "market_value"]
+    return HOLDING_REQUIRED_FIELDS
+
+
+def _is_chinaclear_holding(row: dict) -> bool:
+    return _clean_text(row.get("source_type")) == "chinaclear" or _clean_text(
+        row.get("content_type")
+    ) == "chinaclear"
 
 
 def _review_issue_from_row(row: dict, record_category: str) -> dict:

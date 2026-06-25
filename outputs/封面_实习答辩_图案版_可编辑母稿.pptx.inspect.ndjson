@@ -1,0 +1,43 @@
+{"kind":"deck","id":"pr/gpzurh","name":"Deck"}
+{"kind":"layout","layoutId":"fb557255-f80d-48e4-ac7f-ebfd85b5662d","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"e9b3b9c7-c7f2-4052-b11a-727db0e36983","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/uaxw4l","slide":1,"title":"易方达基金","textShapes":8}
+{"kind":"shape","id":"sh/b6xkf6dc","slide":1,"name":"topbar","bbox":[0,0,1280,44]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":1,"name":"left-pale","bbox":[0,44,100,676]}
+{"kind":"shape","id":"sh/tcj6tova","slide":1,"name":"cyan-strip","bbox":[100,44,12,676]}
+{"kind":"shape","id":"sh/idonyd0z","slide":1,"name":"brand-dot","bbox":[150,13,19,19]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":1,"name":"brand","text":"易方达基金","textPreview":"易方达基金","textChars":5,"textLines":1,"bbox":[181,13,160,18]}
+{"kind":"shape","id":"sh/0je9cvix","slide":1,"name":"cover-rule","bbox":[150,118,82,5]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":1,"name":"eyebrow","text":"易方达基金 · 实习答辩","textPreview":"易方达基金 · 实习答辩","textChars":12,"textLines":1,"bbox":[150,143,360,24]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":1,"name":"title1","text":"实习答辩","textPreview":"实习答辩","textChars":4,"textLines":1,"bbox":[150,195,430,62]}
+{"kind":"textbox","id":"sh/bulwval8","slide":1,"name":"title2","text":"证券投资申报材料智能处理项目","textPreview":"证券投资申报材料智能处理项目","textChars":14,"textLines":1,"bbox":[150,274,690,42]}
+{"kind":"textbox","id":"sh/j6tovaho","slide":1,"name":"subtitle","text":"材料结构化 · 证据链留痕 · 合规复核","textPreview":"材料结构化 · 证据链留痕 · 合规复核","textChars":20,"textLines":1,"bbox":[150,340,650,30]}
+{"kind":"shape","id":"sh/ulwval87","slide":1,"name":"info-line","bbox":[150,472,425,1]}
+{"kind":"textbox","id":"sh/1cfa9w3m","slide":1,"name":"date","text":"2026年6月","textPreview":"2026年6月","textChars":7,"textLines":1,"bbox":[150,494,180,22]}
+{"kind":"textbox","id":"sh/crmhk3q5","slide":1,"name":"confidential","text":"内部交流，请勿外传","textPreview":"内部交流，请勿外传","textChars":9,"textLines":1,"bbox":[150,522,220,22]}
+{"kind":"shape","id":"sh/ji5snelo","slide":1,"name":"pattern-bg","bbox":[790,160,330,330]}
+{"kind":"shape","id":"sh/uxc3ylc7","slide":1,"name":"pattern-ring","bbox":[808,178,294,294]}
+{"kind":"shape","id":"sh/1kre1w7m","slide":1,"name":"paper-back-page","bbox":[836,222,230,148]}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":1,"name":"paper-back-accent","bbox":[852,240,5,112]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":1,"name":"paper-back-line1","bbox":[878,258,158,2]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":1,"name":"paper-back-line2","bbox":[878,280,114,2]}
+{"kind":"shape","id":"sh/itgfmlkj","slide":1,"name":"paper-back-line3","bbox":[878,302,138,2]}
+{"kind":"shape","id":"sh/7ed8bat4","slide":1,"name":"paper-mid-page","bbox":[810,254,230,148]}
+{"kind":"shape","id":"sh/0z61032l","slide":1,"name":"paper-mid-accent","bbox":[826,272,5,112]}
+{"kind":"shape","id":"sh/pkzupwb2","slide":1,"name":"paper-mid-line1","bbox":[852,290,158,2]}
+{"kind":"shape","id":"sh/ih4byhgn","slide":1,"name":"paper-mid-line2","bbox":[852,312,114,2]}
+{"kind":"shape","id":"sh/72x4nap4","slide":1,"name":"paper-mid-line3","bbox":[852,334,138,2]}
+{"kind":"shape","id":"sh/0nuxc3yl","slide":1,"name":"paper-front-page","bbox":[860,294,230,148]}
+{"kind":"shape","id":"sh/p8nqxs72","slide":1,"name":"paper-front-accent","bbox":[876,312,5,112]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":1,"name":"paper-front-line1","bbox":[902,330,158,2]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":1,"name":"paper-front-line2","bbox":[902,352,114,2]}
+{"kind":"shape","id":"sh/x0nuxc3y","slide":1,"name":"paper-front-line3","bbox":[902,374,138,2]}
+{"kind":"shape","id":"sh/4fu18jqh","slide":1,"name":"node1","bbox":[795,230,12,12]}
+{"kind":"shape","id":"sh/fu18jqh0","slide":1,"name":"node2","bbox":[1110,290,12,12]}
+{"kind":"shape","id":"sh/m94fu18j","slide":1,"name":"node3","bbox":[826,466,12,12]}
+{"kind":"shape","id":"sh/xobm58z2","slide":1,"name":"node-line1","bbox":[806,238,75,30]}
+{"kind":"shape","id":"sh/83itgfml","slide":1,"name":"node-line2","bbox":[1048,320,62,-24]}
+{"kind":"shape","id":"sh/fil0rqd4","slide":1,"name":"node-line3","bbox":[836,468,78,-30]}
+{"kind":"shape","id":"sh/qxs72x4n","slide":1,"name":"bottom-line","bbox":[150,646,990,1]}
+{"kind":"textbox","id":"sh/xkf6dcbu","slide":1,"name":"footer","text":"实习答辩 · 证券投资申报材料智能处理项目","textPreview":"实习答辩 · 证券投资申报材料智能处理项目","textChars":21,"textLines":1,"bbox":[150,662,420,18]}
+{"kind":"notes","id":"nt/uaxw4l","slide":1,"text":""}

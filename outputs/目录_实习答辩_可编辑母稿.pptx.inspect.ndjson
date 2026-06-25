@@ -1,0 +1,46 @@
+{"kind":"deck","id":"pr/mgs02i","name":"Deck"}
+{"kind":"layout","layoutId":"0ce14c4e-ae3a-4901-9912-ce828dc07781","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"28aab7a2-ca12-4ea8-a09f-110bd9134916","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/ngjw1p","slide":1,"title":"易方达基金","textShapes":22}
+{"kind":"shape","id":"sh/h4byhgn2","slide":1,"name":"topbar","bbox":[0,0,1280,44]}
+{"kind":"shape","id":"sh/adsji5sn","slide":1,"name":"left-pale","bbox":[0,44,100,676]}
+{"kind":"shape","id":"sh/3ylc7u54","slide":1,"name":"cyan-strip","bbox":[100,44,12,676]}
+{"kind":"shape","id":"sh/s72x4nap","slide":1,"name":"brand-dot","bbox":[150,13,19,19]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":1,"name":"brand","text":"易方达基金","textPreview":"易方达基金","textChars":5,"textLines":1,"bbox":[181,13,160,18]}
+{"kind":"shape","id":"sh/a5gbq1or","slide":1,"name":"cover-rule","bbox":[150,118,82,5]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":1,"name":"eyebrow","text":"实习答辩","textPreview":"实习答辩","textChars":4,"textLines":1,"bbox":[150,145,200,24]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":1,"name":"title","text":"目录","textPreview":"目录","textChars":2,"textLines":1,"bbox":[150,202,220,62]}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":1,"name":"subtitle","text":"CONTENTS","textPreview":"CONTENTS","textChars":8,"textLines":1,"bbox":[150,272,220,28]}
+{"kind":"textbox","id":"sh/58z25kb6","slide":1,"name":"desc","text":"证券投资申报材料智能处理项目","textPreview":"证券投资申报材料智能处理项目","textChars":14,"textLines":1,"bbox":[150,342,360,26]}
+{"kind":"shape","id":"sh/gn29gr2p","slide":1,"name":"left-line","bbox":[150,470,330,1]}
+{"kind":"textbox","id":"sh/n29gr2p8","slide":1,"name":"date","text":"2026年6月","textPreview":"2026年6月","textChars":7,"textLines":1,"bbox":[150,495,180,20]}
+{"kind":"shape","id":"sh/yhgn29gr","slide":1,"name":"list-bg","bbox":[560,120,540,470]}
+{"kind":"shape","id":"sh/5wjudg7a","slide":1,"name":"list-accent","bbox":[560,120,6,470]}
+{"kind":"shape","id":"sh/gbq1oryt","slide":1,"name":"item-line-01","bbox":[648,205,1,42]}
+{"kind":"shape","id":"sh/nuxc3ylc","slide":1,"name":"item-dot-01","bbox":[600,165,46,46]}
+{"kind":"textbox","id":"sh/y90je9cv","slide":1,"name":"item-no-01","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[600,178,46,12]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":1,"name":"item-title-01","text":"项目背景与目标","textPreview":"项目背景与目标","textChars":7,"textLines":1,"bbox":[672,163,360,24]}
+{"kind":"textbox","id":"sh/cbulwval","slide":1,"name":"item-sub-01","text":"为什么做，解决什么问题","textPreview":"为什么做，解决什么问题","textChars":11,"textLines":1,"bbox":[672,196,420,18]}
+{"kind":"shape","id":"sh/8nqxs72x","slide":1,"name":"item-line-02","bbox":[648,283,1,42]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":1,"name":"item-dot-02","bbox":[600,243,46,46]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":1,"name":"item-no-02","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[600,256,46,12]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":1,"name":"item-title-02","text":"方案设计与处理链路","textPreview":"方案设计与处理链路","textChars":9,"textLines":1,"bbox":[672,241,360,24]}
+{"kind":"textbox","id":"sh/8bat47y1","slide":1,"name":"item-sub-02","text":"材料解析、结构化抽取、结果输出","textPreview":"材料解析、结构化抽取、结果输出","textChars":15,"textLines":1,"bbox":[672,274,420,18]}
+{"kind":"shape","id":"sh/1w7mp0bi","slide":1,"name":"item-line-03","bbox":[648,361,1,42]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":1,"name":"item-dot-03","bbox":[600,321,46,46]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":1,"name":"item-no-03","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[600,334,46,12]}
+{"kind":"textbox","id":"sh/c3ylc7u5","slide":1,"name":"item-title-03","text":"关键问题与解决方法","textPreview":"关键问题与解决方法","textChars":9,"textLines":1,"bbox":[672,319,360,24]}
+{"kind":"textbox","id":"sh/1kre1w7m","slide":1,"name":"item-sub-03","text":"复杂来源、业务分类、风险控制","textPreview":"复杂来源、业务分类、风险控制","textChars":14,"textLines":1,"bbox":[672,352,420,18]}
+{"kind":"shape","id":"sh/re1w7mp0","slide":1,"name":"item-line-04","bbox":[648,439,1,42]}
+{"kind":"shape","id":"sh/2t83itgf","slide":1,"name":"item-dot-04","bbox":[600,399,46,46]}
+{"kind":"textbox","id":"sh/9knih4by","slide":1,"name":"item-no-04","text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[600,412,46,12]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":1,"name":"item-title-04","text":"项目成果与价值","textPreview":"项目成果与价值","textChars":7,"textLines":1,"bbox":[672,397,360,24]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":1,"name":"item-sub-04","text":"效率提升、证据链、复核支持","textPreview":"效率提升、证据链、复核支持","textChars":13,"textLines":1,"bbox":[672,430,420,18]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":1,"name":"item-line-05","bbox":[648,517,1,42]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":1,"name":"item-dot-05","bbox":[600,477,46,46]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":1,"name":"item-no-05","text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[600,490,46,12]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":1,"name":"item-title-05","text":"拓展方向与实习总结","textPreview":"拓展方向与实习总结","textChars":9,"textLines":1,"bbox":[672,475,360,24]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":1,"name":"item-sub-05","text":"Graph RAG、知识库、内控材料场景","textPreview":"Graph RAG、知识库、内控材料场景","textChars":20,"textLines":1,"bbox":[672,508,420,18]}
+{"kind":"shape","id":"sh/ed8bat47","slide":1,"name":"bottom-line","bbox":[150,646,990,1]}
+{"kind":"textbox","id":"sh/7u54zido","slide":1,"name":"footer","text":"实习答辩 · 证券投资申报材料智能处理项目","textPreview":"实习答辩 · 证券投资申报材料智能处理项目","textChars":21,"textLines":1,"bbox":[150,662,420,18]}
+{"kind":"notes","id":"nt/ngjw1p","slide":1,"text":""}

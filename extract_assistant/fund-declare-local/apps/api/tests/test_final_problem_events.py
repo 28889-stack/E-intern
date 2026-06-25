@@ -779,6 +779,7 @@ class FinalProblemEventsTest(unittest.TestCase):
                     "security_code": "000001",
                     "security_name": "平安银行",
                     "quantity_raw": "100",
+                    "market_value": "",
                     "currency": "人民币",
                 }
             ],
@@ -789,6 +790,35 @@ class FinalProblemEventsTest(unittest.TestCase):
         issue = resolved["review_issues"][0]
         self.assertIn("market_value", issue["missing_fields"])
         self.assertIn("市值", resolved["review_issue_rows"][0]["待复核原因"])
+
+    def test_chinaclear_holding_missing_market_value_still_enters_holding_table(self):
+        from app.pipeline.case_event_resolver import resolve_case_events
+
+        resolved = resolve_case_events(
+            [],
+            holding_rows=[
+                {
+                    "file_id": "file_001",
+                    "file_no": "001",
+                    "original_file_name": "chinaclear.pdf",
+                    "source_type": "chinaclear",
+                    "account_type": "深A",
+                    "securities_account": "0012345678",
+                    "holding_id": "holding_001",
+                    "holding_date": "2026-01-01",
+                    "security_code": "000001",
+                    "security_name": "平安银行",
+                    "quantity_raw": "100",
+                    "market_value": "",
+                    "currency": "人民币",
+                }
+            ],
+        )
+
+        self.assertEqual(len(resolved["holding_rows"]), 1)
+        self.assertEqual(resolved["holding_rows"][0]["market_value"], "")
+        self.assertEqual(resolved["pending_review_holdings"], [])
+        self.assertEqual(resolved["review_issue_rows"], [])
 
     def test_distinct_trades_with_generic_table_record_id_are_not_source_conflicts(self):
         from app.pipeline.case_event_resolver import resolve_case_events

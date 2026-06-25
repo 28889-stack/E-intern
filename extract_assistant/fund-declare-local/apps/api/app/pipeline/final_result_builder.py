@@ -443,9 +443,15 @@ def _normalize_source_extract_result(
         extract_result.get("source_type") or extract_result.get("content_type") or ""
     )
     if source_type == "chinaclear":
-        return normalize_chinaclear(case_id, extract_result, file_record)
+        return _with_source_type(
+            normalize_chinaclear(case_id, extract_result, file_record),
+            "chinaclear",
+        )
     if source_type == "guangfa":
-        return normalize_guangfa(case_id, extract_result, file_record)
+        return _with_source_type(
+            normalize_guangfa(case_id, extract_result, file_record),
+            "guangfa",
+        )
 
     file_id = file_record.get("file_id") or extract_result.get("file_id") or ""
     return empty_normalized_result(
@@ -460,6 +466,14 @@ def _normalize_source_extract_result(
             )
         ]
     )
+
+
+def _with_source_type(normalized: dict, source_type: str) -> dict:
+    for key in ("full_transaction_rows", "holding_rows"):
+        for row in normalizer_as_list(normalized.get(key)):
+            if isinstance(row, dict):
+                row.setdefault("source_type", source_type)
+    return normalized
 
 
 def _multimodal_review_source_summary(extract_result: dict) -> dict:
