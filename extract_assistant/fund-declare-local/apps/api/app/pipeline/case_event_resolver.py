@@ -9,6 +9,10 @@ from app.pipeline.normalizers.common import (
     is_final_declaration_row,
     unique_list,
 )
+from app.pipeline.text_compaction import (
+    compact_review_message,
+    compact_source_evidence,
+)
 
 
 EVENT_REQUIRED_FIELDS = [
@@ -104,6 +108,7 @@ ISSUE_TYPE_LABELS = {
     "ocr_failed": "文字识别失败",
     "schema_invalid": "抽取结构不符合要求",
     "extract_failed": "抽取失败",
+    "extraction_review_required": "抽取结果需复核",
     "manual_review_required": "需要人工复核",
     "extraction_field_incomplete": "抽取结果字段不完整",
     "final_declaration_classification_uncertain": "最终申报归类待确认",
@@ -784,9 +789,9 @@ def _review_issue_from_row(row: dict, record_category: str) -> dict:
         "related_record_id": str(row.get("event_id") or row.get("holding_id") or ""),
         "missing_fields": unique_list(row.get("missing_fields")),
         "conflict_fields": unique_list(row.get("conflict_fields")),
-        "message": _review_issue_message(row, record_category),
+        "message": compact_review_message(_review_issue_message(row, record_category)),
         "suggestion": _review_issue_suggestion(row, record_category),
-        "source_evidence": evidence,
+        "source_evidence": compact_source_evidence(evidence),
         "record_snapshot": dict(row),
     }
 
@@ -808,7 +813,7 @@ def _review_issues_from_review_items(
         if item_type == "checklist":
             continue
         field = str(item.get("field") or "")
-        message = str(item.get("message") or "")
+        message = compact_review_message(item.get("message") or "")
         issue = {
             "record_category": _review_item_record_category(item_type),
             "issue_types": [_review_item_issue_type(item_type, field, message)],
@@ -975,6 +980,16 @@ def _review_item_issue_type(item_type: str, field: str, message: str) -> str:
         return "ocr_failed"
     if "schema" in lowered:
         return "schema_invalid"
+    if item_type == "extract_result":
+        if (
+            "finish_reason=length" in lowered
+            or "截断" in message
+            or "json" in lowered
+            or "failed" in lowered
+            or "失败" in message
+        ):
+            return "extract_failed"
+        return "extraction_review_required"
     if "extract" in lowered or "抽取" in message:
         return "extract_failed"
     return "manual_review_required"
@@ -1195,7 +1210,7 @@ def _merge_evidence(*sources: Any) -> list[dict]:
                 continue
             seen.add(key)
             evidence.append(item)
-    return evidence
+    return compact_source_evidence(evidence)
 
 
 def _cross_file_trade_key(row: dict) -> tuple:
@@ -1376,7 +1391,7 @@ def _row_evidence(row: dict) -> list[dict]:
             "source_row_id": row.get("event_id", ""),
             "source_page": row.get("source_pages", ""),
             "row_no": row.get("row_nos", ""),
-            "raw_text": row.get("raw_text", ""),
+            "raw_text": compact_review_message(row.get("raw_text", "")),
         }
     ]
 
@@ -1485,7 +1500,7 @@ def _review_issue_meta(issue: dict) -> dict:
             for key, value in issue.items()
             if key not in {"source_evidence"}
         },
-        "source_evidence": as_list(issue.get("source_evidence")),
+        "source_evidence": compact_source_evidence(issue.get("source_evidence")),
     }
 
 

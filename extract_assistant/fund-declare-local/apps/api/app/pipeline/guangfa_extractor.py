@@ -14,11 +14,11 @@ from app.services.llm_client import LLMClient
 from app.services.prompt_loader import PromptLoader
 
 
-GUANGFA_BATCH_ROW_LIMIT = 20
-GUANGFA_BATCH_OVERLAP_ROWS = 5
+GUANGFA_BATCH_ROW_LIMIT = 10
+GUANGFA_BATCH_OVERLAP_ROWS = 3
 GUANGFA_TEXT_BATCH_LINE_LIMIT = 50
 GUANGFA_TEXT_BATCH_OVERLAP_LINES = 8
-GUANGFA_BATCH_MAX_WORKERS = 4
+GUANGFA_BATCH_MAX_WORKERS = 8
 GUANGFA_TRADE_COLUMNS = [
     "trade_id",
     "account_type",
@@ -170,6 +170,7 @@ class GuangfaExtractor:
                 "12. 股息、派息、现金分红、红利入账禁止输出到 trade_group.trades；可作为完整表事件输出到 business_events，但成交数量和成交单价可以为空。",
                 "13. 如果输入是 batch，只抽取当前 batch 中可见的记录；输入可能包含 overlap 行，允许抽取，后端会按交易全要素去重。",
                 "14. 广发普通交易和证券事件只从场内交割流水明细抽取；资金流水明细中的证券买入、证券卖出、股息、利息、转账等内容不要输出。",
+                "15. 为避免 JSON 截断，每个 batch 最多输出 12 条业务记录；不要输出 source_trace、bbox、line_ids 或 schema 之外字段。",
             ]
         )
 

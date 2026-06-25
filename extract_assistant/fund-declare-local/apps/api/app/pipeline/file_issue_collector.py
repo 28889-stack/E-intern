@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services import local_store
+from app.pipeline.text_compaction import compact_evidence_text, compact_string_list
 
 
 OCR_CONFIDENCE_THRESHOLD = 0.85
@@ -97,7 +98,11 @@ def collect_file_issues(
             )
         if state["issue_types"]:
             state["issue_types"] = _unique(state["issue_types"])
-            state["evidence"] = _unique(state["evidence"])
+            state["evidence"] = compact_string_list(_unique(state["evidence"]))
+            state["evidence_summary"] = list(state["evidence"])
+            state["multimodal_observations"] = compact_string_list(
+                _unique(state.get("multimodal_observations"))
+            )
             state["related_problem_ids"] = _unique(state["related_problem_ids"])
             state["suggested_action"] = _suggested_action(state)
             file_issues.append(state)
@@ -116,6 +121,8 @@ def _base_state(file_record: dict) -> dict:
         "issue_types": [],
         "severity": "normal",
         "evidence": [],
+        "evidence_summary": [],
+        "multimodal_observations": [],
         "related_problem_ids": [],
         "suggested_action": "",
         "_pending_count": 0,
@@ -215,6 +222,10 @@ def _collect_from_review_issue(states: dict[str, dict], issue: dict) -> None:
         state["_pending_count"] += 1
 
         issue_types = _as_list(issue.get("issue_types"))
+        if _is_multimodal_review_issue(issue):
+            observation = _review_issue_evidence(issue)
+            if observation:
+                state["multimodal_observations"].append(observation)
         for issue_type in issue_types:
             _add_issue(
                 state,
@@ -476,7 +487,7 @@ def _add_issue(
 
 def _add_evidence(state: dict, evidence: str) -> None:
     if evidence:
-        state["evidence"].append(evidence)
+        state["evidence"].append(compact_evidence_text(evidence))
 
 
 def _output_dir(case_id: str, file_record: dict) -> Path:
@@ -524,9 +535,10 @@ def _file_issue_type_from_review_type(issue_type: str) -> str:
         "missing_required_fields": "missing_required_fields",
         "securities_account_missing": "missing_securities_account",
         "account_type_missing": "missing_account_type",
-        "unknown_event_type": "unknown_event_type",
-        "conflict_between_sources": "conflict_between_sources",
-        "empty_record_account_missing": "empty_record_proof_incomplete",
+    "unknown_event_type": "unknown_event_type",
+    "conflict_between_sources": "conflict_between_sources",
+    "extraction_review_required": "extraction_review_required",
+    "empty_record_account_missing": "empty_record_proof_incomplete",
         "empty_record_period_missing": "empty_record_proof_incomplete",
         "empty_record_market_missing": "empty_record_proof_incomplete",
     }.get(issue_type, issue_type or "manual_review_required")
@@ -542,6 +554,14 @@ def _review_issue_evidence(issue: dict) -> str:
     if record_id and message:
         return f"待复核记录 {record_id}：{message}"
     return message or "存在待复核记录。"
+
+
+def _is_multimodal_review_issue(issue: dict) -> bool:
+    snapshot = issue.get("record_snapshot")
+    return (
+        isinstance(snapshot, dict)
+        and str(snapshot.get("item_type") or "") == "multimodal_review"
+    )
 
 
 def _has_finish_reason_length(metadata: Any) -> bool:

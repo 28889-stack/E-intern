@@ -1,0 +1,142 @@
+{"kind":"deck","id":"pr/oiua8x","name":"Deck"}
+{"kind":"layout","layoutId":"f7fa0e44-c232-48f3-8136-cd639eec7cf9","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"203332bb-247f-427f-b7eb-563107af8beb","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/psm3xn","slide":1,"title":"项目问题与挑战","textShapes":68}
+{"kind":"shape","id":"sh/3ex0nuxc","slide":1,"name":"topbar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/szqtcj6t","slide":1,"name":"left-pale","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/lkjm1cfa","slide":1,"name":"cyan-strip","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/ahoza1gv","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/32lszqtc","slide":1,"name":"eyebrow","text":"项目问题与挑战","textPreview":"项目问题与挑战","textChars":7,"textLines":1,"bbox":[150,76,300,24]}
+{"kind":"textbox","id":"sh/sneloj2t","slide":1,"name":"title","text":"问题二：业务类型复杂，交易、持仓与资金流水混在一起","textPreview":"问题二：业务类型复杂，交易、持仓与资金流水混在一起","textChars":25,"textLines":1,"bbox":[150,105,860,42]}
+{"kind":"shape","id":"sh/l87ed8ba","slide":1,"name":"title-rule","bbox":[150,151,1052,3]}
+{"kind":"shape","id":"sh/e9cvixcz","slide":1,"name":"badge","bbox":[1034,100,168,38]}
+{"kind":"shape","id":"sh/3q5o7qpg","slide":1,"name":"badge-accent","bbox":[1034,100,5,38]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":1,"name":"badge-text","text":"风险 / 问题","textPreview":"风险 / 问题","textChars":7,"textLines":1,"bbox":[1050,110,135,20]}
+{"kind":"textbox","id":"sh/ytsvu9kn","slide":1,"name":"lead","text":"证券材料并不是标准化交易清单。同一文件中可能同时出现买卖交易、权益变动、持仓变化和资金流水，且不同材料对同类业务的字段和名称并不一致。","textPreview":"证券材料并不是标准化交易清单。同一文件中可能同时出现买卖交易、权益变动、持仓变化和资金流水，且不同材料对同类业务的字段和名称并不一致。","textChars":67,"textLines":1,"bbox":[150,171,1052,47]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":1,"name":"section-问题来源：多类记录混杂","text":"问题来源：多类记录混杂","textPreview":"问题来源：多类记录混杂","textChars":11,"textLines":1,"bbox":[150,210,255,26]}
+{"kind":"shape","id":"sh/czed8v6p","slide":1,"name":"section-rule-问题来源：多类记录混杂","bbox":[150,241,255,1]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":1,"name":"left-panel","bbox":[150,248,262,310]}
+{"kind":"shape","id":"sh/u54zidon","slide":1,"name":"cat-交易 / 持仓","bbox":[170,272,222,92]}
+{"kind":"shape","id":"sh/5sneloj2","slide":1,"name":"cat-accent-交易 / 持仓","bbox":[170,272,5,92]}
+{"kind":"shape","id":"sh/cbulwval","slide":1,"name":"cat-tag-交易 / 持仓","bbox":[188,287,92,24]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":1,"name":"cat-tag-text-交易 / 持仓","text":"交易 / 持仓","textPreview":"交易 / 持仓","textChars":7,"textLines":1,"bbox":[194,292,80,15]}
+{"kind":"textbox","id":"sh/y90je9cv","slide":1,"name":"cat-examples-交易 / 持仓","text":"买入、卖出、打新、配股","textPreview":"买入、卖出、打新、配股","textChars":11,"textLines":1,"bbox":[188,319,186,18]}
+{"kind":"textbox","id":"sh/2lszqtcj","slide":1,"name":"cat-note-交易 / 持仓","text":"可能直接改变证券持仓","textPreview":"可能直接改变证券持仓","textChars":10,"textLines":1,"bbox":[188,341,186,16]}
+{"kind":"shape","id":"sh/v6psfil0","slide":1,"name":"cat-权益 / 收益","bbox":[170,359,222,92]}
+{"kind":"shape","id":"sh/knih4byh","slide":1,"name":"cat-accent-权益 / 收益","bbox":[170,359,5,92]}
+{"kind":"shape","id":"sh/d8bat47y","slide":1,"name":"cat-tag-权益 / 收益","bbox":[188,374,92,24]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":1,"name":"cat-tag-text-权益 / 收益","text":"权益 / 收益","textPreview":"权益 / 收益","textChars":7,"textLines":1,"bbox":[194,379,80,15]}
+{"kind":"textbox","id":"sh/vu9knih4","slide":1,"name":"cat-examples-权益 / 收益","text":"分红、派息、送股、转增","textPreview":"分红、派息、送股、转增","textChars":11,"textLines":1,"bbox":[188,406,186,18]}
+{"kind":"textbox","id":"sh/kf6dcbul","slide":1,"name":"cat-note-权益 / 收益","text":"与证券相关，但不一定是买卖","textPreview":"与证券相关，但不一定是买卖","textChars":13,"textLines":1,"bbox":[188,428,186,16]}
+{"kind":"shape","id":"sh/d0z61032","slide":1,"name":"cat-资金流水","bbox":[170,446,222,92]}
+{"kind":"shape","id":"sh/2x4nap4r","slide":1,"name":"cat-accent-资金流水","bbox":[170,446,5,92]}
+{"kind":"shape","id":"sh/vixczed8","slide":1,"name":"cat-tag-资金流水","bbox":[188,461,92,24]}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":1,"name":"cat-tag-text-资金流水","text":"资金流水","textPreview":"资金流水","textChars":4,"textLines":1,"bbox":[194,466,80,15]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":1,"name":"cat-examples-资金流水","text":"银证转账、费用扣划、利息归本","textPreview":"银证转账、费用扣划、利息归本","textChars":14,"textLines":1,"bbox":[188,493,186,18]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":1,"name":"cat-note-资金流水","text":"容易与交易流水混在同一表内","textPreview":"容易与交易流水混在同一表内","textChars":13,"textLines":1,"bbox":[188,515,186,16]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":1,"name":"section-材料展示：字段相似，但业务含义不同","text":"材料展示：字段相似，但业务含义不同","textPreview":"材料展示：字段相似，但业务含义不同","textChars":17,"textLines":1,"bbox":[462,210,508,26]}
+{"kind":"shape","id":"sh/hgn29gr2","slide":1,"name":"section-rule-材料展示：字段相似，但业务含义不同","bbox":[462,241,508,1]}
+{"kind":"shape","id":"sh/svu9knih","slide":1,"name":"table-panel","bbox":[462,248,508,310]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":1,"name":"table-caption","text":"材料页面示意：同一张流水表中混入多种业务","textPreview":"材料页面示意：同一张流水表中混入多种业务","textChars":20,"textLines":1,"bbox":[485,268,330,20]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":1,"name":"demo-label","bbox":[846,265,86,24]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":1,"name":"demo-label-text","text":"示意","textPreview":"示意","textChars":2,"textLines":1,"bbox":[846,270,86,13]}
+{"kind":"shape","id":"sh/sji5snel","slide":1,"name":"table-row-304-0","bbox":[462,304,72,30]}
+{"kind":"textbox","id":"sh/wfyxobm5","slide":1,"name":"table-text-304-0","text":"日期","textPreview":"日期","textChars":2,"textLines":1,"bbox":[466,312,64,12]}
+{"kind":"shape","id":"sh/l0rqd4vm","slide":1,"name":"table-row-304-1","bbox":[534,304,82,30]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":1,"name":"table-text-304-1","text":"业务名称","textPreview":"业务名称","textChars":4,"textLines":1,"bbox":[538,312,74,12]}
+{"kind":"shape","id":"sh/7u54zido","slide":1,"name":"table-row-304-2","bbox":[616,304,90,30]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":1,"name":"table-text-304-2","text":"证券代码","textPreview":"证券代码","textChars":4,"textLines":1,"bbox":[620,312,82,12]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":1,"name":"table-row-304-3","bbox":[706,304,86,30]}
+{"kind":"textbox","id":"sh/eloj2t83","slide":1,"name":"table-text-304-3","text":"数量","textPreview":"数量","textChars":2,"textLines":1,"bbox":[710,312,78,12]}
+{"kind":"shape","id":"sh/36hcrmhk","slide":1,"name":"table-row-304-4","bbox":[792,304,86,30]}
+{"kind":"textbox","id":"sh/wval87ed","slide":1,"name":"table-text-304-4","text":"金额","textPreview":"金额","textChars":2,"textLines":1,"bbox":[796,312,78,12]}
+{"kind":"shape","id":"sh/pg3ex0nu","slide":1,"name":"table-row-304-5","bbox":[878,304,92,30]}
+{"kind":"textbox","id":"sh/bm58z25k","slide":1,"name":"table-text-304-5","text":"备注","textPreview":"备注","textChars":2,"textLines":1,"bbox":[882,312,84,12]}
+{"kind":"shape","id":"sh/m1cfa9w3","slide":1,"name":"table-row-334-0","bbox":[462,334,72,30]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":1,"name":"table-text-334-0","text":"2025-01","textPreview":"2025-01","textChars":7,"textLines":1,"bbox":[466,342,64,12]}
+{"kind":"shape","id":"sh/47y1kre1","slide":1,"name":"table-row-334-1","bbox":[534,334,82,30]}
+{"kind":"textbox","id":"sh/bat47y1k","slide":1,"name":"table-text-334-1","text":"证券买入","textPreview":"证券买入","textChars":4,"textLines":1,"bbox":[538,342,74,12]}
+{"kind":"shape","id":"sh/mp0bi9s3","slide":1,"name":"table-row-334-2","bbox":[616,334,90,30]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":1,"name":"table-text-334-2","text":"000001","textPreview":"000001","textChars":6,"textLines":1,"bbox":[620,342,82,12]}
+{"kind":"shape","id":"sh/4vmtwra5","slide":1,"name":"table-row-334-3","bbox":[706,334,86,30]}
+{"kind":"textbox","id":"sh/b2hwfyxo","slide":1,"name":"table-text-334-3","text":"+1,000","textPreview":"+1,000","textChars":6,"textLines":1,"bbox":[710,342,78,12]}
+{"kind":"shape","id":"sh/mhk3q5o7","slide":1,"name":"table-row-334-4","bbox":[792,334,86,30]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":1,"name":"table-text-334-4","text":"-12,300","textPreview":"-12,300","textChars":7,"textLines":1,"bbox":[796,342,78,12]}
+{"kind":"shape","id":"sh/nyd0z610","slide":1,"name":"table-row-334-5","bbox":[878,334,92,30]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"name":"table-text-334-5","text":"成交","textPreview":"成交","textChars":2,"textLines":1,"bbox":[882,342,84,12]}
+{"kind":"shape","id":"sh/54zidony","slide":1,"name":"table-row-364-0","bbox":[462,364,72,30]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":1,"name":"table-text-364-0","text":"2025-02","textPreview":"2025-02","textChars":7,"textLines":1,"bbox":[466,372,64,12]}
+{"kind":"shape","id":"sh/nap4r65w","slide":1,"name":"table-row-364-1","bbox":[534,364,82,30]}
+{"kind":"textbox","id":"sh/cvixczed","slide":1,"name":"table-text-364-1","text":"红利入账","textPreview":"红利入账","textChars":4,"textLines":1,"bbox":[538,372,74,12]}
+{"kind":"shape","id":"sh/5gbq1ory","slide":1,"name":"table-row-364-2","bbox":[616,364,90,30]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":1,"name":"table-text-364-2","text":"000001","textPreview":"000001","textChars":6,"textLines":1,"bbox":[620,372,82,12]}
+{"kind":"shape","id":"sh/jm1cfa9w","slide":1,"name":"table-row-364-3","bbox":[706,364,86,30]}
+{"kind":"textbox","id":"sh/9knih4by","slide":1,"name":"table-text-364-3","text":"-","textPreview":"-","textChars":1,"textLines":1,"bbox":[710,372,78,12]}
+{"kind":"shape","id":"sh/kzupwb2h","slide":1,"name":"table-row-364-4","bbox":[792,364,86,30]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":1,"name":"table-text-364-4","text":"+320","textPreview":"+320","textChars":4,"textLines":1,"bbox":[796,372,78,12]}
+{"kind":"shape","id":"sh/2t83itgf","slide":1,"name":"table-row-364-5","bbox":[878,364,92,30]}
+{"kind":"textbox","id":"sh/9w3m94fu","slide":1,"name":"table-text-364-5","text":"权益","textPreview":"权益","textChars":2,"textLines":1,"bbox":[882,372,84,12]}
+{"kind":"shape","id":"sh/kb6xkf6d","slide":1,"name":"table-row-394-0","bbox":[462,394,72,30]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":1,"name":"table-text-394-0","text":"2025-03","textPreview":"2025-03","textChars":7,"textLines":1,"bbox":[466,402,64,12]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":1,"name":"table-row-394-1","bbox":[534,394,82,30]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":1,"name":"table-text-394-1","text":"银行转入","textPreview":"银行转入","textChars":4,"textLines":1,"bbox":[538,402,74,12]}
+{"kind":"shape","id":"sh/kjm1cfa9","slide":1,"name":"table-row-394-2","bbox":[616,394,90,30]}
+{"kind":"textbox","id":"sh/knih4byh","slide":1,"name":"table-text-394-2","text":"-","textPreview":"-","textChars":1,"textLines":1,"bbox":[620,402,82,12]}
+{"kind":"shape","id":"sh/d8bat47y","slide":1,"name":"table-row-394-3","bbox":[706,394,86,30]}
+{"kind":"textbox","id":"sh/2lszqtcj","slide":1,"name":"table-text-394-3","text":"-","textPreview":"-","textChars":1,"textLines":1,"bbox":[710,402,78,12]}
+{"kind":"shape","id":"sh/v6psfil0","slide":1,"name":"table-row-394-4","bbox":[792,394,86,30]}
+{"kind":"textbox","id":"sh/kf6dcbul","slide":1,"name":"table-text-394-4","text":"+50,000","textPreview":"+50,000","textChars":7,"textLines":1,"bbox":[796,402,78,12]}
+{"kind":"shape","id":"sh/d0z61032","slide":1,"name":"table-row-394-5","bbox":[878,394,92,30]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":1,"name":"table-text-394-5","text":"资金","textPreview":"资金","textChars":2,"textLines":1,"bbox":[882,402,84,12]}
+{"kind":"shape","id":"sh/vu9knih4","slide":1,"name":"table-row-424-0","bbox":[462,424,72,30]}
+{"kind":"textbox","id":"sh/k3q5o7qp","slide":1,"name":"table-text-424-0","text":"2025-04","textPreview":"2025-04","textChars":7,"textLines":1,"bbox":[466,432,64,12]}
+{"kind":"shape","id":"sh/donyd0z6","slide":1,"name":"table-row-424-1","bbox":[534,424,82,30]}
+{"kind":"textbox","id":"sh/3itgfmlk","slide":1,"name":"table-text-424-1","text":"配股入账","textPreview":"配股入账","textChars":4,"textLines":1,"bbox":[538,432,74,12]}
+{"kind":"shape","id":"sh/ex0nuxc3","slide":1,"name":"table-row-424-2","bbox":[616,424,90,30]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":1,"name":"table-text-424-2","text":"000002","textPreview":"000002","textChars":6,"textLines":1,"bbox":[620,432,82,12]}
+{"kind":"shape","id":"sh/w3m94fu1","slide":1,"name":"table-row-424-3","bbox":[706,424,86,30]}
+{"kind":"textbox","id":"sh/3q5o7qpg","slide":1,"name":"table-text-424-3","text":"+200","textPreview":"+200","textChars":4,"textLines":1,"bbox":[710,432,78,12]}
+{"kind":"shape","id":"sh/e9cvixcz","slide":1,"name":"table-row-424-4","bbox":[792,424,86,30]}
+{"kind":"textbox","id":"sh/lwval87e","slide":1,"name":"table-text-424-4","text":"-","textPreview":"-","textChars":1,"textLines":1,"bbox":[796,432,78,12]}
+{"kind":"shape","id":"sh/wb2hwfyx","slide":1,"name":"table-row-424-5","bbox":[878,424,92,30]}
+{"kind":"textbox","id":"sh/32lszqtc","slide":1,"name":"table-text-424-5","text":"权益","textPreview":"权益","textChars":2,"textLines":1,"bbox":[882,432,84,12]}
+{"kind":"shape","id":"sh/ahoza1gv","slide":1,"name":"table-row-454-0","bbox":[462,454,72,30]}
+{"kind":"textbox","id":"sh/36hcrmhk","slide":1,"name":"table-text-454-0","text":"2025-05","textPreview":"2025-05","textChars":7,"textLines":1,"bbox":[466,462,64,12]}
+{"kind":"shape","id":"sh/eloj2t83","slide":1,"name":"table-row-454-1","bbox":[534,454,82,30]}
+{"kind":"textbox","id":"sh/lc7u54zi","slide":1,"name":"table-text-454-1","text":"费用扣划","textPreview":"费用扣划","textChars":4,"textLines":1,"bbox":[538,462,74,12]}
+{"kind":"shape","id":"sh/wra5gbq1","slide":1,"name":"table-row-454-2","bbox":[616,454,90,30]}
+{"kind":"textbox","id":"sh/7u54zido","slide":1,"name":"table-text-454-2","text":"-","textPreview":"-","textChars":1,"textLines":1,"bbox":[620,462,82,12]}
+{"kind":"shape","id":"sh/ed8bat47","slide":1,"name":"table-row-454-3","bbox":[706,454,86,30]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":1,"name":"table-text-454-3","text":"-","textPreview":"-","textChars":1,"textLines":1,"bbox":[710,462,78,12]}
+{"kind":"shape","id":"sh/wfyxobm5","slide":1,"name":"table-row-454-4","bbox":[792,454,86,30]}
+{"kind":"textbox","id":"sh/7mp0bi9s","slide":1,"name":"table-text-454-4","text":"-18","textPreview":"-18","textChars":3,"textLines":1,"bbox":[796,462,78,12]}
+{"kind":"shape","id":"sh/e1w7mp0b","slide":1,"name":"table-row-454-5","bbox":[878,454,92,30]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":1,"name":"table-text-454-5","text":"费用","textPreview":"费用","textChars":2,"textLines":1,"bbox":[882,462,84,12]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":1,"name":"callout-1","bbox":[494,500,130,34]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":1,"name":"callout-1-text","text":"会影响持仓","textPreview":"会影响持仓","textChars":5,"textLines":1,"bbox":[502,510,114,12]}
+{"kind":"shape","id":"sh/zed8v6ps","slide":1,"name":"callout-2","bbox":[654,500,130,34]}
+{"kind":"textbox","id":"sh/obm58z25","slide":1,"name":"callout-2-text","text":"证券相关但非买卖","textPreview":"证券相关但非买卖","textChars":8,"textLines":1,"bbox":[662,510,114,12]}
+{"kind":"shape","id":"sh/hwfyxobm","slide":1,"name":"callout-3","bbox":[814,500,130,34]}
+{"kind":"textbox","id":"sh/65wjudg7","slide":1,"name":"callout-3-text","text":"非证券交易流水","textPreview":"非证券交易流水","textChars":7,"textLines":1,"bbox":[822,510,114,12]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":1,"name":"section-复核难点","text":"复核难点","textPreview":"复核难点","textChars":4,"textLines":1,"bbox":[1012,210,190,26]}
+{"kind":"shape","id":"sh/sfil0rqd","slide":1,"name":"section-rule-复核难点","bbox":[1012,241,190,1]}
+{"kind":"shape","id":"sh/h0fepkzu","slide":1,"name":"right-panel","bbox":[1012,248,190,310]}
+{"kind":"shape","id":"sh/54zidony","slide":1,"name":"diff-no-1","bbox":[1030,280,26,26]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"name":"diff-no-text-1","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[1030,285,26,13]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":1,"name":"diff-text-1","text":"同一字段下，业务含义可能不同","textPreview":"同一字段下，业务含义可能不同","textChars":14,"textLines":1,"bbox":[1068,282,206,32]}
+{"kind":"shape","id":"sh/udg7adsj","slide":1,"name":"diff-no-2","bbox":[1030,349,26,26]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":1,"name":"diff-no-text-2","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[1030,354,26,13]}
+{"kind":"textbox","id":"sh/cvixczed","slide":1,"name":"diff-text-2","text":"同类业务在不同材料中叫法不同","textPreview":"同类业务在不同材料中叫法不同","textChars":14,"textLines":1,"bbox":[1068,351,206,32]}
+{"kind":"shape","id":"sh/nap4r65w","slide":1,"name":"diff-no-3","bbox":[1030,418,26,26]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":1,"name":"diff-no-text-3","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[1030,423,26,13]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":1,"name":"diff-text-3","text":"资金流水容易被误认为证券交易","textPreview":"资金流水容易被误认为证券交易","textChars":14,"textLines":1,"bbox":[1068,420,206,32]}
+{"kind":"shape","id":"sh/c7u54zid","slide":1,"name":"diff-no-4","bbox":[1030,487,26,26]}
+{"kind":"textbox","id":"sh/qxs72x4n","slide":1,"name":"diff-no-text-4","text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[1030,492,26,13]}
+{"kind":"textbox","id":"sh/fil0rqd4","slide":1,"name":"diff-text-4","text":"跨页、跨表记录需要人工反复核对","textPreview":"跨页、跨表记录需要人工反复核对","textChars":15,"textLines":1,"bbox":[1068,489,206,32]}
+{"kind":"shape","id":"sh/83itgfml","slide":1,"name":"bottom-callout","bbox":[150,603,1052,54]}
+{"kind":"shape","id":"sh/xobm58z2","slide":1,"name":"bottom-accent","bbox":[150,603,5,54]}
+{"kind":"textbox","id":"sh/m94fu18j","slide":1,"name":"bottom-text","text":"风险点：如果只按关键词或字段抽取，容易把红利、利息、银证转账误判为买卖交易，也可能漏掉真正影响持仓的业务。","textPreview":"风险点：如果只按关键词或字段抽取，容易把红利、利息、银证转账误判为买卖交易，也可能漏掉真正影响持仓的业务。","textChars":53,"textLines":1,"bbox":[174,617,965,24]}
+{"kind":"shape","id":"sh/fu18jqh0","slide":1,"name":"footer-line","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/4fu18jqh","slide":1,"name":"footer-left","text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,340,18]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":1,"name":"footer-right","text":"业务类型复杂 / 问题页","textPreview":"业务类型复杂 / 问题页","textChars":12,"textLines":1,"bbox":[1050,681,152,18]}
+{"kind":"notes","id":"nt/psm3xn","slide":1,"text":""}

@@ -11,6 +11,7 @@ from app.pipeline.security_account import (
     market_from_account_type,
     normalize_account_type as normalize_security_account_type,
 )
+from app.pipeline.text_compaction import compact_text
 
 
 DOCUMENT_COLUMNS = [
@@ -277,7 +278,14 @@ def build_event_row(
                     "row_no": event.get("row_no", ""),
                     "source_pages": event.get("source_pages", ""),
                     "row_nos": event.get("row_nos", ""),
-                    "raw_text": event.get("raw_text", ""),
+                    "raw_text": compact_text(
+                        event.get("raw_text")
+                        or (
+                            event.get("source_evidence", {}).get("raw_text")
+                            if isinstance(event.get("source_evidence"), dict)
+                            else ""
+                        )
+                    ),
                 }
             ],
         }
@@ -370,7 +378,14 @@ def build_holding_row(
                 "row_no": holding.get("row_no", ""),
                 "source_pages": holding.get("source_pages", ""),
                 "row_nos": holding.get("row_nos", ""),
-                "raw_text": holding.get("raw_text", ""),
+                "raw_text": compact_text(
+                    holding.get("raw_text")
+                    or (
+                        holding.get("source_evidence", {}).get("raw_text")
+                        if isinstance(holding.get("source_evidence"), dict)
+                        else ""
+                    )
+                ),
             }
         ],
     }

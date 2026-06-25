@@ -20,6 +20,7 @@ from app.pipeline.normalizers.common import (
     review_item as normalizer_review_item,
     unique_list,
 )
+from app.pipeline.text_compaction import compact_review_message, compact_string_list, compact_text
 from app.services import local_store
 from app.services.llm_client import LLMClient
 
@@ -380,7 +381,7 @@ def build_final_result(case_id: str) -> dict:
         },
         "export_audit": export_audit,
         "merge_audit": [*source_overlap_audit, *resolved.get("merge_audit", [])],
-        "file_issues": file_issues,
+        "file_issues": _output_file_issues(file_issues),
         "file_issue_summaries": file_issue_summaries,
         "sheet_order": [
             SHEET_FINAL,
@@ -391,7 +392,7 @@ def build_final_result(case_id: str) -> dict:
             SHEET_CHECKLIST,
         ],
         "sheets": sheets,
-        "review_items": review_items,
+        "review_items": _output_review_items(review_items),
     }
 
 
@@ -486,7 +487,11 @@ def _multimodal_review_items(extract_result: dict, file_id: str) -> list[dict]:
         return []
 
     items = []
-    for reason in _as_list(multimodal_review.get("uncertainty_reasons")):
+    observations = (
+        _as_list(multimodal_review.get("visual_observations"))
+        or _as_list(multimodal_review.get("uncertainty_reasons"))
+    )
+    for reason in observations:
         if not reason:
             continue
         items.append(
@@ -496,7 +501,7 @@ def _multimodal_review_items(extract_result: dict, file_id: str) -> list[dict]:
                 file_id,
                 "",
                 "multimodal_review",
-                f"多模态疑难块提示：{reason}",
+                _clean_multimodal_observation(reason),
             )
         )
     return items
@@ -529,6 +534,7 @@ OCR_REVIEW_ISSUE_TYPES = {
 EXTRACT_REVIEW_ISSUE_TYPES = {
     "extract_failed",
     "extract_partial_failed",
+    "extraction_review_required",
     "llm_request_failed",
     "json_parse_failed",
     "llm_output_truncated",
@@ -560,13 +566,13 @@ def _review_issue_rows_from_file_issues(
         rows.append(
             {
                 "序号": str(next_index),
-                "待复核原因": "文件级问题",
+                "待复核原因": "申报材料问题",
                 "问题描述": _file_issue_review_description(issue, matched_types),
                 "对应材料": _file_issue_source_label(issue),
                 "_meta": {
                     "file_id": issue.get("file_id", ""),
                     "source_row_id": f"file_issue_{next_index}",
-                    "original_row": issue,
+                    "original_row": _output_file_issue(issue),
                 },
             }
         )
@@ -618,6 +624,39 @@ def _renumber_review_issue_rows(rows: list[dict]) -> list[dict]:
     return renumbered
 
 
+def _output_file_issues(file_issues: list[dict]) -> list[dict]:
+    return [_output_file_issue(issue) for issue in file_issues if isinstance(issue, dict)]
+
+
+def _output_file_issue(issue: dict) -> dict:
+    output = {
+        key: value
+        for key, value in issue.items()
+        if not key.startswith("_") and key not in {"evidence"}
+    }
+    evidence_summary = compact_string_list(
+        issue.get("evidence_summary") or issue.get("evidence")
+    )
+    if evidence_summary:
+        output["evidence_summary"] = evidence_summary
+    observations = compact_string_list(issue.get("multimodal_observations"), 140)
+    if observations:
+        output["multimodal_observations"] = observations
+    return output
+
+
+def _output_review_items(review_items: list[dict]) -> list[dict]:
+    output = []
+    for item in review_items:
+        if not isinstance(item, dict):
+            continue
+        next_item = dict(item)
+        if "message" in next_item:
+            next_item["message"] = compact_review_message(next_item.get("message"))
+        output.append(next_item)
+    return output
+
+
 def _file_issue_review_description(issue: dict, issue_types: list[str]) -> str:
     issue_type_set = set(issue_types)
     if "no_trade_query_proof_incomplete" in issue_type_set:
@@ -630,9 +669,15 @@ def _file_issue_review_description(issue: dict, issue_types: list[str]) -> str:
     labels = [_file_issue_type_label(issue_type) for issue_type in issue_types]
     evidence = [
         str(item)
-        for item in normalizer_as_list(issue.get("evidence"))
+        for item in normalizer_as_list(
+            issue.get("evidence_summary") or issue.get("evidence")
+        )
         if _evidence_matches_issue_types(str(item), issue_types)
     ][:3]
+    multimodal_observations = [
+        _clean_multimodal_observation(item)
+        for item in compact_string_list(issue.get("multimodal_observations"), 80)
+    ]
     if "no_trade_query_proof_incomplete" in issue_type_set:
         action = "该截图可作为无交易证明候选，请确认证券账号、市场和查询期间；如归属信息不完整，请补充完整历史成交查询材料。"
     elif issue_type_set & MATERIAL_REVIEW_ISSUE_TYPES:
@@ -644,7 +689,10 @@ def _file_issue_review_description(issue: dict, issue_types: list[str]) -> str:
     details = "、".join(label for label in labels if label)
     if evidence:
         details = f"{details}（{'；'.join(evidence)}）" if details else "；".join(evidence)
-    return f"该材料存在文件级待复核问题：{details or '需人工复核'}。{action}"
+    observation_text = ""
+    if multimodal_observations:
+        observation_text = f" 多模态观察：{'；'.join(multimodal_observations).rstrip('。')}。"
+    return f"该材料存在申报材料待复核问题：{details or '需人工复核'}。{observation_text}{action}"
 
 
 def _file_issue_source_label(issue: dict) -> str:
@@ -655,6 +703,18 @@ def _file_issue_source_label(issue: dict) -> str:
     )
 
 
+def _clean_multimodal_observation(value: Any) -> str:
+    text = compact_text(value, 80)
+    for prefix in ("多模态观察：", "多模态疑难块提示："):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+    if "证券软件界面截图" in text and "行情" in text:
+        return "证券软件界面截图，缺少清晰结构化交易明细"
+    if "历史成交" in text and ("没有相应" in text or "空" in text):
+        return "历史成交查询页显示空结果"
+    return text
+
+
 def _file_issue_type_label(issue_type: str) -> str:
     return {
         "ocr_failed": "OCR 失败",
@@ -663,6 +723,7 @@ def _file_issue_type_label(issue_type: str) -> str:
         "suspected_occlusion": "材料存在遮挡或涂抹",
         "extract_failed": "抽取失败",
         "extract_partial_failed": "部分抽取失败",
+        "extraction_review_required": "抽取结果需复核",
         "llm_request_failed": "智能抽取请求失败",
         "json_parse_failed": "结构化结果解析失败",
         "llm_output_truncated": "智能抽取输出被截断",
@@ -942,7 +1003,7 @@ def _review_item(
         "file_id": file_id,
         "event_id": event_id,
         "field": field,
-        "message": message,
+        "message": compact_review_message(message),
     }
 
 

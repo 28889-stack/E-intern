@@ -707,7 +707,7 @@ function deleteSelectedRows(key) {
 function renderReadonlyChecklist(rows) {
   const legalRows = legalChecklistRows(rows);
   if (!legalRows.length) {
-    renderEmpty(els.checklistResults, "暂无法律 checklist 结果。");
+    renderEmpty(els.checklistResults, "暂无合规校验结果。");
     return;
   }
   for (const row of legalRows) {
@@ -737,7 +737,7 @@ function renderProblemList(rows) {
   for (const row of rows) {
     const tr = document.createElement("tr");
     for (const column of problemColumns) {
-      appendCell(tr, row[column] || "");
+      appendCell(tr, displayProblemCell(column, row[column] || ""));
     }
     tbody.appendChild(tr);
   }
@@ -748,7 +748,7 @@ function renderFileIssues(payload) {
   const summaries = asObjectArray(payload.file_issue_summaries || payload.trace?.file_issue_summaries);
   const issues = asObjectArray(payload.file_issues || payload.trace?.file_issues);
   if (!summaries.length && !issues.length) {
-    renderEmpty(els.fileIssueList, "未发现文件级 OCR、解析、抽取或关键字段缺失问题。");
+    renderEmpty(els.fileIssueList, "未发现申报材料 OCR、解析、抽取或关键字段缺失问题。");
     return;
   }
 
@@ -952,6 +952,13 @@ function renderEmpty(container, text) {
   item.className = "empty-state";
   item.textContent = text;
   container.appendChild(item);
+}
+
+function displayProblemCell(column, value) {
+  if (column === "待复核原因" && String(value).trim() === "文件级问题") {
+    return "申报材料问题";
+  }
+  return value;
 }
 
 function legalChecklistRows(rows) {
@@ -1445,9 +1452,9 @@ function assistantFallbackAnswer(question) {
     return "Excel 需要先生成复核结果，再完成人工复核并保存。保存复核结果后，导出按钮才会启用。";
   }
   if (question.includes("复核") || text.includes("checklist") || question.includes("问题")) {
-    return "人工复核页可以修改申报表、完整表、持仓和身份信息；右侧复核辅助栏展示法律 checklist 和文件级问题，下方待复核清单用于定位具体问题。";
+    return "人工复核页可以修改申报表、完整表、持仓和身份信息；右侧复核辅助栏展示合规校验和申报材料问题，下方待复核清单用于定位具体问题。";
   }
-  return "这个问题需要结合材料和复核表格判断。你可以先完成上传和系统分析，再在人工复核页查看法律 checklist、文件级问题和待复核清单。";
+  return "这个问题需要结合材料和复核表格判断。你可以先完成上传和系统分析，再在人工复核页查看合规校验、申报材料问题和待复核清单。";
 }
 
 function bindEvents() {

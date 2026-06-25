@@ -1,0 +1,40 @@
+{"kind":"deck","id":"pr/oebivw","name":"Deck"}
+{"kind":"layout","layoutId":"2f4ebb12-8be3-45d4-957e-11734fc22c7f","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"32312ff1-2c27-4a36-a8ab-cd987326c0ec","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/fm1bce","slide":1,"title":"项目背景","textShapes":19}
+{"kind":"shape","id":"sh/w7mp0bi9","slide":1,"name":"topbar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/7mp0bi9s","slide":1,"name":"left-pale","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/e1w7mp0b","slide":1,"name":"cyan-strip","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/pg3ex0nu","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/wval87ed","slide":1,"name":"eyebrow","text":"项目背景","textPreview":"项目背景","textChars":4,"textLines":1,"bbox":[150,76,180,24]}
+{"kind":"textbox","id":"sh/7adsji5s","slide":1,"name":"title","text":"从法规要求到材料结构化","textPreview":"从法规要求到材料结构化","textChars":11,"textLines":1,"bbox":[150,105,720,42]}
+{"kind":"shape","id":"sh/epkzupwb","slide":1,"name":"title-rule","bbox":[150,151,1052,3]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":1,"name":"badge","bbox":[1034,100,168,38]}
+{"kind":"shape","id":"sh/wra5gbq1","slide":1,"name":"badge-accent","bbox":[1034,100,5,38]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":1,"name":"badge-text","text":"背景 / 目标","textPreview":"背景 / 目标","textChars":7,"textLines":1,"bbox":[1050,110,135,20]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":1,"name":"lead","text":"法律法规提出申报要求，公司需要收集材料、审核判断并留痕。","textPreview":"法律法规提出申报要求，公司需要收集材料、审核判断并留痕。","textChars":28,"textLines":1,"bbox":[150,184,890,28]}
+{"kind":"shape","id":"sh/cvixczed","slide":1,"name":"card-1","bbox":[150,268,310,236]}
+{"kind":"shape","id":"sh/5gbq1ory","slide":1,"name":"card-top-1","bbox":[150,268,310,54]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":1,"name":"card-no-1","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[170,285,36,16]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":1,"name":"card-title-1","text":"法规要求","textPreview":"法规要求","textChars":4,"textLines":1,"bbox":[215,283,220,18]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"name":"card-keywords-1","text":"申报 / 审核 / 留痕","textPreview":"申报 / 审核 / 留痕","textChars":12,"textLines":1,"bbox":[180,356,250,52]}
+{"kind":"textbox","id":"sh/54zidony","slide":1,"name":"card-note-1","text":"从业人员及相关人员证券投资需要纳入管理","textPreview":"从业人员及相关人员证券投资需要纳入管理","textChars":19,"textLines":1,"bbox":[182,434,246,38]}
+{"kind":"shape","id":"sh/u9knih4b","slide":1,"name":"card-2","bbox":[485,268,310,236]}
+{"kind":"shape","id":"sh/judg7ads","slide":1,"name":"card-top-2","bbox":[485,268,310,54]}
+{"kind":"textbox","id":"sh/fil0rqd4","slide":1,"name":"card-no-2","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[505,285,36,16]}
+{"kind":"textbox","id":"sh/qxs72x4n","slide":1,"name":"card-title-2","text":"当前痛点","textPreview":"当前痛点","textChars":4,"textLines":1,"bbox":[550,283,220,18]}
+{"kind":"textbox","id":"sh/xobm58z2","slide":1,"name":"card-keywords-2","text":"人工 / 分散 / 难追溯","textPreview":"人工 / 分散 / 难追溯","textChars":13,"textLines":1,"bbox":[515,356,250,52]}
+{"kind":"textbox","id":"sh/83itgfml","slide":1,"name":"card-note-2","text":"关键信息散落在券商材料中，难以复核处理","textPreview":"关键信息散落在券商材料中，难以复核处理","textChars":19,"textLines":1,"bbox":[517,434,246,38]}
+{"kind":"shape","id":"sh/fu18jqh0","slide":1,"name":"card-3","bbox":[820,268,382,236]}
+{"kind":"shape","id":"sh/m94fu18j","slide":1,"name":"card-top-3","bbox":[820,268,382,54]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":1,"name":"card-no-3","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[840,285,36,16]}
+{"kind":"textbox","id":"sh/4fu18jqh","slide":1,"name":"card-title-3","text":"项目目标","textPreview":"项目目标","textChars":4,"textLines":1,"bbox":[885,283,292,18]}
+{"kind":"textbox","id":"sh/f6dcbulw","slide":1,"name":"card-keywords-3","text":"结构化 / 可复核 / 可导出","textPreview":"结构化 / 可复核 / 可导出","textChars":15,"textLines":1,"bbox":[850,356,322,52]}
+{"kind":"textbox","id":"sh/mlkjm1cf","slide":1,"name":"card-note-3","text":"把材料转成后续可核对、可处理的申报数据","textPreview":"把材料转成后续可核对、可处理的申报数据","textChars":19,"textLines":1,"bbox":[852,434,318,38]}
+{"kind":"shape","id":"sh/wra5gbq1","slide":1,"name":"bottom-callout","bbox":[150,574,1052,72]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":1,"name":"bottom-accent","bbox":[150,574,5,72]}
+{"kind":"textbox","id":"sh/eloj2t83","slide":1,"name":"bottom-text","text":"一句话：把非结构化证券材料，变成可复核、可追溯、可编辑、可导出的申报结果。","textPreview":"一句话：把非结构化证券材料，变成可复核、可追溯、可编辑、可导出的申报结果。","textChars":37,"textLines":1,"bbox":[186,597,950,24]}
+{"kind":"shape","id":"sh/36hcrmhk","slide":1,"name":"footer-line","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/wfyxobm5","slide":1,"name":"footer-left","text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,340,18]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":1,"name":"footer-right","text":"项目背景 / 极简版","textPreview":"项目背景 / 极简版","textChars":10,"textLines":1,"bbox":[1030,681,172,18]}
+{"kind":"notes","id":"nt/fm1bce","slide":1,"text":""}

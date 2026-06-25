@@ -1,0 +1,147 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+    * { box-sizing: border-box; }
+    html, body { width:1920px; height:1080px; margin:0; background:#eef3f8; font-family:"Hiragino Sans GB","STHeiti","PingFang SC","Microsoft YaHei",Arial,sans-serif; color:#092b56; }
+    .slide { position:relative; width:1920px; height:1080px; overflow:hidden; background:radial-gradient(circle at 72% 20%, rgba(44,84,130,.13), transparent 34%), linear-gradient(180deg,#fbfdff 0%,#f4f7fb 100%); }
+    .topbar { position:absolute; inset:0 0 auto 0; height:88px; background:linear-gradient(90deg,#061f44 0%,#002b5e 58%,#052348 100%); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 54px; box-shadow:0 7px 28px rgba(3,31,67,.18); }
+    .brand { display:flex; align-items:center; gap:18px; font-size:26px; letter-spacing:0; }
+    .brand .mark { width:58px; height:43px; font-size:52px; line-height:40px; font-weight:900; transform:scaleX(1.22); }
+    .brand b { display:inline-block; margin-right:12px; font-size:28px; }
+    .brand span { font-weight:800; font-size:25px; }
+    .tagline { color:#dbe7f4; font-size:20px; font-weight:600; }
+    .content { position:absolute; inset:134px 96px 82px 96px; }
+    .eyebrow { font-size:22px; font-weight:800; color:#063470; margin-bottom:18px; }
+    .title-row { display:flex; gap:22px; align-items:flex-start; justify-content:space-between; }
+    h1 { margin:0; font-size:48px; line-height:1.15; letter-spacing:0; font-weight:900; color:#082b57; max-width:1320px; }
+    h2 { margin:24px 0 14px; font-size:27px; line-height:1.2; color:#092f60; font-weight:900; border-left:5px solid #004f9e; padding-left:14px; }
+    .mini-callout { flex:0 0 330px; min-height:84px; display:flex; gap:18px; align-items:center; padding:17px 22px; border-radius:18px; background:rgba(255,255,255,.82); border:1px solid #dce6f0; box-shadow:0 14px 36px rgba(22,43,74,.12); }
+    .mini-callout b { display:block; font-size:21px; margin-bottom:5px; }
+    .mini-callout span { color:#51677f; font-size:16px; }
+    .lead { margin:26px 0 30px; display:flex; align-items:center; gap:24px; min-height:96px; padding:20px 30px; border-radius:16px; background:rgba(255,255,255,.74); border:1px solid #d8e3ef; box-shadow:0 14px 42px rgba(27,56,90,.08); }
+    .lead p { margin:0; font-size:22px; line-height:1.55; font-weight:700; color:#163963; }
+    .lead-icon, .round-icon { width:70px; height:70px; border-radius:50%; background:#edf2f8; display:grid; place-items:center; color:#06488d; flex:0 0 auto; }
+    .round-icon { width:68px; height:68px; }
+    .round-icon.muted { background:#eef2f7; color:#082f60; }
+    .svg-icon { display:block; }
+    .grid { display:grid; gap:26px; }
+    .grid.four { grid-template-columns:repeat(4,1fr); }
+    .grid.three { grid-template-columns:repeat(3,1fr); }
+    .card { min-height:210px; padding:26px 30px; border-radius:14px; background:rgba(255,255,255,.78); border:1px solid #d9e3ed; box-shadow:0 13px 36px rgba(28,57,90,.08); position:relative; overflow:hidden; }
+    .card:before { content:""; position:absolute; inset:0 auto auto 0; height:5px; width:100%; background:linear-gradient(90deg,#06488d,#c7d6e8); opacity:.45; }
+    .card.orange:before { background:linear-gradient(90deg,#ea7b1a,#f4d2aa); opacity:.8; }
+    .card.cyan:before { background:linear-gradient(90deg,#00a9c9,#9bdde9); opacity:.85; }
+    .card-head { display:flex; align-items:center; gap:18px; margin-bottom:20px; }
+    .card h3 { margin:0; font-size:25px; line-height:1.18; font-weight:900; color:#092f60; }
+    .card-head p { margin:8px 0 0; font-size:18px; color:#21466f; font-weight:700; }
+    .tag { display:inline-block; padding:8px 12px; margin:-4px 0 14px; border-radius:8px; color:#004f9e; background:#eaf4fb; font-weight:800; font-size:16px; }
+    .card-text { margin:0; font-size:19px; line-height:1.5; color:#314a66; }
+    ul { margin:0; padding-left:22px; }
+    li { margin:9px 0; font-size:18px; line-height:1.38; color:#173b64; font-weight:600; }
+    .flow { display:flex; align-items:center; gap:18px; border-radius:14px; background:rgba(255,255,255,.78); border:1px solid #d7e2ee; box-shadow:0 12px 32px rgba(25,53,84,.08); padding:20px 28px; }
+    .wide-flow { margin-top:28px; justify-content:space-between; }
+    .compact-flow { margin:4px 0 22px; padding:18px 24px; }
+    .flow-item { min-width:0; flex:1; display:flex; justify-content:center; align-items:center; height:62px; border-radius:31px; background:#083b76; color:#fff; font-size:19px; font-weight:900; text-align:center; padding:0 18px; }
+    .compact-flow .flow-item { height:70px; background:#fff; color:#092f60; border:1px solid #cfddea; border-top:5px solid #00a9c9; border-radius:4px; }
+    .flow-arrow { color:#7389a5; flex:0 0 auto; }
+    .outcomes { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; padding:20px 0 0; border-top:2px solid #d2dfeb; }
+    .outcomes.four-cols { grid-template-columns:repeat(4,1fr); }
+    .outcome { display:flex; align-items:center; gap:18px; padding:10px 18px; border-right:1px solid #cbd9e7; min-height:84px; }
+    .outcome:last-child { border-right:none; }
+    .outcome b { display:block; font-size:22px; color:#092f60; margin-bottom:6px; }
+    .outcome span { display:block; font-size:17px; line-height:1.38; color:#48617a; font-weight:650; }
+    .pipeline { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+    .step-card { position:relative; min-height:420px; padding:24px 24px; border-radius:14px; background:#fff; border:1px solid #d9e4ef; box-shadow:0 14px 38px rgba(28,57,90,.08); }
+    .step-no { position:absolute; top:20px; right:22px; color:#9aacbf; font-size:22px; font-weight:900; }
+    .step-card h3 { margin:16px 0 6px; font-size:26px; }
+    .step-card p { margin:0 0 18px; color:#244a73; font-size:17px; line-height:1.4; font-weight:700; }
+    .mini-section { padding:13px 14px; border-radius:10px; background:#edf6fb; margin-top:12px; }
+    .mini-section.human { background:#f5f7fa; }
+    .mini-section b, .mini-section span { display:block; }
+    .mini-section b { margin-bottom:7px; color:#004f9e; font-size:16px; }
+    .mini-section span { color:#2d4c6e; font-size:15px; line-height:1.38; font-weight:650; }
+    .result-strip { margin-top:16px; padding:15px 24px; border-radius:13px; background:#082f60; color:#fff; display:flex; align-items:center; gap:22px; font-size:18px; }
+    .result-strip b { margin-right:12px; }
+    .result-strip span { padding:8px 15px; border-radius:999px; background:rgba(255,255,255,.12); }
+    .principle, .metric { margin-top:14px; padding:14px 24px; border-left:5px solid #00a9c9; background:#eaf6fb; color:#0a376a; font-size:20px; line-height:1.38; font-weight:850; }
+    .split { display:grid; grid-template-columns:repeat(2,1fr); gap:28px; }
+    .split.tall .card { min-height:390px; }
+    .split.compact .card { min-height:300px; }
+    .large-note { margin-top:28px; min-height:104px; border-radius:14px; border:1px solid #d9e3ee; background:#fff; box-shadow:0 12px 32px rgba(28,57,90,.08); display:flex; align-items:center; gap:22px; padding:24px 30px; color:#092f60; font-size:26px; font-weight:900; }
+    .large-note .svg-icon { color:#06488d; flex:0 0 auto; }
+    .event-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; margin-top:12px; }
+    .event-pill { min-height:88px; border-radius:14px; display:grid; place-items:center; background:#fff; border:1px solid #d8e3ed; color:#0b3768; font-size:26px; font-weight:900; box-shadow:0 11px 30px rgba(25,54,89,.08); }
+    .event-pill.hot { border-top:5px solid #004f9e; }
+    .event-pill.cool { border-top:5px solid #00a9c9; }
+    .bucket-row .card { min-height:250px; }
+    .graph-layout { display:grid; grid-template-columns:1.05fr 1fr; gap:28px; }
+    .graph-box, .adv-box, .demo-screen { border-radius:14px; background:rgba(255,255,255,.82); border:1px solid #d9e4ef; box-shadow:0 13px 36px rgba(28,57,90,.08); padding:24px 30px; }
+    .node-map { height:228px; position:relative; margin-top:8px; background:#f3f8fc; border-radius:12px; overflow:hidden; }
+    .node { position:absolute; min-width:130px; height:48px; border-radius:8px; background:#dff3f8; border-left:5px solid #00a9c9; color:#053568; font-size:18px; font-weight:900; display:grid; place-items:center; z-index:2; }
+    .n0 { left:56px; top:48px; } .n1 { left:260px; top:48px; } .n2 { right:70px; top:48px; background:#fff2df; border-left-color:#e77b17; } .n3 { left:190px; bottom:46px; } .n4 { right:92px; bottom:46px; background:#fff2df; border-left-color:#e77b17; }
+    .line { position:absolute; height:3px; background:#9cb2c8; transform-origin:left center; z-index:1; }
+    .l1 { left:188px; top:73px; width:82px; } .l2 { left:390px; top:73px; width:335px; } .l3 { left:255px; top:115px; width:160px; transform:rotate(37deg); } .l4 { left:470px; top:145px; width:260px; transform:rotate(-16deg); }
+    .model-note { margin-top:18px; padding:18px; border-radius:10px; background:#082f60; color:#fff; font-size:17px; line-height:1.45; font-weight:750; }
+    .adv { display:grid; grid-template-columns:130px 1fr; gap:10px 18px; align-items:start; padding:16px 0; border-bottom:1px solid #d9e4ef; }
+    .adv:last-child { border-bottom:none; }
+    .adv b { grid-row:span 2; font-size:24px; color:#082f60; }
+    .adv p { margin:0; font-size:17px; line-height:1.35; color:#60758c; font-weight:800; }
+    .adv .graph-line { color:#063b76; background:#eaf6fb; display:inline-block; padding:4px 8px; border-radius:4px; }
+    .risk-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+    .risk { min-height:164px; padding:28px; border-radius:14px; background:#fff; border:1px solid #d9e4ef; border-top:5px solid #e77b17; box-shadow:0 13px 36px rgba(28,57,90,.08); color:#092f60; position:relative; display:flex; flex-direction:column; gap:14px; }
+    .risk span { position:absolute; top:18px; right:22px; color:#a8b8c8; font-size:24px; font-weight:900; }
+    .risk b { font-size:23px; line-height:1.35; }
+    .grid.dense .card { min-height:285px; padding:24px 26px; }
+    .grid.dense li { font-size:16px; margin:7px 0; }
+    .metric { text-align:center; border-left:none; border-top:5px solid #00a9c9; }
+    .screen-bar { height:42px; background:#082f60; margin:-24px -30px 28px; border-radius:14px 14px 0 0; display:flex; align-items:center; gap:10px; padding-left:22px; }
+    .screen-bar span { width:13px; height:13px; border-radius:50%; background:#d7e4f1; opacity:.85; }
+    .demo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; }
+    .demo-grid .card { min-height:430px; }
+    .audit-flow { display:flex; align-items:stretch; gap:16px; margin-top:8px; }
+    .audit-card { flex:1; min-height:250px; border-radius:14px; background:#fff; border:1px solid #d9e4ef; box-shadow:0 13px 36px rgba(28,57,90,.08); padding:30px 24px; display:flex; flex-direction:column; align-items:flex-start; gap:18px; }
+    .audit-card .svg-icon { color:#06488d; }
+    .audit-card b { font-size:25px; color:#092f60; }
+    .audit-card span { font-size:17px; line-height:1.45; color:#425d77; font-weight:700; }
+    .simple-outcomes { margin-top:24px; display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
+    .simple-outcomes span { min-height:80px; border-left:5px solid #00a9c9; background:#fff; border-radius:8px; display:flex; align-items:center; padding:0 22px; font-size:22px; font-weight:900; color:#092f60; box-shadow:0 10px 28px rgba(28,57,90,.07); }
+    .footer { position:absolute; left:96px; right:96px; bottom:25px; padding-top:16px; border-top:1px solid #cbd8e5; display:flex; justify-content:space-between; color:#7d8fa3; font-size:16px; font-weight:700; }
+  </style></head><body><main class="slide">
+    <div class="topbar">
+      <div class="brand"><div class="mark">E</div><div><b>E FUND</b><span>易方达</span></div></div>
+      <div class="tagline">项目问题与解决 · 提升价值</div>
+    </div>
+    <div class="footer"><span>易方达基金 · 内部交流，请勿外传</span><span>08 / 17</span></div>
+  <section class="content">
+    <div class="eyebrow">解决二 | 事件分类规则</div>
+    <div class="title-row">
+      <h1>建立事件分类和申报筛选规则</h1>
+      
+    </div>
+    <div class="lead"><div class="lead-icon"><svg class="svg-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></svg></div><p>先完整抽取，再分类筛选，既避免漏报，也避免把资金流水误当成证券交易申报。</p></div>
+  <div class="grid three bucket-row"><div class="card ">
+    <div class="card-head"><div class="round-icon"><svg class="svg-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="22" x2="18" y1="12" y2="12" /><line x1="6" x2="2" y1="12" y2="12" /><line x1="12" x2="12" y1="6" y2="2" /><line x1="12" x2="12" y1="22" y2="18" /></svg></div><div><h3>重点申报事件</h3><p>买入、卖出、配股、打新、送股等</p></div></div>
+    <div class="tag">进入申报筛选</div>
+    
+    
+  </div><div class="card ">
+    <div class="card-head"><div class="round-icon"><svg class="svg-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></svg></div><div><h3>保留观察事件</h3><p>分红、派息、利息、资金变动等</p></div></div>
+    <div class="tag">保留原始证明与上下文</div>
+    
+    
+  </div><div class="card ">
+    <div class="card-head"><div class="round-icon"><svg class="svg-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></svg></div><div><h3>非申报流水</h3><p>银证转账、利息归本等</p></div></div>
+    <div class="tag">不进入最终申报</div>
+    
+    
+  </div></div><div class="flow wide-flow">
+    <div class="flow-item"><span>完整抽取</span></div>
+    <div class="flow-arrow"><svg class="svg-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg></div>
+  
+    <div class="flow-item"><span>事件分类</span></div>
+    <div class="flow-arrow"><svg class="svg-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg></div>
+  
+    <div class="flow-item"><span>判断持仓影响</span></div>
+    <div class="flow-arrow"><svg class="svg-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg></div>
+  
+    <div class="flow-item"><span>生成最终表与完整表</span></div>
+    
+  </div></section></main></body></html>

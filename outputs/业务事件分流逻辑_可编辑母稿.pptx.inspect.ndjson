@@ -1,0 +1,76 @@
+{"kind":"deck","id":"pr/yv2kii","name":"Deck"}
+{"kind":"layout","layoutId":"d2083b9b-8728-4fd9-ad83-300bd09888b6","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"90378e9d-0854-4b1e-b77d-283c2a6810e0","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/2ytxxv","slide":1,"title":"投资申报项目技术说明","textShapes":37}
+{"kind":"shape","id":"sh/byhgn29g","slide":1,"name":"topbar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/0je9cvix","slide":1,"name":"left-pale","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/t47y1kre","slide":1,"name":"cyan-strip","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":1,"name":"eyebrow","text":"投资申报项目技术说明","textPreview":"投资申报项目技术说明","textChars":10,"textLines":1,"bbox":[150,76,360,24]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":1,"name":"title","text":"问题二：业务事件混杂，申报主线需要被识别出来","textPreview":"问题二：业务事件混杂，申报主线需要被识别出来","textChars":22,"textLines":1,"bbox":[150,105,890,42]}
+{"kind":"shape","id":"sh/tcj6tova","slide":1,"name":"title-rule","bbox":[150,151,1052,3]}
+{"kind":"shape","id":"sh/ixczed8v","slide":1,"name":"badge","bbox":[1034,100,168,38]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":1,"name":"badge-accent","bbox":[1034,100,5,38]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":1,"name":"badge-text","text":"业务分流 / 复核口径","textPreview":"业务分流 / 复核口径","textChars":11,"textLines":1,"bbox":[1050,110,135,20]}
+{"kind":"textbox","id":"sh/yd0z6103","slide":1,"name":"lead","text":"材料中并非所有流水都应进入最终申报。系统需要先完整抽取，再按“是否影响持仓、是否证券相关、是否需要留痕”进行分流。","textPreview":"材料中并非所有流水都应进入最终申报。系统需要先完整抽取，再按“是否影响持仓、是否证券相关、是否需要留痕”进行分流。","textChars":57,"textLines":1,"bbox":[150,171,1052,46]}
+{"kind":"textbox","id":"sh/90je9cvi","slide":1,"name":"section-混杂事件输入","text":"混杂事件输入","textPreview":"混杂事件输入","textChars":6,"textLines":1,"bbox":[150,209,252,26]}
+{"kind":"shape","id":"sh/gfmlkjm1","slide":1,"name":"section-rule-混杂事件输入","bbox":[150,240,252,1]}
+{"kind":"shape","id":"sh/rmhk3q5o","slide":1,"name":"left-panel","bbox":[150,246,252,314]}
+{"kind":"shape","id":"sh/y1kre1w7","slide":1,"name":"event-row-交易行为","bbox":[170,274,212,66]}
+{"kind":"shape","id":"sh/9s36hcrm","slide":1,"name":"event-accent-交易行为","bbox":[170,274,4,66]}
+{"kind":"textbox","id":"sh/g7adsji5","slide":1,"name":"event-label-交易行为","text":"交易行为","textPreview":"交易行为","textChars":4,"textLines":1,"bbox":[188,284,105,22]}
+{"kind":"textbox","id":"sh/nih4byhg","slide":1,"name":"event-items-交易行为","text":"买入 / 卖出 / 打新 / 配股","textPreview":"买入 / 卖出 / 打新 / 配股","textChars":17,"textLines":1,"bbox":[188,309,180,22]}
+{"kind":"shape","id":"sh/yxobm58z","slide":1,"name":"event-row-权益事件","bbox":[170,358,212,66]}
+{"kind":"shape","id":"sh/61032lsz","slide":1,"name":"event-accent-权益事件","bbox":[170,358,4,66]}
+{"kind":"textbox","id":"sh/vmtwra5g","slide":1,"name":"event-label-权益事件","text":"权益事件","textPreview":"权益事件","textChars":4,"textLines":1,"bbox":[188,368,105,22]}
+{"kind":"textbox","id":"sh/o7qpg3ex","slide":1,"name":"event-items-权益事件","text":"分红 / 派息 / 送股 / 转增","textPreview":"分红 / 派息 / 送股 / 转增","textChars":17,"textLines":1,"bbox":[188,393,180,22]}
+{"kind":"shape","id":"sh/dsji5sne","slide":1,"name":"event-row-资金流水","bbox":[170,442,212,66]}
+{"kind":"shape","id":"sh/6dcbulwv","slide":1,"name":"event-accent-资金流水","bbox":[170,442,4,66]}
+{"kind":"textbox","id":"sh/vy90je9c","slide":1,"name":"event-label-资金流水","text":"资金流水","textPreview":"资金流水","textChars":4,"textLines":1,"bbox":[188,452,105,22]}
+{"kind":"textbox","id":"sh/oj2t83it","slide":1,"name":"event-items-资金流水","text":"银证转账 / 费用扣划 / 利息归本","textPreview":"银证转账 / 费用扣划 / 利息归本","textChars":18,"textLines":1,"bbox":[188,477,180,22]}
+{"kind":"textbox","id":"sh/d4vmtwra","slide":1,"name":"left-note","text":"同一材料中可能同时出现证券交易、权益变动和资金流水，展示口径也不一致。","textPreview":"同一材料中可能同时出现证券交易、权益变动和资金流水，展示口径也不一致。","textChars":35,"textLines":1,"bbox":[170,514,212,34]}
+{"kind":"textbox","id":"sh/6hcrmhk3","slide":1,"name":"arrow-1","text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[418,370,30,32]}
+{"kind":"textbox","id":"sh/z25kb6xk","slide":1,"name":"section-事件分流规则","text":"事件分流规则","textPreview":"事件分流规则","textChars":6,"textLines":1,"bbox":[462,209,455,26]}
+{"kind":"shape","id":"sh/l87ed8ba","slide":1,"name":"section-rule-事件分流规则","bbox":[462,240,455,1]}
+{"kind":"shape","id":"sh/sneloj2t","slide":1,"name":"center-panel","bbox":[462,246,455,314]}
+{"kind":"shape","id":"sh/32lszqtc","slide":1,"name":"band-bg-1","bbox":[480,270,419,78]}
+{"kind":"shape","id":"sh/ahoza1gv","slide":1,"name":"band-no-1","bbox":[480,270,48,78]}
+{"kind":"textbox","id":"sh/lkjm1cfa","slide":1,"name":"band-no-text-1","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[480,290,48,30]}
+{"kind":"textbox","id":"sh/szqtcj6t","slide":1,"name":"band-title-1","text":"业务关注点｜进入最终申报表","textPreview":"业务关注点｜进入最终申报表","textChars":13,"textLines":1,"bbox":[544,280,335,22]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":1,"name":"band-subtitle-1","text":"直接影响持仓或构成证券交易行为，是正式申报主线","textPreview":"直接影响持仓或构成证券交易行为，是正式申报主线","textChars":23,"textLines":1,"bbox":[544,305,335,20]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":1,"name":"band-examples-1","text":"买入 / 卖出 / 配股 / 转增 / 送股","textPreview":"买入 / 卖出 / 配股 / 转增 / 送股","textChars":22,"textLines":1,"bbox":[544,327,335,18]}
+{"kind":"shape","id":"sh/loj2t83i","slide":1,"name":"band-bg-2","bbox":[480,364,419,78]}
+{"kind":"shape","id":"sh/w3m94fu1","slide":1,"name":"band-no-2","bbox":[480,364,48,78]}
+{"kind":"textbox","id":"sh/0fepkzup","slide":1,"name":"band-no-text-2","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[480,384,48,30]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":1,"name":"band-title-2","text":"证券相关｜进入完整事件表","textPreview":"证券相关｜进入完整事件表","textChars":12,"textLines":1,"bbox":[544,374,335,22]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":1,"name":"band-subtitle-2","text":"与证券权益或账户变化相关，保留来源与证据链","textPreview":"与证券权益或账户变化相关，保留来源与证据链","textChars":21,"textLines":1,"bbox":[544,399,335,20]}
+{"kind":"textbox","id":"sh/bulwval8","slide":1,"name":"band-examples-2","text":"分红 / 派息 / 权益登记 / 利息","textPreview":"分红 / 派息 / 权益登记 / 利息","textChars":19,"textLines":1,"bbox":[544,421,335,18]}
+{"kind":"shape","id":"sh/032lszqt","slide":1,"name":"band-bg-3","bbox":[480,458,419,78]}
+{"kind":"shape","id":"sh/tovahoza","slide":1,"name":"band-no-3","bbox":[480,458,48,78]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":1,"name":"band-no-text-3","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[480,478,48,30]}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":1,"name":"band-title-3","text":"非申报噪声｜排除或仅留痕","textPreview":"非申报噪声｜排除或仅留痕","textChars":12,"textLines":1,"bbox":[544,468,335,22]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":1,"name":"band-subtitle-3","text":"不直接影响证券持仓，也不应误入最终申报口径","textPreview":"不直接影响证券持仓，也不应误入最终申报口径","textChars":21,"textLines":1,"bbox":[544,493,335,20]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":1,"name":"band-examples-3","text":"银证转账 / 资金流水 / 费用扣划 / 利息归本","textPreview":"银证转账 / 资金流水 / 费用扣划 / 利息归本","textChars":25,"textLines":1,"bbox":[544,515,335,18]}
+{"kind":"textbox","id":"sh/j6tovaho","slide":1,"name":"arrow-2","text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[924,370,30,32]}
+{"kind":"textbox","id":"sh/ulwval87","slide":1,"name":"section-输出结果","text":"输出结果","textPreview":"输出结果","textChars":4,"textLines":1,"bbox":[963,209,239,26]}
+{"kind":"shape","id":"sh/1cfa9w3m","slide":1,"name":"section-rule-输出结果","bbox":[963,240,239,1]}
+{"kind":"shape","id":"sh/crmhk3q5","slide":1,"name":"right-panel","bbox":[963,246,239,314]}
+{"kind":"shape","id":"sh/ji5snelo","slide":1,"name":"output-最终申报表","bbox":[981,276,203,72]}
+{"kind":"shape","id":"sh/uxc3ylc7","slide":1,"name":"output-accent-最终申报表","bbox":[981,276,5,72]}
+{"kind":"textbox","id":"sh/1kre1w7m","slide":1,"name":"output-title-最终申报表","text":"最终申报表","textPreview":"最终申报表","textChars":5,"textLines":1,"bbox":[999,289,171,22]}
+{"kind":"textbox","id":"sh/c3ylc7u5","slide":1,"name":"output-subtitle-最终申报表","text":"正式申报口径","textPreview":"正式申报口径","textChars":6,"textLines":1,"bbox":[999,318,171,18]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":1,"name":"output-完整事件表","bbox":[981,367,203,72]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":1,"name":"output-accent-完整事件表","bbox":[981,367,5,72]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":1,"name":"output-title-完整事件表","text":"完整事件表","textPreview":"完整事件表","textChars":5,"textLines":1,"bbox":[999,380,171,22]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":1,"name":"output-subtitle-完整事件表","text":"全量留痕与复核","textPreview":"全量留痕与复核","textChars":7,"textLines":1,"bbox":[999,409,171,18]}
+{"kind":"shape","id":"sh/0z61032l","slide":1,"name":"output-问题清单","bbox":[981,458,203,72]}
+{"kind":"shape","id":"sh/pkzupwb2","slide":1,"name":"output-accent-问题清单","bbox":[981,458,5,72]}
+{"kind":"textbox","id":"sh/ih4byhgn","slide":1,"name":"output-title-问题清单","text":"问题清单","textPreview":"问题清单","textChars":4,"textLines":1,"bbox":[999,471,171,22]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":1,"name":"output-subtitle-问题清单","text":"冲突 / 不确定 / 缺证据","textPreview":"冲突 / 不确定 / 缺证据","textChars":14,"textLines":1,"bbox":[999,500,171,18]}
+{"kind":"shape","id":"sh/0nuxc3yl","slide":1,"name":"bottom-callout","bbox":[150,603,1052,54]}
+{"kind":"shape","id":"sh/p8nqxs72","slide":1,"name":"bottom-accent","bbox":[150,603,5,54]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":1,"name":"bottom-text","text":"核心不是识别更多字段，而是把混杂流水分流成：可申报、可留痕、可排除的结果。","textPreview":"核心不是识别更多字段，而是把混杂流水分流成：可申报、可留痕、可排除的结果。","textChars":37,"textLines":1,"bbox":[174,618,880,24]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":1,"name":"footer-line","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":1,"name":"footer-left","text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,340,18]}
+{"kind":"textbox","id":"sh/4fu18jqh","slide":1,"name":"footer-right","text":"业务类型复杂 / 分流逻辑","textPreview":"业务类型复杂 / 分流逻辑","textChars":13,"textLines":1,"bbox":[1050,681,152,18]}
+{"kind":"notes","id":"nt/2ytxxv","slide":1,"text":""}

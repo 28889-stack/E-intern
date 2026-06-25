@@ -1,0 +1,44 @@
+{"kind":"deck","id":"pr/doav23","name":"Deck"}
+{"kind":"layout","layoutId":"d1be1af0-b68e-48f7-bb5f-5876e6faa0af","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"c9dad4f9-2e36-4066-8d1d-eaa7562f6f5d","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/b4o5rr","slide":1,"title":"项目背景","textShapes":19}
+{"kind":"shape","id":"sh/032lszqt","slide":1,"name":"topbar","bbox":[0,0,1280,41]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":1,"name":"left-pale","bbox":[0,41,100,679]}
+{"kind":"shape","id":"sh/ixczed8v","slide":1,"name":"cyan-strip","bbox":[100,41,12,679]}
+{"kind":"shape","id":"sh/p0bi9s36","slide":1,"name":"brand-dot","bbox":[150,12,20,20]}
+{"kind":"textbox","id":"sh/0fepkzup","slide":1,"name":"eyebrow","text":"项目背景","textPreview":"项目背景","textChars":4,"textLines":1,"bbox":[150,76,180,24]}
+{"kind":"textbox","id":"sh/bulwval8","slide":1,"name":"title","text":"监管要求落到材料处理","textPreview":"监管要求落到材料处理","textChars":10,"textLines":1,"bbox":[150,105,700,42]}
+{"kind":"shape","id":"sh/i9s36hcr","slide":1,"name":"title-rule","bbox":[150,151,1052,3]}
+{"kind":"shape","id":"sh/t47y1kre","slide":1,"name":"badge","bbox":[1034,100,168,38]}
+{"kind":"shape","id":"sh/0je9cvix","slide":1,"name":"badge-accent","bbox":[1034,100,5,38]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":1,"name":"badge-text","text":"背景逻辑","textPreview":"背景逻辑","textChars":4,"textLines":1,"bbox":[1050,110,135,20]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":1,"name":"lead","text":"不是单纯识别文件，而是把分散材料变成能够支撑申报、复核和留痕的数据。","textPreview":"不是单纯识别文件，而是把分散材料变成能够支撑申报、复核和留痕的数据。","textChars":34,"textLines":1,"bbox":[150,183,930,30]}
+{"kind":"shape","id":"sh/s72x4nap","slide":1,"name":"top-node-法规要求","bbox":[186,255,420,116]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":1,"name":"top-node-accent-法规要求","bbox":[186,255,5,116]}
+{"kind":"shape","id":"sh/adsji5sn","slide":1,"name":"top-node-label-法规要求","bbox":[208,273,96,28]}
+{"kind":"textbox","id":"sh/3ylc7u54","slide":1,"name":"top-label-text-法规要求","text":"法规要求","textPreview":"法规要求","textChars":4,"textLines":1,"bbox":[214,280,84,12]}
+{"kind":"textbox","id":"sh/sji5snel","slide":1,"name":"top-main-法规要求","text":"从业人员证券投资需要申报","textPreview":"从业人员证券投资需要申报","textChars":12,"textLines":1,"bbox":[326,277,250,28]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":1,"name":"top-sub-法规要求","text":"员工、配偶、利害关系人的账户、持仓、交易纳入管理","textPreview":"员工、配偶、利害关系人的账户、持仓、交易纳入管理","textChars":24,"textLines":1,"bbox":[326,318,250,30]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":1,"name":"top-node-公司责任","bbox":[746,255,420,116]}
+{"kind":"shape","id":"sh/za1gvy90","slide":1,"name":"top-node-accent-公司责任","bbox":[746,255,5,116]}
+{"kind":"shape","id":"sh/ra5gbq1o","slide":1,"name":"top-node-label-公司责任","bbox":[768,273,96,28]}
+{"kind":"textbox","id":"sh/2p8nqxs7","slide":1,"name":"top-label-text-公司责任","text":"公司责任","textPreview":"公司责任","textChars":4,"textLines":1,"bbox":[774,280,84,12]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":1,"name":"top-main-公司责任","text":"公司需要审核并留痕","textPreview":"公司需要审核并留痕","textChars":9,"textLines":1,"bbox":[886,277,250,28]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":1,"name":"top-sub-公司责任","text":"收集证明材料，判断申报内容是否真实、完整、可追溯","textPreview":"收集证明材料，判断申报内容是否真实、完整、可追溯","textChars":24,"textLines":1,"bbox":[886,318,250,30]}
+{"kind":"shape","id":"sh/r2p8nqxs","slide":1,"name":"left-line","bbox":[396,386,190,0]}
+{"kind":"shape","id":"sh/2hwfyxob","slide":1,"name":"right-line","bbox":[768,386,190,0]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":1,"name":"down-arrow-1","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[624,369,32,30]}
+{"kind":"shape","id":"sh/kjm1cfa9","slide":1,"name":"pain-bg","bbox":[250,420,780,98]}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":1,"name":"pain-accent","bbox":[250,420,6,98]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":1,"name":"pain-title","text":"当前痛点","textPreview":"当前痛点","textChars":4,"textLines":1,"bbox":[285,439,150,24]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":1,"name":"pain-main","text":"关键信息散落在券商材料中，人工提交、难追溯、难复核","textPreview":"关键信息散落在券商材料中，人工提交、难追溯、难复核","textChars":25,"textLines":1,"bbox":[430,437,520,28]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":1,"name":"pain-sub","text":"身份 / 账户 / 交易 / 持仓分散在不同页面、表格和截图中","textPreview":"身份 / 账户 / 交易 / 持仓分散在不同页面、表格和截图中","textChars":31,"textLines":1,"bbox":[430,477,520,20]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":1,"name":"down-arrow-2","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[624,526,32,30]}
+{"kind":"shape","id":"sh/jm1cfa9w","slide":1,"name":"goal-bg","bbox":[150,570,1052,72]}
+{"kind":"shape","id":"sh/cfa9w3m9","slide":1,"name":"goal-accent","bbox":[150,570,6,72]}
+{"kind":"textbox","id":"sh/1032lszq","slide":1,"name":"goal-label","text":"项目目标","textPreview":"项目目标","textChars":4,"textLines":1,"bbox":[186,596,110,20]}
+{"kind":"textbox","id":"sh/u9knih4b","slide":1,"name":"goal-main","text":"非结构化材料  →  可复核、可追溯、可编辑、可导出的申报结果","textPreview":"非结构化材料  →  可复核、可追溯、可编辑、可导出的申报结果","textChars":31,"textLines":1,"bbox":[330,594,760,24]}
+{"kind":"shape","id":"sh/judg7ads","slide":1,"name":"footer-line","bbox":[150,670,1052,1]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"name":"footer-left","text":"易方达基金 · 内部交流，请勿外传","textPreview":"易方达基金 · 内部交流，请勿外传","textChars":17,"textLines":1,"bbox":[150,681,340,18]}
+{"kind":"textbox","id":"sh/54zidony","slide":1,"name":"footer-right","text":"项目背景 / 收敛架构版","textPreview":"项目背景 / 收敛架构版","textChars":12,"textLines":1,"bbox":[1030,681,172,18]}
+{"kind":"notes","id":"nt/b4o5rr","slide":1,"text":""}

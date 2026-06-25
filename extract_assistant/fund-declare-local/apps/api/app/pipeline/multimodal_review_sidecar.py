@@ -15,6 +15,7 @@ from app.core.config import (
 )
 from app.services import local_store
 from app.services.llm_client import LLMClient
+from app.pipeline.text_compaction import compact_string_list
 
 
 def run_multimodal_review_sidecar(
@@ -39,6 +40,7 @@ def run_multimodal_review_sidecar(
         if difficult_blocks.get("difficulty_status") != "has_difficult_blocks":
             result = {
                 "multimodal_review_status": "no_difficult_blocks",
+                "visual_observations": [],
                 "event_candidates": [],
                 "merge_suggestions": [],
                 "column_mapping_hints": [],
@@ -103,10 +105,14 @@ def _extract_hints(
 
     return {
         "multimodal_review_status": "success",
-        "event_candidates": _as_list(result.get("event_candidates")),
-        "merge_suggestions": _as_list(result.get("merge_suggestions")),
-        "column_mapping_hints": _as_list(result.get("column_mapping_hints")),
-        "uncertainty_reasons": _as_list(result.get("uncertainty_reasons")),
+        "visual_observations": compact_string_list(
+            result.get("visual_observations") or result.get("uncertainty_reasons"),
+            140,
+        ),
+        "event_candidates": _compact_hint_items(result.get("event_candidates")),
+        "merge_suggestions": _compact_hint_items(result.get("merge_suggestions")),
+        "column_mapping_hints": _compact_hint_items(result.get("column_mapping_hints")),
+        "uncertainty_reasons": compact_string_list(result.get("uncertainty_reasons"), 140),
         "image_ref_count": len(image_paths),
         "llm_response_metadata": result.get("llm_response_metadata", {}),
     }
@@ -187,6 +193,7 @@ def _relative(path: str | Path) -> str:
 def _empty_hint_payload() -> dict[str, Any]:
     return {
         "multimodal_review_status": "skipped",
+        "visual_observations": [],
         "event_candidates": [],
         "merge_suggestions": [],
         "column_mapping_hints": [],
@@ -202,3 +209,21 @@ def _as_list(value: Any) -> list:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _compact_hint_items(value: Any, limit: int = 5) -> list:
+    return [_compact_hint_item(item) for item in _as_list(value)[:limit]]
+
+
+def _compact_hint_item(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): _compact_hint_item(item)
+            for key, item in value.items()
+            if key not in (None, "")
+        }
+    if isinstance(value, list):
+        return [_compact_hint_item(item) for item in value[:5]]
+    if isinstance(value, str):
+        return compact_string_list([value], 120)[0] if value.strip() else ""
+    return value
