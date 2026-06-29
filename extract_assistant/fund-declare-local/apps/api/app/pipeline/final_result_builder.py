@@ -220,11 +220,6 @@ def build_final_result(case_id: str) -> dict:
                     )
                 )
 
-        review_items.extend(
-            _with_file_metadata(item, file_record)
-            for item in _multimodal_review_items(extract_result, file_id)
-        )
-
         normalized = _normalize_source_extract_result(
             case_id,
             extract_result,
@@ -244,6 +239,7 @@ def build_final_result(case_id: str) -> dict:
         review_items.extend(
             _with_file_metadata(item, file_record)
             for item in normalized["review_items"]
+            if not _is_nonblocking_document_observation(item)
         )
 
     if not extract_items:
@@ -377,7 +373,9 @@ def build_final_result(case_id: str) -> dict:
             "review_issue_count": len(review_issue_rows),
             "review_item_count": len(review_items),
             "file_issue_count": len(file_issues),
-            "manual_review_required": bool(review_items or review_issues or file_issues),
+            "manual_review_required": bool(
+                review_items or review_issues or _has_actionable_file_issues(file_issues)
+            ),
         },
         "export_audit": export_audit,
         "merge_audit": [*source_overlap_audit, *resolved.get("merge_audit", [])],
@@ -570,6 +568,8 @@ def _review_issue_rows_from_file_issues(
     rows = []
     next_index = start_index
     for issue in file_issues:
+        if not normalizer_as_list(issue.get("issue_types")):
+            continue
         issue_types = set(normalizer_as_list(issue.get("issue_types")))
         matched_types = sorted(
             issue_types
@@ -669,6 +669,14 @@ def _output_review_items(review_items: list[dict]) -> list[dict]:
             next_item["message"] = compact_review_message(next_item.get("message"))
         output.append(next_item)
     return output
+
+
+def _has_actionable_file_issues(file_issues: list[dict]) -> bool:
+    return any(
+        bool(normalizer_as_list(issue.get("issue_types")))
+        for issue in file_issues
+        if isinstance(issue, dict)
+    )
 
 
 def _file_issue_review_description(issue: dict, issue_types: list[str]) -> str:
@@ -1028,6 +1036,25 @@ def _with_file_metadata(item: dict, file_record: dict) -> dict:
         enriched.setdefault("file_no", file_record.get("file_no", ""))
         enriched.setdefault("original_file_name", file_record.get("original_file_name", ""))
     return enriched
+
+
+def _is_nonblocking_document_observation(item: dict) -> bool:
+    if not isinstance(item, dict):
+        return False
+    if item.get("field") != "document_level_review_items":
+        return False
+    message = str(item.get("message") or "")
+    return any(
+        keyword in message
+        for keyword in (
+            "OCR噪声",
+            "非业务数据行",
+            "表头残片",
+            "分隔线",
+            "无实际业务数据",
+            "低置信度OCR噪声",
+        )
+    )
 
 
 def _update_status(case_id: str, final_result: dict) -> None:

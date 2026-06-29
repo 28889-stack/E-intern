@@ -47,6 +47,8 @@ def summarize_file_issues(
         return _fallback_summary(file_issues)
 
     display_file_issues = _display_file_issues(file_issues)
+    if not _has_actionable_file_issues(display_file_issues):
+        return _fallback_summary(display_file_issues)
     if llm_client is not None:
         llm_result = _try_llm_summary(
             display_file_issues,
@@ -58,6 +60,14 @@ def summarize_file_issues(
             return llm_result
 
     return _fallback_summary(display_file_issues)
+
+
+def _has_actionable_file_issues(file_issues: list[dict]) -> bool:
+    return any(
+        bool(issue.get("issue_types"))
+        for issue in file_issues
+        if isinstance(issue, dict)
+    )
 
 
 def _try_llm_summary(
@@ -115,15 +125,16 @@ def _fallback_summary(file_issues: list[dict]) -> dict:
         }
 
     summaries = [_fallback_file_summary(issue) for issue in file_issues]
-    error_count = sum(1 for issue in file_issues if issue.get("severity") == "error")
-    warning_count = len(file_issues) - error_count
-    status = "异常" if error_count else "需人工复核"
+    actionable_issues = [issue for issue in file_issues if issue.get("issue_types")]
+    error_count = sum(1 for issue in actionable_issues if issue.get("severity") == "error")
+    warning_count = len(actionable_issues) - error_count
+    status = "异常" if error_count else ("需人工复核" if warning_count else "通过")
     parts = []
     if error_count:
         parts.append(f"{error_count} 个文件存在异常")
     if warning_count:
         parts.append(f"{warning_count} 个文件需人工复核")
-    issue_text = "；".join(parts) or f"{len(file_issues)} 个文件存在问题"
+    issue_text = "；".join(parts) or "未发现文件级 OCR、解析、抽取或关键字段缺失问题"
     file_names = "、".join(
         issue.get("file_name") or issue.get("file_id") or "未知文件"
         for issue in file_issues[:3]
@@ -147,10 +158,19 @@ def _fallback_file_summary(issue: dict) -> dict:
     status = _status_from_severity(str(issue.get("severity") or "warning"))
     issue_text = "、".join(labels) or "存在文件级问题"
     evidence = "；".join(str(item) for item in issue.get("evidence", [])[:3] if item)
+    observations = "；".join(
+        str(item).rstrip("。") for item in issue.get("multimodal_observations", [])[:3] if item
+    )
     file_name = issue.get("file_name") or issue.get("file_id") or "未知文件"
-    summary = f"{file_name} 存在{issue_text}。"
+    if issue.get("issue_types"):
+        summary = f"{file_name} 存在{issue_text}。"
+    else:
+        status = "通过"
+        summary = f"{file_name} 未发现文件级 OCR、解析、抽取或关键字段缺失问题。"
     if evidence:
         summary += f" 依据：{evidence}。"
+    if observations:
+        summary += f" 多模态观察：{observations}。"
 
     return {
         "file_id": issue.get("file_id", ""),
@@ -159,7 +179,8 @@ def _fallback_file_summary(issue: dict) -> dict:
         "status": status,
         "summary": summary,
         "issue_types": list(issue.get("issue_types", [])),
-        "suggested_action": issue.get("suggested_action") or "请核对该文件的处理和抽取结果。",
+        "suggested_action": issue.get("suggested_action")
+        or ("可结合多模态观察核对材料版面。" if observations else "请核对该文件的处理和抽取结果。"),
     }
 
 

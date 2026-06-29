@@ -70,9 +70,9 @@ class FinalProblemEventsTest(unittest.TestCase):
         )
         self.assertTrue(
             any(
-                item["field"] == "multimodal_review"
-                and "第 1 页表格列数不稳定" in item["message"]
-                for item in final_result["review_items"]
+                "第 1 页表格列数不稳定" in observation
+                for issue in final_result["file_issues"]
+                for observation in issue.get("multimodal_observations", [])
             )
         )
 

@@ -96,7 +96,7 @@ def collect_file_issues(
                 f"该文件产生 {pending_count} 条待复核记录，数量较多。",
                 "请优先核对该文件的关键字段和抽取结果。",
             )
-        if state["issue_types"]:
+        if state["issue_types"] or state["multimodal_observations"]:
             state["issue_types"] = _unique(state["issue_types"])
             state["evidence"] = compact_string_list(_unique(state["evidence"]))
             state["evidence_summary"] = list(state["evidence"])
@@ -194,6 +194,7 @@ def _collect_from_processed_files(case_id: str, state: dict, file_record: dict) 
     extract_result = local_store.read_json(output_dir / "extract_result.json", {})
     if isinstance(extract_result, dict):
         _collect_extract_issues(state, extract_result)
+        _collect_multimodal_observations(state, extract_result)
 
     extract_batches = local_store.read_json(output_dir / "extract_batches.json", {})
     if isinstance(extract_batches, dict):
@@ -377,6 +378,25 @@ def _collect_extract_issues(state: dict, extract_result: dict) -> None:
         )
 
 
+def _collect_multimodal_observations(state: dict, extract_result: dict) -> None:
+    multimodal_review = extract_result.get("multimodal_review")
+    if not isinstance(multimodal_review, dict):
+        return
+    observations = _as_list(multimodal_review.get("visual_observations"))
+    if not observations:
+        observations = _as_list(multimodal_review.get("uncertainty_reasons"))
+    for observation in observations:
+        text = str(observation or "").strip()
+        if text:
+            state["multimodal_observations"].append(text)
+    for item in _as_list(extract_result.get("document_level_review_items")):
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("message") or "").strip()
+        if text and _is_nonblocking_document_observation_text(text):
+            state["multimodal_observations"].append(text)
+
+
 def _collect_extract_batch_issues(state: dict, extract_batches: dict) -> None:
     for index, batch in enumerate(_as_list(extract_batches.get("batches")), start=1):
         if not isinstance(batch, dict):
@@ -524,6 +544,20 @@ def _issue_type_from_text(text: str) -> str:
     return "extract_failed"
 
 
+def _is_nonblocking_document_observation_text(text: str) -> bool:
+    return any(
+        keyword in text
+        for keyword in (
+            "OCR噪声",
+            "非业务数据行",
+            "表头残片",
+            "分隔线",
+            "无实际业务数据",
+            "低置信度OCR噪声",
+        )
+    )
+
+
 def _quality_issue_label(issue_type: str) -> str:
     return {
         "suspected_occlusion": "材料存在疑似遮挡或涂抹。",
@@ -600,6 +634,8 @@ def _field_label(field: str) -> str:
 def _suggested_action(state: dict) -> str:
     if state.get("suggested_action"):
         return state["suggested_action"]
+    if not state["issue_types"] and state.get("multimodal_observations"):
+        return "可结合多模态观察核对材料版面。"
     if "ocr_failed" in state["issue_types"] or "ocr_low_confidence" in state["issue_types"]:
         return "请核对原文件清晰度和 OCR 识别结果。"
     if any(issue_type.startswith("missing_") for issue_type in state["issue_types"]):

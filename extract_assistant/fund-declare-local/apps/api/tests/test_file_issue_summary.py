@@ -324,7 +324,7 @@ class FileIssueSummaryTest(unittest.TestCase):
                 final_result = build_final_result(case_id)
 
         rows = final_result["sheets"]["待复核问题"]["rows"]
-        ocr_rows = [row for row in rows if row["待复核原因"] == "OCR问题"]
+        ocr_rows = [row for row in rows if row["待复核原因"] == "申报材料问题"]
         self.assertEqual(len(ocr_rows), 1)
         self.assertIn("遮挡或涂抹", ocr_rows[0]["问题描述"])
         self.assertEqual(ocr_rows[0]["对应材料"], "001 涂抹材料.png")
@@ -410,7 +410,7 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertIn("material_missing_period", file_issue["issue_types"])
         self.assertIn("material_missing_market", file_issue["issue_types"])
         rows = final_result["sheets"]["待复核问题"]["rows"]
-        material_rows = [row for row in rows if row["待复核原因"] == "材料有效性问题"]
+        material_rows = [row for row in rows if row["待复核原因"] == "申报材料问题"]
         self.assertEqual(len(material_rows), 1)
         self.assertIn("证券账号", material_rows[0]["问题描述"])
         self.assertEqual(material_rows[0]["对应材料"], "001 行情终端截图.png")
@@ -651,6 +651,104 @@ class FileIssueSummaryTest(unittest.TestCase):
         self.assertEqual(summary["status"], "需人工复核")
         self.assertIn("OCR", summary["summary"])
         self.assertIn("日期", summary["summary"])
+
+    def test_multimodal_observation_is_display_context_not_review_issue(self):
+        from app.pipeline.final_result_builder import build_final_result
+        from app.services import local_store
+
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            with patch.object(local_store, "PROJECT_ROOT", project_root):
+                case_id = "case_test"
+                case_dir = project_root / "data/cases/case_test"
+                output_dir = case_dir / "account_info/processed/file_001"
+                local_store.save_json(
+                    case_dir / "case.json",
+                    {
+                        "case_id": case_id,
+                        "name": "张三",
+                        "phone": "13800000000",
+                    },
+                )
+                local_store.save_json(
+                    case_dir / "files_index.json",
+                    {
+                        "files": [
+                            {
+                                "file_id": "file_001",
+                                "file_no": "001",
+                                "original_file_name": "statement.pdf",
+                                "module": "account_info",
+                                "content_type": "guangfa",
+                                "route_type": "scanned_pdf",
+                                "output_dir": (
+                                    "data/cases/case_test/account_info/processed/file_001"
+                                ),
+                                "process_status": "parsed",
+                                "ocr_status": "success",
+                                "extract_status": "success",
+                            }
+                        ]
+                    },
+                )
+                local_store.save_json(
+                    output_dir / "extract_result.json",
+                    {
+                        "file_id": "file_001",
+                        "case_id": case_id,
+                        "source_type": "guangfa",
+                        "content_type": "guangfa",
+                        "extract_status": "success",
+                        "file_summary": {"document_type": "对账单"},
+                        "trade_group": {"trades": []},
+                        "holding_records": [
+                            {
+                                "holding_id": "holding_001",
+                                "账户类型": "深A",
+                                "证券账号": "0012345678",
+                                "证券代码": "000001",
+                                "证券名称": "平安银行",
+                                "持有数量": "100",
+                                "市值": "1000.00",
+                                "查询结果所属日期": "2026-01-01",
+                                "币种": "人民币",
+                                "source_evidence": {
+                                    "page": "1",
+                                    "row_no": "8",
+                                    "raw_text": "000001 平安银行 100 1000.00",
+                                },
+                            }
+                        ],
+                        "business_events": [],
+                        "document_level_review_items": [
+                            {
+                                "severity": "warning",
+                                "item_type": "extract_result",
+                                "event_id": "document_level_review_1",
+                                "field": "document_level_review_items",
+                                "message": "page=2 row_no=/ OCR噪声：第2页存在多处低置信度OCR噪声，可能影响部分业务字段识别。",
+                            }
+                        ],
+                        "multimodal_review": {
+                            "multimodal_review_status": "success",
+                            "visual_observations": [
+                                "页面为资金流水查询结果，包含多条交易记录。"
+                            ],
+                        },
+                    },
+                )
+
+                final_result = build_final_result(case_id)
+
+        self.assertEqual(final_result["sheets"]["待复核问题"]["rows"], [])
+        self.assertFalse(final_result["summary"]["manual_review_required"])
+        self.assertEqual(final_result["file_issues"][0]["issue_types"], [])
+        self.assertEqual(final_result["file_issues"][0]["severity"], "normal")
+        self.assertIn(
+            "页面为资金流水查询结果",
+            final_result["file_issues"][0]["multimodal_observations"][0],
+        )
+        self.assertEqual(final_result["file_issue_summaries"][0]["status"], "通过")
 
     def test_build_final_result_keeps_file_issues_out_of_legal_checklist(self):
         from app.pipeline.final_result_builder import build_final_result
